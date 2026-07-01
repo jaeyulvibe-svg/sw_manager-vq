@@ -1,20 +1,26 @@
 "use client"
 
-import { Menu, Bell, Search } from "lucide-react"
+import { Menu, Search } from "lucide-react"
 import { LiveClock } from "./live-clock"
 import { RoleToggle } from "./role-toggle"
-import { NAV_ITEMS, type ViewKey } from "./nav"
+import { NotificationBell } from "./notification-bell"
+import { NAV_ITEMS, EXTRA_VIEW_META, type ViewKey } from "./nav"
 
 export function PortalHeader({
   active,
   onOpenMobile,
   onOpenPalette,
+  onNavigate,
+  onOpenNotifications,
 }: {
   active: ViewKey
   onOpenMobile: () => void
   onOpenPalette: () => void
+  onNavigate: (view: ViewKey) => void
+  onOpenNotifications: () => void
 }) {
-  const current = NAV_ITEMS.find((n) => n.key === active)
+  const current =
+    NAV_ITEMS.find((n) => n.key === active) ?? EXTRA_VIEW_META[active]
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border/60 bg-background/70 px-4 py-3 backdrop-blur-xl sm:px-6">
@@ -52,14 +58,10 @@ export function PortalHeader({
           </kbd>
         </button>
         <RoleToggle />
-        <button
-          type="button"
-          className="relative flex h-9 w-9 items-center justify-center rounded-full border border-border/70 bg-card text-muted-foreground transition-colors hover:text-foreground"
-          aria-label="알림"
-        >
-          <Bell className="h-4 w-4" />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 animate-blink rounded-full bg-destructive" />
-        </button>
+        <NotificationBell
+          onNavigate={onNavigate}
+          onOpenCenter={onOpenNotifications}
+        />
         <LiveClock />
       </div>
     </header>

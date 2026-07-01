@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/portal/sidebar"
 import { PortalHeader } from "@/components/portal/portal-header"
 import { RoleProvider, useRole } from "@/components/portal/role-context"
 import { ToastProvider } from "@/components/portal/toast"
+import { NotificationsProvider } from "@/components/portal/notifications-context"
 import { AmbientBackground } from "@/components/portal/ambient-background"
 import { CommandPalette } from "@/components/portal/command-palette"
 import { isViewAllowed, type ViewKey } from "@/components/portal/nav"
@@ -17,18 +18,7 @@ import { KisaView } from "@/components/pages/kisa-view"
 import { OwnerView } from "@/components/pages/owner-view"
 import { ManualView } from "@/components/pages/manual-view"
 import { AdminView } from "@/components/pages/admin-view"
-
-const VIEWS: Record<ViewKey, () => React.ReactNode> = {
-  dashboard: DashboardView,
-  assets: AssetsView,
-  eos: EosView,
-  request: RequestView,
-  approval: ApprovalView,
-  kisa: KisaView,
-  owner: OwnerView,
-  manual: ManualView,
-  admin: AdminView,
-}
+import { NotificationsView } from "@/components/pages/notifications-view"
 
 function Portal() {
   const { isAdmin } = useRole()
@@ -55,7 +45,32 @@ function Portal() {
     }
   }, [isAdmin, active])
 
-  const ActiveView = VIEWS[active]
+  function renderView() {
+    switch (active) {
+      case "dashboard":
+        return <DashboardView />
+      case "assets":
+        return <AssetsView />
+      case "eos":
+        return <EosView />
+      case "request":
+        return <RequestView />
+      case "approval":
+        return <ApprovalView />
+      case "kisa":
+        return <KisaView />
+      case "owner":
+        return <OwnerView />
+      case "manual":
+        return <ManualView />
+      case "admin":
+        return <AdminView />
+      case "notifications":
+        return <NotificationsView onNavigate={setActive} />
+      default:
+        return <DashboardView />
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -73,10 +88,12 @@ function Portal() {
           active={active}
           onOpenMobile={() => setMobileOpen(true)}
           onOpenPalette={() => setPaletteOpen(true)}
+          onNavigate={setActive}
+          onOpenNotifications={() => setActive("notifications")}
         />
         <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <div key={active} className="animate-view">
-            <ActiveView />
+            {renderView()}
           </div>
         </main>
       </div>
@@ -94,7 +111,9 @@ export default function Home() {
   return (
     <RoleProvider>
       <ToastProvider>
-        <Portal />
+        <NotificationsProvider>
+          <Portal />
+        </NotificationsProvider>
       </ToastProvider>
     </RoleProvider>
   )

@@ -8,6 +8,7 @@ import {
   Users,
   Presentation,
   Settings,
+  Bell,
   type LucideIcon,
 } from "lucide-react"
 
@@ -21,6 +22,15 @@ export type ViewKey =
   | "owner"
   | "manual"
   | "admin"
+  | "notifications"
+
+/** 사이드바에는 표시하지 않지만 헤더 타이틀 등에 사용하는 뷰 메타 */
+export const EXTRA_VIEW_META: Record<
+  string,
+  { label: string; icon: LucideIcon }
+> = {
+  notifications: { label: "알림 센터", icon: Bell },
+}
 
 export type NavItem = {
   key: ViewKey
@@ -53,5 +63,6 @@ export function visibleNavItems(isAdmin: boolean): NavItem[] {
 
 /** 특정 뷰가 현재 역할에서 접근 가능한지 여부 */
 export function isViewAllowed(key: ViewKey, isAdmin: boolean): boolean {
+  if (key in EXTRA_VIEW_META) return true
   return visibleNavItems(isAdmin).some((item) => item.key === key)
 }
