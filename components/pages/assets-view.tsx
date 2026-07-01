@@ -11,6 +11,11 @@ import {
   MiniButton,
   type Accent,
 } from "@/components/portal/ui"
+import {
+  AssetSlideover,
+  type AssetDetail,
+} from "@/components/portal/asset-slideover"
+import { useToast } from "@/components/portal/toast"
 import { cn } from "@/lib/utils"
 
 type Category = "OS" | "WEB" | "WAS" | "DB" | "Middleware" | "Security"
@@ -72,10 +77,48 @@ function isEosSoon(eos: string) {
   return diff < 1000 * 60 * 60 * 24 * 200 // ~6.5개월
 }
 
+function daysUntil(date: string) {
+  return Math.round((new Date(date).getTime() - Date.now()) / 86400000)
+}
+
+const latestMap: Record<string, string> = {
+  "Apache Tomcat": "10.1.24",
+  JEUS: "8.5",
+  WebtoB: "6.0",
+  "Oracle Database": "23c",
+  OpenSSL: "3.3.1",
+  Nginx: "1.27",
+  "Red Hat Enterprise Linux": "9.4",
+  PostgreSQL: "16.3",
+}
+
+function toDetail(a: Asset): AssetDetail {
+  return {
+    id: a.id,
+    name: a.name,
+    vendor: a.vendor,
+    category: a.category,
+    version: a.version,
+    latest: latestMap[a.name] ?? a.version,
+    server: a.server,
+    owner: a.owner,
+    vuln: a.vuln,
+    patch: patchLabel[a.patch],
+    patchAccent: patchAccent[a.patch],
+    vulnAccent: vulnAccent[a.vuln],
+    eos: a.eos,
+    eosDaysLeft: daysUntil(a.eos),
+    approval: a.approval,
+    approvalAccent: approvalAccent[a.approval],
+  }
+}
+
 export function AssetsView() {
+  const { toast } = useToast()
   const [query, setQuery] = useState("")
   const [cat, setCat] = useState<(typeof CATEGORIES)[number]>("전체")
   const [status, setStatus] = useState<string | null>(null)
+  const [selected, setSelected] = useState<AssetDetail | null>(null)
 
   const filtered = useMemo(() => {
     return ASSETS.filter((a) => {
@@ -213,9 +256,22 @@ export function AssetsView() {
                 <Td className="text-xs text-muted-foreground">{a.checked}</Td>
                 <Td>
                   <div className="flex items-center gap-1.5">
-                    <MiniButton accent="primary"><Eye className="h-3 w-3" />상세</MiniButton>
+                    <MiniButton accent="primary" onClick={() => setSelected(toDetail(a))}>
+                      <Eye className="h-3 w-3" />상세
+                    </MiniButton>
                     <MiniButton accent="muted"><Pencil className="h-3 w-3" />수정</MiniButton>
-                    <MiniButton accent="success"><RefreshCw className="h-3 w-3" />수집</MiniButton>
+                    <MiniButton
+                      accent="success"
+                      onClick={() =>
+                        toast({
+                          tone: "info",
+                          title: "자산 정보 수집 시작",
+                          description: `${a.name} (${a.server}) 최신 버전/패치 상태를 수집합니다.`,
+                        })
+                      }
+                    >
+                      <RefreshCw className="h-3 w-3" />수집
+                    </MiniButton>
                   </div>
                 </Td>
               </tr>
@@ -230,6 +286,8 @@ export function AssetsView() {
           </tbody>
         </TableShell>
       </div>
+
+      <AssetSlideover asset={selected} onClose={() => setSelected(null)} />
     </div>
   )
 }

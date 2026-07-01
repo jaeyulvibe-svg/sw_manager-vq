@@ -237,4 +237,96 @@
     );
     animation: shimmer 1.6s infinite;
   }
+
+  /* ---------- Aurora ambient background ---------- */
+  @keyframes aurora-drift {
+    0%   { transform: translate3d(-6%, -4%, 0) scale(1);   }
+    33%  { transform: translate3d(6%, 3%, 0) scale(1.15);  }
+    66%  { transform: translate3d(-3%, 6%, 0) scale(1.05); }
+    100% { transform: translate3d(-6%, -4%, 0) scale(1);   }
+  }
+  .aurora-blob {
+    will-change: transform;
+    animation: aurora-drift 18s ease-in-out infinite;
+  }
+  .aurora-blob-slow {
+    animation-duration: 26s;
+    animation-direction: reverse;
+  }
+
+  /* Fine film-grain noise overlay for premium depth */
+  .noise-overlay {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+    opacity: 0.025;
+  }
+
+  /* Glass panel treatment */
+  .glass {
+    background: oklch(0.22 0.04 258 / 0.72);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+  }
+
+  /* Animated conic ring for the command palette / hero accents */
+  @keyframes conic-spin { to { transform: rotate(360deg); } }
+  .conic-ring::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      oklch(0.72 0.19 235 / 0.9) 60deg,
+      transparent 140deg,
+      transparent 360deg
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: conic-spin 4s linear infinite;
+    pointer-events: none;
+  }
+
+  /* Slideover panel enter */
+  @keyframes slideover-in {
+    from { opacity: 0; transform: translateX(24px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .animate-slideover { animation: slideover-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+  @keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
+  .animate-overlay { animation: overlay-in 0.25s ease-out both; }
+
+  /* Toast enter */
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(16px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .animate-toast { animation: toast-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+  @keyframes shrink-x {
+    from { transform: scaleX(1); }
+    to   { transform: scaleX(0); }
+  }
+
+  /* Command palette pop */
+  @keyframes palette-in {
+    from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .animate-palette { animation: palette-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+  /* Sparkline dash draw-in */
+  @keyframes spark-draw {
+    from { stroke-dashoffset: var(--spark-len, 240); }
+    to   { stroke-dashoffset: 0; }
+  }
+  .spark-line {
+    stroke-dasharray: var(--spark-len, 240);
+    animation: spark-draw 1.6s ease-out forwards;
+  }
 }

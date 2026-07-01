@@ -1,6 +1,6 @@
 "use client"
 
-import { Menu, Bell } from "lucide-react"
+import { Menu, Bell, Search } from "lucide-react"
 import { LiveClock } from "./live-clock"
 import { RoleToggle } from "./role-toggle"
 import { NAV_ITEMS, type ViewKey } from "./nav"
@@ -8,14 +8,16 @@ import { NAV_ITEMS, type ViewKey } from "./nav"
 export function PortalHeader({
   active,
   onOpenMobile,
+  onOpenPalette,
 }: {
   active: ViewKey
   onOpenMobile: () => void
+  onOpenPalette: () => void
 }) {
   const current = NAV_ITEMS.find((n) => n.key === active)
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border/60 bg-background/80 px-4 py-3 backdrop-blur-xl sm:px-6">
+    <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border/60 bg-background/70 px-4 py-3 backdrop-blur-xl sm:px-6">
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -36,6 +38,19 @@ export function PortalHeader({
       </div>
 
       <div className="flex items-center gap-2.5">
+        {/* Command palette trigger */}
+        <button
+          type="button"
+          onClick={onOpenPalette}
+          className="group flex items-center gap-2 rounded-lg border border-border/60 bg-card px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+          aria-label="빠른 검색 열기"
+        >
+          <Search className="h-3.5 w-3.5 transition-colors group-hover:text-primary" />
+          <span className="hidden sm:inline">검색</span>
+          <kbd className="hidden items-center gap-0.5 rounded border border-border/60 bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] sm:flex">
+            <span className="text-[11px]">⌘</span>K
+          </kbd>
+        </button>
         <RoleToggle />
         <button
           type="button"

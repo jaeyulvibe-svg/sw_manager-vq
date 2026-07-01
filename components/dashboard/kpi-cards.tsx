@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { useCountUp } from "@/hooks/use-count-up"
+import { Sparkline } from "@/components/portal/sparkline"
 import { cn } from "@/lib/utils"
 
 type Kpi = {
@@ -21,6 +22,7 @@ type Kpi = {
   trendLabel: string
   accent: "primary" | "destructive" | "warning" | "success"
   delay: number
+  spark: number[]
 }
 
 const kpis: Kpi[] = [
@@ -32,6 +34,7 @@ const kpis: Kpi[] = [
     trendLabel: "전월 대비",
     accent: "primary",
     delay: 100,
+    spark: [13980, 14120, 14090, 14310, 14520, 14680, 14829],
   },
   {
     label: "미조치 취약점 (CVE)",
@@ -41,6 +44,7 @@ const kpis: Kpi[] = [
     trendLabel: "전주 대비 감소",
     accent: "destructive",
     delay: 220,
+    spark: [520, 498, 471, 445, 410, 372, 342],
   },
   {
     label: "패치 적용률",
@@ -52,6 +56,7 @@ const kpis: Kpi[] = [
     trendLabel: "이번 분기",
     accent: "success",
     delay: 340,
+    spark: [84.2, 85.9, 87.1, 88.6, 90.2, 91.5, 92.4],
   },
   {
     label: "EOS 임박 자산",
@@ -61,6 +66,7 @@ const kpis: Kpi[] = [
     trendLabel: "90일 이내 단종",
     accent: "warning",
     delay: 460,
+    spark: [61, 64, 68, 71, 77, 82, 87],
   },
 ]
 
@@ -69,6 +75,20 @@ const accentMap: Record<Kpi["accent"], string> = {
   destructive: "text-destructive",
   warning: "text-warning",
   success: "text-success",
+}
+
+const accentVar: Record<Kpi["accent"], string> = {
+  primary: "var(--primary)",
+  destructive: "var(--destructive)",
+  warning: "var(--warning)",
+  success: "var(--success)",
+}
+
+const glowMap: Record<Kpi["accent"], string> = {
+  primary: "[text-shadow:0_0_26px_oklch(0.68_0.17_235/0.55)]",
+  destructive: "[text-shadow:0_0_26px_oklch(0.62_0.23_22/0.5)]",
+  warning: "[text-shadow:0_0_26px_oklch(0.78_0.16_75/0.5)]",
+  success: "[text-shadow:0_0_26px_oklch(0.72_0.16_160/0.5)]",
 }
 
 const accentBg: Record<Kpi["accent"], string> = {
@@ -116,6 +136,7 @@ function KpiCard({ kpi }: { kpi: Kpi }) {
         className={cn(
           "font-mono text-4xl font-bold tabular-nums tracking-tight sm:text-5xl",
           accentMap[kpi.accent],
+          glowMap[kpi.accent],
         )}
       >
         {animated.toLocaleString("en-US", {
@@ -125,18 +146,28 @@ function KpiCard({ kpi }: { kpi: Kpi }) {
         <span className="text-2xl sm:text-3xl">{kpi.suffix}</span>
       </div>
 
-      <div className="mt-3 flex items-center gap-1.5 text-xs">
-        <span
-          className={cn(
-            "flex items-center gap-1 font-semibold",
-            positive ? "text-success" : "text-destructive",
-          )}
-        >
-          <TrendIcon className="h-3.5 w-3.5" />
-          {Math.abs(kpi.trend)}%
-        </span>
-        <span className="text-muted-foreground">{kpi.trendLabel}</span>
+      <div className="mt-3 flex items-end justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-xs">
+          <span
+            className={cn(
+              "flex items-center gap-1 font-semibold",
+              positive ? "text-success" : "text-destructive",
+            )}
+          >
+            <TrendIcon className="h-3.5 w-3.5" />
+            {Math.abs(kpi.trend)}%
+          </span>
+          <span className="text-muted-foreground">{kpi.trendLabel}</span>
+        </div>
+        <Sparkline
+          data={kpi.spark}
+          color={accentVar[kpi.accent]}
+          width={96}
+          height={34}
+          className="shrink-0"
+        />
       </div>
+      <p className="mt-2 text-[11px] text-muted-foreground">최근 7일 추이</p>
     </div>
   )
 }
