@@ -9,6 +9,10 @@ import {
   SeverityDonut,
   PatchByOs,
 } from "@/components/dashboard/charts"
+import {
+  NoticeBoard,
+  SecurityNoticeBoard,
+} from "@/components/dashboard/notice-boards"
 import { SectionCard } from "@/components/portal/ui"
 import { cn } from "@/lib/utils"
 
@@ -122,6 +126,9 @@ export function DashboardView() {
         <CriticalAlerts />
         <RecentUpdates />
       </div>
+
+      <NoticeBoard />
+      <SecurityNoticeBoard />
     </div>
   )
 }

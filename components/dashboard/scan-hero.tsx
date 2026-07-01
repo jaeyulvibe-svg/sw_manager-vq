@@ -1,37 +1,6 @@
 "use client"
 
 import { Radar, Cpu, Boxes } from "lucide-react"
-import { useCountUp } from "@/hooks/use-count-up"
-
-function ScanStat({
-  label,
-  value,
-  suffix = "",
-  decimals = 0,
-  delay = 0,
-}: {
-  label: string
-  value: number
-  suffix?: string
-  decimals?: number
-  delay?: number
-}) {
-  const animated = useCountUp(value, { decimals, delay, duration: 1800 })
-  return (
-    <div className="flex flex-col">
-      <span className="font-mono text-2xl font-bold tabular-nums text-foreground sm:text-3xl">
-        {animated.toLocaleString("en-US", {
-          minimumFractionDigits: decimals,
-          maximumFractionDigits: decimals,
-        })}
-        <span className="text-primary">{suffix}</span>
-      </span>
-      <span className="text-xs uppercase tracking-wider text-muted-foreground">
-        {label}
-      </span>
-    </div>
-  )
-}
 
 export function ScanHero() {
   return (
@@ -61,18 +30,6 @@ export function ScanHero() {
             취약점(CVE), 패치 적용 현황, 단종(EOS) 소프트웨어를 하나의 화면에서
             통합 관리합니다.
           </p>
-
-          <div className="mt-6 flex flex-wrap gap-x-10 gap-y-4">
-            <ScanStat label="스캔한 자산" value={14829} delay={100} />
-            <ScanStat
-              label="AI 분석 커버리지"
-              value={99.6}
-              suffix="%"
-              decimals={1}
-              delay={250}
-            />
-            <ScanStat label="분당 처리 이벤트" value={2470} delay={400} />
-          </div>
         </div>
 
         {/* Radar visual */}
