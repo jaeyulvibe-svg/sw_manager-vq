@@ -180,12 +180,7 @@ export function StatCard({
           <Icon className="h-5 w-5" />
         </span>
       </div>
-      <div
-        className={cn(
-          "font-mono text-3xl font-bold tabular-nums tracking-tight sm:text-4xl",
-          accentText[accent],
-        )}
-      >
+      <div className="font-mono text-3xl font-bold tabular-nums tracking-tight text-foreground sm:text-4xl">
         {animated.toLocaleString("en-US", {
           minimumFractionDigits: decimals,
           maximumFractionDigits: decimals,

@@ -25,11 +25,11 @@ import {
 
 const categoryDist = [
   { name: "OS", value: 312, color: "var(--primary)" },
-  { name: "WEB/WAS", value: 286, color: "var(--warning)" },
-  { name: "상용 솔루션", value: 418, color: "var(--eos)" },
-  { name: "DB", value: 132, color: "var(--success)" },
-  { name: "Security", value: 64, color: "var(--destructive)" },
-  { name: "Utility", value: 36, color: "var(--muted-foreground)" },
+  { name: "WEB/WAS", value: 286, color: "var(--primary)" },
+  { name: "상용 솔루션", value: 418, color: "var(--primary)" },
+  { name: "DB", value: 132, color: "var(--primary)" },
+  { name: "Security", value: 64, color: "var(--primary)" },
+  { name: "Utility", value: 36, color: "var(--primary)" },
 ]
 
 const manageNeed = [

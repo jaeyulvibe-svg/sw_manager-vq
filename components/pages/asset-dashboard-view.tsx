@@ -181,7 +181,7 @@ export function AssetDashboardView() {
           label="WEB/WAS 자산"
           value={286}
           icon={Globe}
-          accent="warning"
+          accent="primary"
           trendLabel="WebtoB, JEUS, Tomcat 등"
           delay={240}
         />
@@ -189,7 +189,7 @@ export function AssetDashboardView() {
           label="상용 솔루션"
           value={418}
           icon={Package}
-          accent="eos"
+          accent="primary"
           trendLabel="Control-M, 모니터링 등"
           delay={320}
         />
@@ -197,7 +197,7 @@ export function AssetDashboardView() {
           label="DB 자산"
           value={132}
           icon={Database}
-          accent="success"
+          accent="primary"
           trendLabel="Oracle, PostgreSQL 등"
           delay={400}
         />

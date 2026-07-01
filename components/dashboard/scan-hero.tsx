@@ -4,14 +4,12 @@ import { Radar, Cpu, Boxes } from "lucide-react"
 
 export function ScanHero() {
   return (
-    <section className="animate-rise relative overflow-hidden rounded-2xl border border-primary/25 bg-card animate-glow-breathe">
-      {/* Animated grid backdrop */}
-      <div className="hero-grid absolute inset-0 opacity-60" aria-hidden />
-      {/* Scanning sweep line */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-16 animate-scan-sweep bg-gradient-to-b from-primary/40 via-primary/10 to-transparent" aria-hidden />
+    <section className="animate-rise relative overflow-hidden rounded-2xl border border-primary/25 bg-card">
+      {/* Static grid backdrop */}
+      <div className="hero-grid absolute inset-0 opacity-40" aria-hidden />
       {/* Radial glow */}
       <div
-        className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-primary/20 blur-3xl"
+        className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-primary/15 blur-3xl"
         aria-hidden
       />
 
@@ -23,7 +21,7 @@ export function ScanHero() {
           </div>
           <h2 className="text-balance text-2xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl">
             전사 소프트웨어 자산을{" "}
-            <span className="text-primary text-glow">실시간 분석</span>하여
+            <span className="text-primary">실시간 분석</span>하여
             위협을 식별합니다
           </h2>
           <p className="mt-3 text-pretty text-sm leading-relaxed text-muted-foreground sm:text-base">
@@ -38,14 +36,7 @@ export function ScanHero() {
           <div className="absolute inset-4 rounded-full border border-primary/20" />
           <div className="absolute inset-8 rounded-full border border-primary/20" />
           <div className="absolute inset-12 rounded-full border border-primary/25" />
-          {/* Sweep */}
-          <div className="animate-radar absolute inset-0 rounded-full">
-            <div
-              className="absolute left-1/2 top-1/2 h-1/2 w-1/2 origin-top-left rounded-tr-full bg-gradient-to-tr from-primary/40 to-transparent"
-              aria-hidden
-            />
-          </div>
-          <div className="relative z-10 flex h-16 w-16 items-center justify-center rounded-full bg-primary/15 text-primary glow-card-strong">
+          <div className="relative z-10 flex h-16 w-16 items-center justify-center rounded-full bg-primary/15 text-primary">
             <Radar className="h-8 w-8" />
           </div>
           {/* Blips */}

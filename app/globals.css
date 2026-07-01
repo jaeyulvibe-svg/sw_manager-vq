@@ -142,7 +142,8 @@
     }
   }
   .animate-soft-pulse {
-    animation: soft-pulse 2.4s ease-in-out infinite;
+    /* 무한 반복 애니메이션 제거 — 상태 강조는 색상/테두리로 유지 */
+    animation: none;
   }
 
   @keyframes glow-breathe {
@@ -158,7 +159,7 @@
     }
   }
   .animate-glow-breathe {
-    animation: glow-breathe 4s ease-in-out infinite;
+    animation: none;
   }
 
   /* Scanning sweep line for the hero */
@@ -169,14 +170,14 @@
     100% { transform: translateY(2400%); opacity: 0; }
   }
   .animate-scan-sweep {
-    animation: scan-sweep 3.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    animation: none;
   }
 
   @keyframes radar-spin {
     to { transform: rotate(360deg); }
   }
   .animate-radar {
-    animation: radar-spin 4s linear infinite;
+    animation: none;
   }
 
   @keyframes grid-drift {
@@ -188,7 +189,6 @@
       linear-gradient(oklch(0.68 0.17 235 / 0.08) 1px, transparent 1px),
       linear-gradient(90deg, oklch(0.68 0.17 235 / 0.08) 1px, transparent 1px);
     background-size: 44px 44px;
-    animation: grid-drift 6s linear infinite;
   }
 
   @keyframes dot-blink {
@@ -196,7 +196,7 @@
     50% { opacity: 0.25; }
   }
   .animate-blink {
-    animation: dot-blink 1.4s ease-in-out infinite;
+    animation: none;
   }
 
   @keyframes rise-in {
@@ -235,7 +235,7 @@
       oklch(0.68 0.17 235 / 0.12),
       transparent
     );
-    animation: shimmer 1.6s infinite;
+    animation: shimmer 1.6s ease-out 1;
   }
 
   /* ---------- Aurora ambient background ---------- */
@@ -246,12 +246,9 @@
     100% { transform: translate3d(-6%, -4%, 0) scale(1);   }
   }
   .aurora-blob {
-    will-change: transform;
-    animation: aurora-drift 18s ease-in-out infinite;
+    will-change: auto;
   }
   .aurora-blob-slow {
-    animation-duration: 26s;
-    animation-direction: reverse;
   }
 
   /* Fine film-grain noise overlay for premium depth */
@@ -287,7 +284,6 @@
       linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
-    animation: conic-spin 4s linear infinite;
     pointer-events: none;
   }
 

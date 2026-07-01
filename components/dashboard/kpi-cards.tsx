@@ -70,25 +70,11 @@ const kpis: Kpi[] = [
   },
 ]
 
-const accentMap: Record<Kpi["accent"], string> = {
-  primary: "text-primary",
-  destructive: "text-destructive",
-  warning: "text-warning",
-  success: "text-success",
-}
-
 const accentVar: Record<Kpi["accent"], string> = {
   primary: "var(--primary)",
   destructive: "var(--destructive)",
   warning: "var(--warning)",
   success: "var(--success)",
-}
-
-const glowMap: Record<Kpi["accent"], string> = {
-  primary: "[text-shadow:0_0_26px_oklch(0.68_0.17_235/0.55)]",
-  destructive: "[text-shadow:0_0_26px_oklch(0.62_0.23_22/0.5)]",
-  warning: "[text-shadow:0_0_26px_oklch(0.78_0.16_75/0.5)]",
-  success: "[text-shadow:0_0_26px_oklch(0.72_0.16_160/0.5)]",
 }
 
 const accentBg: Record<Kpi["accent"], string> = {
@@ -132,13 +118,7 @@ function KpiCard({ kpi }: { kpi: Kpi }) {
         </span>
       </div>
 
-      <div
-        className={cn(
-          "font-mono text-4xl font-bold tabular-nums tracking-tight sm:text-5xl",
-          accentMap[kpi.accent],
-          glowMap[kpi.accent],
-        )}
-      >
+      <div className="font-mono text-4xl font-bold tabular-nums tracking-tight text-foreground sm:text-5xl">
         {animated.toLocaleString("en-US", {
           minimumFractionDigits: kpi.decimals ?? 0,
           maximumFractionDigits: kpi.decimals ?? 0,
