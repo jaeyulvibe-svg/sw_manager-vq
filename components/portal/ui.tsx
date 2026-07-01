@@ -314,7 +314,7 @@ export function MiniButton({
 }: {
   children: React.ReactNode
   accent?: Accent
-  onClick?: () => void
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void
 }) {
   return (
     <button

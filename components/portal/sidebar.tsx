@@ -1,7 +1,7 @@
 "use client"
 
-import { ShieldCheck, X, Lock } from "lucide-react"
-import { NAV_ITEMS, type ViewKey } from "./nav"
+import { ShieldCheck, X } from "lucide-react"
+import { visibleNavItems, type ViewKey } from "./nav"
 import { useRole } from "./role-context"
 import { cn } from "@/lib/utils"
 
@@ -17,6 +17,7 @@ export function Sidebar({
   onCloseMobile: () => void
 }) {
   const { isAdmin } = useRole()
+  const items = visibleNavItems(isAdmin)
   return (
     <>
       {/* Mobile backdrop */}
@@ -61,41 +62,34 @@ export function Sidebar({
 
         {/* Nav */}
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {NAV_ITEMS.map((item) => {
+          {items.map((item) => {
             const isActive = item.key === active
-            const locked = item.adminOnly && !isAdmin
             return (
               <button
                 key={item.key}
                 type="button"
-                disabled={locked}
                 onClick={() => {
-                  if (locked) return
                   onChange(item.key)
                   onCloseMobile()
                 }}
                 aria-current={isActive ? "page" : undefined}
-                title={locked ? "관리자 모드에서만 접근 가능" : undefined}
                 className={cn(
                   "group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
-                  locked
-                    ? "cursor-not-allowed text-muted-foreground/40"
-                    : isActive
-                      ? "bg-primary/12 text-primary glow-card"
-                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                  isActive
+                    ? "bg-primary/12 text-primary glow-card"
+                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                 )}
               >
-                {isActive && !locked ? (
+                {isActive ? (
                   <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
                 ) : null}
                 <item.icon
                   className={cn(
                     "h-[18px] w-[18px] shrink-0 transition-transform group-hover:scale-110",
-                    isActive && !locked ? "text-primary" : "",
+                    isActive ? "text-primary" : "",
                   )}
                 />
                 <span className="truncate text-left">{item.label}</span>
-                {locked ? <Lock className="ml-auto h-3.5 w-3.5" /> : null}
               </button>
             )
           })}

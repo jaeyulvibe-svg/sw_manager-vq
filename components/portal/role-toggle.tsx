@@ -39,7 +39,7 @@ export function RoleToggle() {
         )}
       >
         <UserCog className="h-3.5 w-3.5" />
-        담당자 모드
+        사용자 모드
       </button>
     </div>
   )

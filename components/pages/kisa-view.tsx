@@ -234,7 +234,7 @@ export function KisaView() {
                     <MiniButton accent="eos"><Link2 className="h-3 w-3" />자산 매핑</MiniButton>
                     <MiniButton accent="success"><Check className="h-3 w-3" />승인</MiniButton>
                     <MiniButton accent="destructive"><X className="h-3 w-3" />반려</MiniButton>
-                    <MiniButton accent="warning"><BellRing className="h-3 w-3" />담당자 알림 전파</MiniButton>
+                    <MiniButton accent="warning"><BellRing className="h-3 w-3" />사용자 알림 전파</MiniButton>
                   </>
                 ) : (
                   <MiniButton accent="warning"><BellDot className="h-3 w-3" />알림 수신 확인</MiniButton>
@@ -242,7 +242,7 @@ export function KisaView() {
               </div>
               {!isAdmin ? (
                 <p className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-                  담당자는 관리자의 승인·전파 후 배정된 자산에 대한 알림을 확인합니다.
+                  사용자는 관리자의 승인·전파 후 배정된 자산에 대한 알림을 확인합니다.
                 </p>
               ) : null}
             </div>

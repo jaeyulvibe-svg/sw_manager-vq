@@ -10,7 +10,7 @@ import {
   ShieldAlert,
   type LucideIcon,
 } from "lucide-react"
-import { NAV_ITEMS, type ViewKey } from "./nav"
+import { visibleNavItems, type ViewKey } from "./nav"
 import { useRole } from "./role-context"
 import { cn } from "@/lib/utils"
 
@@ -52,9 +52,7 @@ export function CommandPalette({
   const inputRef = useRef<HTMLInputElement>(null)
 
   const items = useMemo<CommandItem[]>(() => {
-    const navItems: CommandItem[] = NAV_ITEMS.filter(
-      (n) => !n.adminOnly || isAdmin,
-    ).map((n) => ({
+    const navItems: CommandItem[] = visibleNavItems(isAdmin).map((n) => ({
       id: `nav-${n.key}`,
       label: n.label,
       hint: "페이지 이동",
