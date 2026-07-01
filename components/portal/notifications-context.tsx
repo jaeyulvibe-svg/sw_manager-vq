@@ -8,25 +8,11 @@ import {
   useState,
   type ReactNode,
 } from "react"
-import {
-  Boxes,
-  CalendarClock,
-  Download,
-  ShieldAlert,
-  ClipboardCheck,
-  Server,
-  type LucideIcon,
-} from "lucide-react"
+import { Boxes, ShieldAlert, Server, type LucideIcon } from "lucide-react"
 import type { Accent } from "./ui"
 import type { ViewKey } from "./nav"
 
-export type NotifCategory =
-  | "asset"
-  | "eos"
-  | "patch"
-  | "security"
-  | "approval"
-  | "system"
+export type NotifCategory = "asset" | "security" | "system"
 
 export type NotifStatus =
   | "확인필요"
@@ -55,11 +41,8 @@ export const CATEGORY_META: Record<
   NotifCategory,
   { label: string; icon: LucideIcon; accent: Accent }
 > = {
-  asset: { label: "자산관리", icon: Boxes, accent: "primary" },
-  eos: { label: "EOS", icon: CalendarClock, accent: "eos" },
-  patch: { label: "패치", icon: Download, accent: "warning" },
-  security: { label: "보안공지", icon: ShieldAlert, accent: "destructive" },
-  approval: { label: "승인", icon: ClipboardCheck, accent: "primary" },
+  asset: { label: "자산", icon: Boxes, accent: "primary" },
+  security: { label: "보안", icon: ShieldAlert, accent: "destructive" },
   system: { label: "시스템", icon: Server, accent: "muted" },
 }
 
@@ -74,7 +57,7 @@ export const STATUS_ACCENT: Record<NotifStatus, Accent> = {
 const SEED: Notification[] = [
   {
     id: "N1",
-    category: "approval",
+    category: "security",
     title: "OpenSSL 패치 공지 승인 대기",
     description: "OpenSSL 3.0.x 관련 신규 패치 공지가 수집되었습니다.",
     time: "5분 전",
@@ -88,7 +71,7 @@ const SEED: Notification[] = [
   },
   {
     id: "N2",
-    category: "eos",
+    category: "asset",
     title: "JEUS 7 EOS 임박",
     description: "JEUS 7 자산의 EOS 일정이 6개월 이내로 접근했습니다.",
     time: "20분 전",
@@ -129,7 +112,7 @@ const SEED: Notification[] = [
   },
   {
     id: "N5",
-    category: "patch",
+    category: "security",
     title: "Oracle DB 패치 확인 필요",
     description: "Oracle Database 19c 관련 Critical Patch Update가 수집되었습니다.",
     time: "2시간 전",
@@ -195,7 +178,7 @@ const SEED: Notification[] = [
   },
   {
     id: "N10",
-    category: "eos",
+    category: "asset",
     title: "CentOS 7 EOS 도래",
     description: "CentOS 7 자산의 EOS 일정이 30일 이내로 임박했습니다.",
     time: "오늘 08:40",

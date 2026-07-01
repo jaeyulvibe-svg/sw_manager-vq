@@ -13,25 +13,14 @@ import { StatusBadge, type Accent } from "./ui"
 import { type ViewKey } from "./nav"
 import { cn } from "@/lib/utils"
 
-type FilterKey =
-  | "all"
-  | "unread"
-  | "urgent"
-  | "approval"
-  | "asset"
-  | "eos"
-  | "patch"
-  | "security"
+type FilterKey = "all" | "unread" | "urgent" | "asset" | "security"
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "전체" },
   { key: "unread", label: "읽지 않음" },
   { key: "urgent", label: "긴급" },
-  { key: "approval", label: "승인 필요" },
   { key: "asset", label: "자산" },
-  { key: "eos", label: "EOS" },
-  { key: "patch", label: "패치" },
-  { key: "security", label: "보안공지" },
+  { key: "security", label: "보안" },
 ]
 
 function matchesFilter(n: Notification, filter: FilterKey): boolean {
@@ -42,8 +31,6 @@ function matchesFilter(n: Notification, filter: FilterKey): boolean {
       return !n.read
     case "urgent":
       return !!n.urgent
-    case "approval":
-      return n.status === "승인대기"
     default:
       return n.category === (filter as NotifCategory)
   }
@@ -56,14 +43,8 @@ export function NotificationBell({
   onNavigate: (view: ViewKey) => void
   onOpenCenter: () => void
 }) {
-  const {
-    notifications,
-    unreadCount,
-    urgentCount,
-    approvalCount,
-    markRead,
-    markAllRead,
-  } = useNotifications()
+  const { notifications, unreadCount, urgentCount, markRead, markAllRead } =
+    useNotifications()
   const [open, setOpen] = useState(false)
   const [filter, setFilter] = useState<FilterKey>("all")
   const rootRef = useRef<HTMLDivElement>(null)
@@ -95,7 +76,6 @@ export function NotificationBell({
     { label: "전체 알림", value: notifications.length, accent: "primary" },
     { label: "읽지 않음", value: unreadCount, accent: "warning" },
     { label: "긴급", value: urgentCount, accent: "destructive" },
-    { label: "승인 필요", value: approvalCount, accent: "eos" },
   ]
 
   const handleGo = (n: Notification) => {
@@ -143,7 +123,7 @@ export function NotificationBell({
           </div>
 
           {/* Summary */}
-          <div className="grid grid-cols-4 gap-px border-b border-border/60 bg-border/60">
+          <div className="grid grid-cols-3 gap-px border-b border-border/60 bg-border/60">
             {summary.map((s) => (
               <div key={s.label} className="bg-card px-2 py-2.5 text-center">
                 <div
@@ -152,7 +132,6 @@ export function NotificationBell({
                     s.accent === "primary" && "text-primary",
                     s.accent === "warning" && "text-warning",
                     s.accent === "destructive" && "text-destructive",
-                    s.accent === "eos" && "text-eos",
                   )}
                 >
                   {s.value}

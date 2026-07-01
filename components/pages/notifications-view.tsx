@@ -16,28 +16,15 @@ import {
   CATEGORY_META,
   STATUS_ACCENT,
   type NotifCategory,
-  type NotifStatus,
 } from "@/components/portal/notifications-context"
 import { type ViewKey } from "@/components/portal/nav"
 import { cn } from "@/lib/utils"
 
 const TYPE_FILTERS: { key: "all" | NotifCategory; label: string }[] = [
   { key: "all", label: "전체 유형" },
-  { key: "asset", label: "자산관리" },
-  { key: "eos", label: "EOS" },
-  { key: "patch", label: "패치" },
-  { key: "security", label: "보안공지" },
-  { key: "approval", label: "승인" },
+  { key: "asset", label: "자산" },
+  { key: "security", label: "보안" },
   { key: "system", label: "시스템" },
-]
-
-const STATUS_FILTERS: { key: "all" | NotifStatus; label: string }[] = [
-  { key: "all", label: "전체 상태" },
-  { key: "긴급", label: "긴급" },
-  { key: "승인대기", label: "승인대기" },
-  { key: "확인필요", label: "확인필요" },
-  { key: "검토중", label: "검토중" },
-  { key: "완료", label: "완료" },
 ]
 
 const READ_FILTERS: { key: "all" | "unread" | "read"; label: string }[] = [
@@ -51,18 +38,11 @@ export function NotificationsView({
 }: {
   onNavigate: (view: ViewKey) => void
 }) {
-  const {
-    notifications,
-    unreadCount,
-    urgentCount,
-    approvalCount,
-    markRead,
-    markAllRead,
-  } = useNotifications()
+  const { notifications, unreadCount, urgentCount, markRead, markAllRead } =
+    useNotifications()
 
   const [query, setQuery] = useState("")
   const [type, setType] = useState<"all" | NotifCategory>("all")
-  const [status, setStatus] = useState<"all" | NotifStatus>("all")
   const [read, setRead] = useState<"all" | "unread" | "read">("all")
 
   const filtered = useMemo(() => {
@@ -70,7 +50,6 @@ export function NotificationsView({
     return notifications
       .filter((n) => {
         if (type !== "all" && n.category !== type) return false
-        if (status !== "all" && n.status !== status) return false
         if (read === "unread" && n.read) return false
         if (read === "read" && !n.read) return false
         if (q) {
@@ -80,7 +59,7 @@ export function NotificationsView({
         return true
       })
       .sort((a, b) => a.order - b.order)
-  }, [notifications, query, type, status, read])
+  }, [notifications, query, type, read])
 
   return (
     <div className="flex flex-col gap-6">
@@ -101,7 +80,7 @@ export function NotificationsView({
       />
 
       {/* Summary KPIs */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
           label="전체 알림"
           value={notifications.length}
@@ -126,14 +105,6 @@ export function NotificationsView({
           trendLabel="즉시 조치 필요"
           delay={240}
         />
-        <StatCard
-          label="승인 필요"
-          value={approvalCount}
-          icon={Check}
-          accent="eos"
-          trendLabel="관리자 승인 대기"
-          delay={320}
-        />
       </div>
 
       {/* Filters */}
@@ -148,16 +119,7 @@ export function NotificationsView({
           />
         </div>
         <div className="flex flex-col gap-2">
-          <FilterRow
-            options={TYPE_FILTERS}
-            value={type}
-            onChange={setType}
-          />
-          <FilterRow
-            options={STATUS_FILTERS}
-            value={status}
-            onChange={setStatus}
-          />
+          <FilterRow options={TYPE_FILTERS} value={type} onChange={setType} />
           <FilterRow options={READ_FILTERS} value={read} onChange={setRead} />
         </div>
       </div>
