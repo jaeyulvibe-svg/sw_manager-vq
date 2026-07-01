@@ -11,6 +11,7 @@ import {
   ScrollText,
   Play,
   Zap,
+  Lock,
 } from "lucide-react"
 import {
   PageHeader,
@@ -21,6 +22,7 @@ import {
   Td,
   type Accent,
 } from "@/components/portal/ui"
+import { useRole } from "@/components/portal/role-context"
 import { cn } from "@/lib/utils"
 
 /* ---- Section 1: SW master ---- */
@@ -104,6 +106,29 @@ function Toggle({
 
 export function AdminView() {
   const [collecting, setCollecting] = useState(false)
+  const { isAdmin } = useRole()
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHeader
+          icon={Settings}
+          title="관리자 페이지"
+          description="관리자는 SW 마스터 데이터, Source URL, 자동수집 정책, 승인 프로세스, 사용자 권한을 통합 관리합니다."
+        />
+        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-border/60 bg-card px-6 py-16 text-center glow-card">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-eos/15 text-eos">
+            <Lock className="h-7 w-7" />
+          </div>
+          <h3 className="text-lg font-bold text-foreground">접근 권한이 없습니다</h3>
+          <p className="max-w-sm text-pretty text-sm text-muted-foreground">
+            이 페이지는 <span className="font-semibold text-primary">관리자 모드</span>에서만
+            이용할 수 있습니다. 상단의 모드 전환 스위치를 사용해 관리자 모드로 변경하세요.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6">

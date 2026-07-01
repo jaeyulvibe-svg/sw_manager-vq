@@ -24,6 +24,7 @@ export type NavItem = {
   key: ViewKey
   label: string
   icon: LucideIcon
+  adminOnly?: boolean
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -34,5 +35,5 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "kisa", label: "KISA 취약점 공지", icon: ShieldAlert },
   { key: "owner", label: "소유자별 취약점 패치", icon: Users },
   { key: "manual", label: "소프트웨어 매뉴얼(PPT)", icon: Presentation },
-  { key: "admin", label: "관리자 페이지", icon: Settings },
+  { key: "admin", label: "관리자 페이지", icon: Settings, adminOnly: true },
 ]

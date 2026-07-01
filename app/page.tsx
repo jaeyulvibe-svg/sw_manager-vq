@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Sidebar } from "@/components/portal/sidebar"
 import { PortalHeader } from "@/components/portal/portal-header"
+import { RoleProvider } from "@/components/portal/role-context"
 import { type ViewKey } from "@/components/portal/nav"
 import { DashboardView } from "@/components/pages/dashboard-view"
 import { AssetsView } from "@/components/pages/assets-view"
@@ -31,6 +32,7 @@ export default function Home() {
   const ActiveView = VIEWS[active]
 
   return (
+    <RoleProvider>
     <div className="min-h-screen bg-background">
       {/* Ambient background glow */}
       <div
@@ -57,5 +59,6 @@ export default function Home() {
         </main>
       </div>
     </div>
+    </RoleProvider>
   )
 }

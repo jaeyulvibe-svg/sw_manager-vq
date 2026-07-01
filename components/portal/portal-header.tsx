@@ -1,7 +1,8 @@
 "use client"
 
-import { Menu, Activity, Bell } from "lucide-react"
+import { Menu, Bell } from "lucide-react"
 import { LiveClock } from "./live-clock"
+import { RoleToggle } from "./role-toggle"
 import { NAV_ITEMS, type ViewKey } from "./nav"
 
 export function PortalHeader({
@@ -35,10 +36,7 @@ export function PortalHeader({
       </div>
 
       <div className="flex items-center gap-2.5">
-        <div className="hidden items-center gap-2 rounded-full border border-border/70 bg-card px-3 py-1.5 text-xs text-muted-foreground sm:flex">
-          <Activity className="h-3.5 w-3.5 text-primary" />
-          마지막 스캔 방금 전
-        </div>
+        <RoleToggle />
         <button
           type="button"
           className="relative flex h-9 w-9 items-center justify-center rounded-full border border-border/70 bg-card text-muted-foreground transition-colors hover:text-foreground"

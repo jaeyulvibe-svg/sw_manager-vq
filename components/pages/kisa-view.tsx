@@ -8,6 +8,7 @@ import {
   Check,
   X,
   BellRing,
+  BellDot,
   Server,
 } from "lucide-react"
 import {
@@ -17,6 +18,7 @@ import {
   MiniButton,
   type Accent,
 } from "@/components/portal/ui"
+import { useRole } from "@/components/portal/role-context"
 import { cn } from "@/lib/utils"
 
 type Severity = "Critical" | "High" | "Medium" | "Low"
@@ -96,6 +98,7 @@ const statusAccent: Record<Status, Accent> = {
 }
 
 export function KisaView() {
+  const { isAdmin } = useRole()
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("전체")
   const [selectedId, setSelectedId] = useState<string>("N1")
 
@@ -223,14 +226,25 @@ export function KisaView() {
                 )}
               </div>
 
-              {/* Actions */}
+              {/* Actions — 관리자는 분석 결과 승인·전파, 담당자는 알림 수신 확인 */}
               <div className="flex flex-wrap gap-2">
                 <MiniButton accent="primary"><ExternalLink className="h-3 w-3" />상세보기</MiniButton>
-                <MiniButton accent="eos"><Link2 className="h-3 w-3" />자산 매핑</MiniButton>
-                <MiniButton accent="success"><Check className="h-3 w-3" />승인</MiniButton>
-                <MiniButton accent="destructive"><X className="h-3 w-3" />반려</MiniButton>
-                <MiniButton accent="warning"><BellRing className="h-3 w-3" />담당자 알림</MiniButton>
+                {isAdmin ? (
+                  <>
+                    <MiniButton accent="eos"><Link2 className="h-3 w-3" />자산 매핑</MiniButton>
+                    <MiniButton accent="success"><Check className="h-3 w-3" />승인</MiniButton>
+                    <MiniButton accent="destructive"><X className="h-3 w-3" />반려</MiniButton>
+                    <MiniButton accent="warning"><BellRing className="h-3 w-3" />담당자 알림 전파</MiniButton>
+                  </>
+                ) : (
+                  <MiniButton accent="warning"><BellDot className="h-3 w-3" />알림 수신 확인</MiniButton>
+                )}
               </div>
+              {!isAdmin ? (
+                <p className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+                  담당자는 관리자의 승인·전파 후 배정된 자산에 대한 알림을 확인합니다.
+                </p>
+              ) : null}
             </div>
           </SectionCard>
         </div>
