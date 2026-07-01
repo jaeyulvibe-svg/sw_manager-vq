@@ -10,8 +10,9 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
+  title: 'AI SW Asset Master — 자산 기반 취약점·패치·EOS 통합관리',
+  description:
+    'AI 기반 소프트웨어 자산 취약점, 패치, EOS(단종) 통합 관리 대시보드',
   generator: 'v0.app',
   icons: {
     icon: [
@@ -33,11 +34,8 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  colorScheme: 'light dark',
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: 'white' },
-    { media: '(prefers-color-scheme: dark)', color: 'black' },
-  ],
+  colorScheme: 'dark',
+  themeColor: '#0b1220',
 }
 
 export default function RootLayout({
@@ -46,8 +44,11 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body className="font-sans antialiased">
+    <html
+      lang="ko"
+      className={`dark ${geistSans.variable} ${geistMono.variable}`}
+    >
+      <body className="bg-background font-sans antialiased">
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
