@@ -1,6 +1,17 @@
 "use client"
 
-import { History, ShieldAlert, PackageCheck, CalendarX, FilePlus2 } from "lucide-react"
+import { useState } from "react"
+import {
+  History,
+  ShieldAlert,
+  PackageCheck,
+  CalendarX,
+  FilePlus2,
+  Boxes,
+  ShieldCheck,
+} from "lucide-react"
+import { AssetDashboardView } from "@/components/pages/asset-dashboard-view"
+import { cn } from "@/lib/utils"
 import { ScanHero } from "@/components/dashboard/scan-hero"
 import { KpiCards } from "@/components/dashboard/kpi-cards"
 import { CriticalAlerts } from "@/components/dashboard/critical-alerts"
@@ -14,7 +25,6 @@ import {
   SecurityNoticeBoard,
 } from "@/components/dashboard/notice-boards"
 import { SectionCard } from "@/components/portal/ui"
-import { cn } from "@/lib/utils"
 
 type Activity = {
   time: string
@@ -110,7 +120,7 @@ function RecentUpdates() {
   )
 }
 
-export function DashboardView() {
+function SecurityDashboardView() {
   return (
     <div className="flex flex-col gap-6">
       <ScanHero />
@@ -129,6 +139,49 @@ export function DashboardView() {
 
       <NoticeBoard />
       <SecurityNoticeBoard />
+    </div>
+  )
+}
+
+type DashKind = "asset" | "security"
+
+const TABS: { key: DashKind; label: string; icon: typeof Boxes }[] = [
+  { key: "asset", label: "자산관리 대시보드", icon: Boxes },
+  { key: "security", label: "보안 대시보드", icon: ShieldCheck },
+]
+
+export function DashboardView() {
+  const [kind, setKind] = useState<DashKind>("asset")
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* 대시보드 전환 세그먼트 토글 */}
+      <div className="flex items-center gap-1 self-start rounded-xl border border-border/60 bg-card p-1">
+        {TABS.map((tab) => {
+          const active = tab.key === kind
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setKind(tab.key)}
+              aria-pressed={active}
+              className={cn(
+                "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200",
+                active
+                  ? "bg-primary/15 text-primary glow-card"
+                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+              )}
+            >
+              <tab.icon className="h-4 w-4" />
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+
+      <div key={kind} className="animate-view">
+        {kind === "asset" ? <AssetDashboardView /> : <SecurityDashboardView />}
+      </div>
     </div>
   )
 }

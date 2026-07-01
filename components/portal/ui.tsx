@@ -192,17 +192,19 @@ export function StatCard({
         })}
         {suffix ? <span className="text-xl sm:text-2xl">{suffix}</span> : null}
       </div>
-      {trend !== undefined ? (
+      {trend !== undefined || trendLabel ? (
         <div className="mt-3 flex items-center gap-1.5 text-xs">
-          <span
-            className={cn(
-              "flex items-center gap-1 font-semibold",
-              positive ? "text-success" : "text-destructive",
-            )}
-          >
-            <TrendIcon className="h-3.5 w-3.5" />
-            {Math.abs(trend)}%
-          </span>
+          {trend !== undefined ? (
+            <span
+              className={cn(
+                "flex items-center gap-1 font-semibold",
+                positive ? "text-success" : "text-destructive",
+              )}
+            >
+              <TrendIcon className="h-3.5 w-3.5" />
+              {Math.abs(trend)}%
+            </span>
+          ) : null}
           {trendLabel ? (
             <span className="text-muted-foreground">{trendLabel}</span>
           ) : null}
