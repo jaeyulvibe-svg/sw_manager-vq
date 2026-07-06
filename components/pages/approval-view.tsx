@@ -172,7 +172,7 @@ export function ApprovalView() {
       })
     } else {
       toast({
-        tone: "error",
+        tone: "danger",
         title: "신규 자산 요청 반려",
         description: `${req.name} (${req.no}) 요청을 반려했습니다. 요청자에게 사유가 통보됩니다.`,
       })

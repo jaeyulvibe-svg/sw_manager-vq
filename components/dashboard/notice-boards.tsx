@@ -499,7 +499,7 @@ export function SecurityNoticeBoard() {
                         accent="destructive"
                         onClick={() =>
                           toast({
-                            tone: "error",
+                            tone: "danger",
                             title: "반려 처리",
                             description: `${s.cve} 공지가 반려되었습니다.`,
                           })
