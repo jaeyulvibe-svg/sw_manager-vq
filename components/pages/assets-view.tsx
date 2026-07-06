@@ -41,10 +41,33 @@ const ALL_COLS: { key: ColKey; label: string }[] = [
   { key: "checked_at", label: "최근 확인일"},
 ]
 
-const DEFAULT_VISIBLE: ColKey[] = [
+const FACTORY_VISIBLE: ColKey[] = [
   "id", "name", "vendor", "category", "version",
   "server", "owner", "vuln", "patch", "eos", "approval", "checked_at",
 ]
+const LS_KEY = "sw_manager_col_visible"
+const LS_DEFAULT_KEY = "sw_manager_col_default"
+
+function loadVisible(): ColKey[] {
+  try {
+    const raw = localStorage.getItem(LS_KEY)
+    if (raw) return JSON.parse(raw) as ColKey[]
+  } catch {}
+  return loadUserDefault()
+}
+function saveVisible(cols: ColKey[]) {
+  localStorage.setItem(LS_KEY, JSON.stringify(cols))
+}
+function loadUserDefault(): ColKey[] {
+  try {
+    const raw = localStorage.getItem(LS_DEFAULT_KEY)
+    if (raw) return JSON.parse(raw) as ColKey[]
+  } catch {}
+  return FACTORY_VISIBLE
+}
+function saveUserDefault(cols: ColKey[]) {
+  localStorage.setItem(LS_DEFAULT_KEY, JSON.stringify(cols))
+}
 
 /* ── 필터 옵션 ──────────────────────────────────────────── */
 const CATEGORIES: (Category | "전체")[] = ["전체", "OS", "WEB", "DB", "Middleware"]
@@ -126,6 +149,7 @@ function ColToggle({
   onChange: (cols: ColKey[]) => void
 }) {
   const [open, setOpen] = useState(false)
+  const [saved, setSaved] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -137,7 +161,27 @@ function ColToggle({
   }, [])
 
   function toggle(key: ColKey) {
-    onChange(visible.includes(key) ? visible.filter((k) => k !== key) : [...visible, key])
+    const next = visible.includes(key) ? visible.filter((k) => k !== key) : [...visible, key]
+    onChange(next)
+    saveVisible(next)
+  }
+
+  function handleSaveDefault() {
+    saveUserDefault(visible)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  function handleResetDefault() {
+    const def = loadUserDefault()
+    onChange(def)
+    saveVisible(def)
+  }
+
+  function handleSelectAll() {
+    const all = ALL_COLS.map((c) => c.key)
+    onChange(all)
+    saveVisible(all)
   }
 
   return (
@@ -160,10 +204,11 @@ function ColToggle({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-9 z-50 w-44 rounded-xl border border-border/70 bg-card shadow-2xl">
+        <div className="absolute right-0 top-9 z-50 w-52 rounded-xl border border-border/70 bg-card shadow-2xl">
           <div className="border-b border-border/50 px-3 py-2">
             <p className="text-[11px] font-semibold text-muted-foreground">표시할 컬럼 선택</p>
           </div>
+
           <ul className="py-1.5">
             {ALL_COLS.map(({ key, label }) => {
               const checked = visible.includes(key)
@@ -188,22 +233,39 @@ function ColToggle({
               )
             })}
           </ul>
-          <div className="border-t border-border/50 px-3 py-2 flex gap-2">
+
+          <div className="border-t border-border/50 px-3 py-2.5 flex flex-col gap-2">
+            {/* 현재 설정을 기본값으로 저장 */}
             <button
               type="button"
-              onClick={() => onChange(ALL_COLS.map((c) => c.key))}
-              className="text-[11px] text-primary hover:underline"
+              onClick={handleSaveDefault}
+              className={cn(
+                "flex w-full items-center justify-center gap-1.5 rounded-lg border py-1.5 text-[11px] font-semibold transition-colors",
+                saved
+                  ? "border-success/50 bg-success/10 text-success"
+                  : "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20",
+              )}
             >
-              전체 선택
+              {saved ? <><Check className="h-3 w-3" />저장 완료!</> : "현재 설정을 기본값으로 저장"}
             </button>
-            <span className="text-muted-foreground/40">|</span>
-            <button
-              type="button"
-              onClick={() => onChange(DEFAULT_VISIBLE)}
-              className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
-            >
-              기본값
-            </button>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleSelectAll}
+                className="flex-1 text-[11px] text-primary hover:underline"
+              >
+                전체 선택
+              </button>
+              <span className="text-muted-foreground/40">|</span>
+              <button
+                type="button"
+                onClick={handleResetDefault}
+                className="flex-1 text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+              >
+                기본값으로 리셋
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -222,7 +284,10 @@ export function AssetsView() {
   const [status,  setStatus]  = useState<(typeof STATUS_FILTERS)[number]>("전체")
   const [sortKey, setSortKey] = useState<SortKey>("id")
   const [sortDir, setSortDir] = useState<SortDir>("asc")
-  const [visible, setVisible] = useState<ColKey[]>(DEFAULT_VISIBLE)
+  const [visible, setVisible] = useState<ColKey[]>(() => {
+    if (typeof window === "undefined") return FACTORY_VISIBLE
+    return loadVisible()
+  })
   const [selected, setSelected] = useState<AssetDetail | null>(null)
 
   useEffect(() => {
