@@ -14,7 +14,7 @@ export type Database = {
           id: string
           name: string
           vendor: string
-          category: "OS" | "WEB" | "WAS" | "DB" | "Middleware" | "Security"
+          category: "OS" | "WEB" | "DB" | "Middleware" | "Security"
           version: string
           latest_version: string | null
           server: string
@@ -31,7 +31,7 @@ export type Database = {
           id?: string
           name: string
           vendor: string
-          category: "OS" | "WEB" | "WAS" | "DB" | "Middleware" | "Security"
+          category: "OS" | "WEB" | "DB" | "Middleware" | "Security"
           version: string
           latest_version?: string | null
           server: string

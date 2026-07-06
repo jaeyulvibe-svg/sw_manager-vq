@@ -97,7 +97,7 @@ function TooltipBox({ active, payload, label }: any) {
 /* ---------------- 1. 카테고리별 SW 자산 분포 ---------------- */
 
 export function CategoryDistribution({ assets }: { assets: Asset[] }) {
-  const CATS = ["OS", "WEB", "WAS", "DB", "Middleware", "Security"]
+  const CATS = ["OS", "WEB", "DB", "Middleware"]
   const data = CATS.map((cat) => ({
     name: cat,
     value: assets.filter((a) => a.category === cat).length,
@@ -197,7 +197,7 @@ export function AssetHealth({ assets }: { assets: Asset[] }) {
 /* ---------------- 3. 카테고리별 관리 필요 현황 (stacked bar) ----------- */
 
 export function ManageNeed({ assets }: { assets: Asset[] }) {
-  const CATS = ["OS", "WEB", "WAS", "DB", "Middleware"]
+  const CATS = ["OS", "WEB", "DB", "Middleware"]
   const now = Date.now()
 
   const data = CATS.map((cat) => {

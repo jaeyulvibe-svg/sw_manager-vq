@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils"
 type Asset = Tables<"assets">
 type Category = Asset["category"]
 
-const CATEGORIES: (Category | "전체")[] = ["전체", "OS", "WEB", "WAS", "DB", "Middleware", "Security"]
+const CATEGORIES: (Category | "전체")[] = ["전체", "OS", "WEB", "DB", "Middleware"]
 const STATUS_FILTERS = ["정상", "취약점 있음", "패치 필요", "EOS 임박", "승인 대기"] as const
 
 const vulnAccent: Record<string, Accent> = {

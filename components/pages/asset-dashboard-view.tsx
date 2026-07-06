@@ -9,6 +9,7 @@ import {
   Database,
   AlertTriangle,
   Table as TableIcon,
+  Layers,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import type { Tables } from "@/lib/supabase/types"
@@ -50,15 +51,14 @@ const statusAccent: Record<CategoryRow["status"], Accent> = {
 const PRODUCT_MAP: Record<string, string> = {
   OS: "CentOS, Red Hat Enterprise Linux",
   WEB: "WebtoB",
-  WAS: "JEUS",
   DB: "Oracle Database",
-  Middleware: "Apache Tomcat",
+  Middleware: "JEUS, Apache Tomcat",
   Security: "OpenSSL, 보안 Agent",
 }
 
 function buildRows(assets: Asset[]): CategoryRow[] {
   const now = Date.now()
-  const categories = ["OS", "WEB", "WAS", "DB", "Middleware", "Security"]
+  const categories = ["OS", "WEB", "DB", "Middleware"]
 
   return categories
     .map((cat) => {
@@ -155,7 +155,7 @@ export function AssetDashboardView() {
   const now = Date.now()
   const total    = assets.length
   const osCount  = assets.filter((a) => a.category === "OS").length
-  const webWas   = assets.filter((a) => a.category === "WEB" || a.category === "WAS").length
+  const webCount = assets.filter((a) => a.category === "WEB").length
   const midCount = assets.filter((a) => a.category === "Middleware").length
   const dbCount  = assets.filter((a) => a.category === "DB").length
   const needAction = assets.filter(
@@ -185,19 +185,19 @@ export function AssetDashboardView() {
           delay={160}
         />
         <StatCard
-          label="WEB/WAS 자산"
-          value={webWas}
+          label="WEB 자산"
+          value={webCount}
           icon={Globe}
           accent="primary"
-          trendLabel="WebtoB, JEUS"
+          trendLabel="WebtoB"
           delay={240}
         />
         <StatCard
-          label="Middleware"
+          label="Middleware 자산"
           value={midCount}
-          icon={Package}
+          icon={Layers}
           accent="primary"
-          trendLabel="Apache Tomcat"
+          trendLabel="JEUS, Apache Tomcat"
           delay={320}
         />
         <StatCard
