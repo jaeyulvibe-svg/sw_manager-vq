@@ -96,7 +96,7 @@ const initialRequests: Req[] = [
     no: "REQ-2026-001",
     name: "Apache Tomcat",
     vendor: "Apache",
-    category: "WAS",
+    category: "Middleware",
     version: "10.1.24",
     server: "WAS-PRD-03",
     dept: "WAS운영팀",

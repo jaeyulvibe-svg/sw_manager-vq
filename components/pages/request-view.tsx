@@ -100,7 +100,7 @@ export function RequestView() {
                 <input className={inputCls} placeholder="예: Apache" />
               </Field>
               <Field label="분류" required>
-                <select className={inputCls} defaultValue="WAS">
+                <select className={inputCls} defaultValue="Middleware">
                   {CATEGORIES.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
