@@ -27,10 +27,10 @@ import { cn } from "@/lib/utils"
 
 /* ---- Section 1: SW master ---- */
 const masters = [
-  { id: "M-001", name: "Apache Tomcat", vendor: "Apache", cat: "WAS", std: "10.1.24", mode: "AUTO", active: true, updated: "오늘" },
+  { id: "M-001", name: "Apache Tomcat", vendor: "Apache", cat: "Middleware", std: "10.1.24", mode: "AUTO", active: true, updated: "오늘" },
   { id: "M-002", name: "Oracle Database", vendor: "Oracle", cat: "DB", std: "19c", mode: "SEMI_AUTO", active: true, updated: "어제" },
   { id: "M-003", name: "OpenSSL", vendor: "OpenSSL Project", cat: "Security", std: "3.2.x", mode: "AUTO", active: true, updated: "오늘" },
-  { id: "M-004", name: "JEUS", vendor: "TmaxSoft", cat: "WAS", std: "8.0", mode: "MANUAL", active: false, updated: "2026-06-20" },
+  { id: "M-004", name: "JEUS", vendor: "TmaxSoft", cat: "Middleware", std: "8.0", mode: "MANUAL", active: false, updated: "2026-06-20" },
 ]
 
 /* ---- Section 2: Source URL ---- */

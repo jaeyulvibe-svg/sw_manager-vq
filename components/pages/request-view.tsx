@@ -23,7 +23,7 @@ import {
 } from "@/components/portal/ui"
 import { cn } from "@/lib/utils"
 
-const CATEGORIES = ["OS", "WEB", "WAS", "DB", "Middleware", "Security"]
+const CATEGORIES = ["OS", "WEB", "DB", "Middleware", "Security"]
 const MODES = ["AUTO", "SEMI_AUTO", "MANUAL"] as const
 
 type Approval = "승인대기" | "승인완료" | "반려"
