@@ -61,6 +61,39 @@ export type Database = {
           updated_at?: string
         }
       }
+      servers: {
+        Row: {
+          id: string
+          name: string
+          hostname: string
+          ip: string
+          category: "WEB" | "WAS" | "DB"
+          os_type: string
+          location: string
+          status: "Running" | "Stopped" | "Maintenance"
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          hostname: string
+          ip: string
+          category: "WEB" | "WAS" | "DB"
+          os_type?: string
+          location?: string
+          status?: "Running" | "Stopped" | "Maintenance"
+          created_at?: string
+        }
+        Update: {
+          name?: string
+          hostname?: string
+          ip?: string
+          category?: "WEB" | "WAS" | "DB"
+          os_type?: string
+          location?: string
+          status?: "Running" | "Stopped" | "Maintenance"
+        }
+      }
       vulnerabilities: {
         Row: {
           id: string

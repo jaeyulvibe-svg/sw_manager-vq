@@ -21,6 +21,7 @@ import { useToast } from "@/components/portal/toast"
 import { cn } from "@/lib/utils"
 
 type Asset = Tables<"assets">
+type Server = Tables<"servers">
 type Category = Asset["category"]
 
 const CATEGORIES: (Category | "전체")[] = ["전체", "OS", "WEB", "DB", "Middleware"]
@@ -98,6 +99,7 @@ function toDetail(a: Asset): AssetDetail {
 export function AssetsView() {
   const { toast } = useToast()
   const [assets, setAssets] = useState<Asset[]>([])
+  const [servers, setServers] = useState<Server[]>([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState("")
   const [cat, setCat] = useState<(typeof CATEGORIES)[number]>("전체")
@@ -106,14 +108,14 @@ export function AssetsView() {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase
-      .from("assets")
-      .select("*")
-      .order("id")
-      .then(({ data, error }) => {
-        if (!error && data) setAssets(data)
-        setLoading(false)
-      })
+    Promise.all([
+      supabase.from("assets").select("*").order("id"),
+      supabase.from("servers").select("*"),
+    ]).then(([assetRes, serverRes]) => {
+      if (assetRes.data) setAssets(assetRes.data)
+      if (serverRes.data) setServers(serverRes.data)
+      setLoading(false)
+    })
   }, [])
 
   const filtered = useMemo(() => {
@@ -210,7 +212,7 @@ export function AssetsView() {
               <Th>벤더</Th>
               <Th>분류</Th>
               <Th>현재 버전</Th>
-              <Th>설치 서버</Th>
+              <Th>설치 서버 / Hostname / IP</Th>
               <Th>담당자</Th>
               <Th>취약점</Th>
               <Th>패치 상태</Th>
@@ -230,7 +232,21 @@ export function AssetsView() {
                   <StatusBadge accent="primary">{a.category}</StatusBadge>
                 </Td>
                 <Td className="font-mono text-xs">{a.version}</Td>
-                <Td className="font-mono text-xs text-muted-foreground">{a.server}</Td>
+                <Td>
+                  {(() => {
+                    const sv = servers.find((s) => s.name === a.server)
+                    return (
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium text-foreground text-xs">{a.server}</span>
+                        {sv && (
+                          <span className="font-mono text-[11px] text-muted-foreground">
+                            {sv.hostname} · {sv.ip}
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })()}
+                </Td>
                 <Td>{a.owner}</Td>
                 <Td>
                   <StatusBadge accent={vulnAccent[a.vuln]} pulse={a.vuln === "Critical"}>
