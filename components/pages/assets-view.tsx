@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Boxes, Search, Eye, Pencil, RefreshCw } from "lucide-react"
+import { Boxes, Search, Eye, Pencil, RefreshCw, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import type { Tables } from "@/lib/supabase/types"
 import {
@@ -23,28 +23,26 @@ import { cn } from "@/lib/utils"
 type Asset = Tables<"assets">
 type Server = Tables<"servers">
 type Category = Asset["category"]
+type SortDir = "asc" | "desc"
+type SortKey = keyof Asset | "none"
 
 const CATEGORIES: (Category | "전체")[] = ["전체", "OS", "WEB", "DB", "Middleware"]
-const STATUS_FILTERS = ["정상", "취약점 있음", "패치 필요", "EOS 임박", "승인 대기"] as const
+const STATUS_FILTERS = ["전체", "정상", "취약점 있음", "패치 필요", "EOS 임박", "승인 대기"] as const
+
+const vulnOrder: Record<string, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
+const patchOrder: Record<string, number> = { "Patch Required": 0, "Patch Available": 1, "Up to Date": 2 }
 
 const vulnAccent: Record<string, Accent> = {
-  Critical: "destructive",
-  High: "warning",
-  Medium: "primary",
-  Low: "success",
+  Critical: "destructive", High: "warning", Medium: "primary", Low: "success",
 }
 const vulnLabel: Record<string, string> = {
   Critical: "긴급", High: "높음", Medium: "보통", Low: "낮음",
 }
 const patchAccent: Record<string, Accent> = {
-  "Patch Required": "destructive",
-  "Patch Available": "warning",
-  "Up to Date": "success",
+  "Patch Required": "destructive", "Patch Available": "warning", "Up to Date": "success",
 }
 const patchLabel: Record<string, string> = {
-  "Patch Required": "패치 필요",
-  "Patch Available": "패치 가능",
-  "Up to Date": "최신",
+  "Patch Required": "패치 필요", "Patch Available": "패치 가능", "Up to Date": "최신",
 }
 const approvalAccent: Record<string, Accent> = {
   승인대기: "warning", 확인필요: "primary", 승인완료: "success", 긴급: "destructive",
@@ -52,48 +50,62 @@ const approvalAccent: Record<string, Accent> = {
 
 function isEosSoon(eos: string | null) {
   if (!eos) return false
-  const diff = new Date(eos).getTime() - Date.now()
-  return diff < 1000 * 60 * 60 * 24 * 200
+  return new Date(eos).getTime() - Date.now() < 1000 * 60 * 60 * 24 * 200
 }
-
 function isEosExpired(eos: string | null) {
   if (!eos) return false
   return new Date(eos).getTime() < Date.now()
 }
-
 function daysUntil(date: string | null) {
   if (!date) return 0
   return Math.round((new Date(date).getTime() - Date.now()) / 86400000)
 }
-
 function formatChecked(ts: string | null) {
   if (!ts) return "-"
-  const diff = Date.now() - new Date(ts).getTime()
-  const days = Math.floor(diff / 86400000)
+  const days = Math.floor((Date.now() - new Date(ts).getTime()) / 86400000)
   if (days === 0) return "오늘"
   if (days === 1) return "어제"
   return `${days}일 전`
 }
-
 function toDetail(a: Asset): AssetDetail {
   return {
-    id: a.id,
-    name: a.name,
-    vendor: a.vendor,
-    category: a.category,
-    version: a.version,
-    latest: a.latest_version ?? a.version,
-    server: a.server,
-    owner: a.owner,
-    vuln: a.vuln,
-    patch: patchLabel[a.patch],
-    patchAccent: patchAccent[a.patch],
-    vulnAccent: vulnAccent[a.vuln],
-    eos: a.eos ?? "-",
-    eosDaysLeft: daysUntil(a.eos),
-    approval: a.approval,
+    id: a.id, name: a.name, vendor: a.vendor, category: a.category,
+    version: a.version, latest: a.latest_version ?? a.version,
+    server: a.server, owner: a.owner, vuln: a.vuln,
+    patch: patchLabel[a.patch], patchAccent: patchAccent[a.patch],
+    vulnAccent: vulnAccent[a.vuln], eos: a.eos ?? "-",
+    eosDaysLeft: daysUntil(a.eos), approval: a.approval,
     approvalAccent: approvalAccent[a.approval],
   }
+}
+
+function SortTh({
+  col, label, sortKey, sortDir, onSort, className,
+}: {
+  col: SortKey; label: string; sortKey: SortKey; sortDir: SortDir; onSort: (k: SortKey) => void; className?: string
+}) {
+  const active = sortKey === col
+  return (
+    <th
+      onClick={() => onSort(col)}
+      className={cn(
+        "cursor-pointer select-none whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground",
+        active && "text-primary",
+        className,
+      )}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {active ? (
+          sortDir === "asc"
+            ? <ChevronUp className="h-3 w-3 text-primary" />
+            : <ChevronDown className="h-3 w-3 text-primary" />
+        ) : (
+          <ChevronsUpDown className="h-3 w-3 opacity-30" />
+        )}
+      </span>
+    </th>
+  )
 }
 
 export function AssetsView() {
@@ -103,13 +115,15 @@ export function AssetsView() {
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState("")
   const [cat, setCat] = useState<(typeof CATEGORIES)[number]>("전체")
-  const [status, setStatus] = useState<string | null>(null)
+  const [status, setStatus] = useState<(typeof STATUS_FILTERS)[number]>("전체")
+  const [sortKey, setSortKey] = useState<SortKey>("id")
+  const [sortDir, setSortDir] = useState<SortDir>("asc")
   const [selected, setSelected] = useState<AssetDetail | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
     Promise.all([
-      supabase.from("assets").select("*").order("id"),
+      supabase.from("assets").select("*"),
       supabase.from("servers").select("*"),
     ]).then(([assetRes, serverRes]) => {
       if (assetRes.data) setAssets(assetRes.data)
@@ -118,25 +132,48 @@ export function AssetsView() {
     })
   }, [])
 
+  function handleSort(col: SortKey) {
+    if (sortKey === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
+    else { setSortKey(col); setSortDir("asc") }
+  }
+
   const filtered = useMemo(() => {
-    return assets.filter((a) => {
+    const base = assets.filter((a) => {
       const q = query.trim().toLowerCase()
       const matchesQuery =
-        !q ||
-        [a.name, a.vendor, a.version, a.owner].some((f) =>
-          f.toLowerCase().includes(q),
-        )
+        !q || [a.name, a.vendor, a.version, a.owner, a.server].some((f) => f.toLowerCase().includes(q))
       const matchesCat = cat === "전체" || a.category === cat
       const matchesStatus =
-        !status ||
-        (status === "정상" && a.vuln === "Low" && a.patch === "Up to Date") ||
+        status === "전체" ||
+        (status === "정상"      && a.vuln === "Low" && a.patch === "Up to Date") ||
         (status === "취약점 있음" && (a.vuln === "Critical" || a.vuln === "High")) ||
-        (status === "패치 필요" && a.patch === "Patch Required") ||
-        (status === "EOS 임박" && isEosSoon(a.eos)) ||
-        (status === "승인 대기" && (a.approval === "승인대기" || a.approval === "긴급"))
+        (status === "패치 필요"  && a.patch === "Patch Required") ||
+        (status === "EOS 임박"   && isEosSoon(a.eos)) ||
+        (status === "승인 대기"  && (a.approval === "승인대기" || a.approval === "긴급"))
       return matchesQuery && matchesCat && matchesStatus
     })
-  }, [assets, query, cat, status])
+
+    if (sortKey === "none") return base
+
+    return [...base].sort((a, b) => {
+      let va: any, vb: any
+      if (sortKey === "vuln") { va = vulnOrder[a.vuln] ?? 99; vb = vulnOrder[b.vuln] ?? 99 }
+      else if (sortKey === "patch") { va = patchOrder[a.patch] ?? 99; vb = patchOrder[b.patch] ?? 99 }
+      else if (sortKey === "eos" || sortKey === "checked_at" || sortKey === "created_at") {
+        va = a[sortKey] ? new Date(a[sortKey] as string).getTime() : 0
+        vb = b[sortKey] ? new Date(b[sortKey] as string).getTime() : 0
+      } else {
+        va = (a[sortKey as keyof Asset] as string) ?? ""
+        vb = (b[sortKey as keyof Asset] as string) ?? ""
+        return sortDir === "asc"
+          ? String(va).localeCompare(String(vb), "ko")
+          : String(vb).localeCompare(String(va), "ko")
+      }
+      return sortDir === "asc" ? va - vb : vb - va
+    })
+  }, [assets, query, cat, status, sortKey, sortDir])
+
+  const stProps = { sortKey, sortDir, onSort: handleSort }
 
   return (
     <div className="flex flex-col gap-6">
@@ -153,17 +190,16 @@ export function AssetsView() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="제품명, 벤더, 버전, 담당자 검색"
+            placeholder="제품명, 벤더, 버전, 담당자, 서버명 검색"
             className="w-full rounded-xl border border-border/60 bg-background/50 py-2.5 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
 
+        {/* 카테고리 */}
         <div className="flex flex-wrap gap-2">
           {CATEGORIES.map((c) => (
             <button
-              key={c}
-              type="button"
-              onClick={() => setCat(c)}
+              key={c} type="button" onClick={() => setCat(c)}
               className={cn(
                 "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                 cat === c
@@ -176,13 +212,12 @@ export function AssetsView() {
           ))}
         </div>
 
+        {/* 상태 */}
         <div className="flex flex-wrap items-center gap-2 border-t border-border/50 pt-4">
           <span className="text-xs font-medium text-muted-foreground">상태</span>
           {STATUS_FILTERS.map((s) => (
             <button
-              key={s}
-              type="button"
-              onClick={() => setStatus(status === s ? null : s)}
+              key={s} type="button" onClick={() => setStatus(s)}
               className={cn(
                 "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
                 status === s
@@ -201,24 +236,24 @@ export function AssetsView() {
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
             총 <span className="font-mono font-semibold text-foreground">{filtered.length}</span>건
-            {loading && <span className="ml-2 text-xs text-muted-foreground">불러오는 중…</span>}
+            {loading && <span className="ml-2 text-xs">불러오는 중…</span>}
           </p>
         </div>
         <TableShell>
           <thead>
             <tr>
-              <Th>자산 ID</Th>
-              <Th>제품명</Th>
-              <Th>벤더</Th>
-              <Th>분류</Th>
-              <Th>현재 버전</Th>
-              <Th>설치 서버 / Hostname / IP</Th>
-              <Th>담당자</Th>
-              <Th>취약점</Th>
-              <Th>패치 상태</Th>
-              <Th>EOS 날짜</Th>
-              <Th>승인 상태</Th>
-              <Th>최근 확인일</Th>
+              <SortTh col="id"         label="자산 ID"              {...stProps} />
+              <SortTh col="name"       label="제품명"               {...stProps} />
+              <SortTh col="vendor"     label="벤더"                 {...stProps} />
+              <SortTh col="category"   label="분류"                 {...stProps} />
+              <SortTh col="version"    label="현재 버전"            {...stProps} />
+              <SortTh col="server"     label="설치 서버 / Host / IP" {...stProps} />
+              <SortTh col="owner"      label="담당자"               {...stProps} />
+              <SortTh col="vuln"       label="취약점"               {...stProps} />
+              <SortTh col="patch"      label="패치 상태"            {...stProps} />
+              <SortTh col="eos"        label="EOS 날짜"             {...stProps} />
+              <SortTh col="approval"   label="승인 상태"            {...stProps} />
+              <SortTh col="checked_at" label="최근 확인일"          {...stProps} />
               <Th>작업</Th>
             </tr>
           </thead>
@@ -228,16 +263,14 @@ export function AssetsView() {
                 <Td className="font-mono text-xs text-muted-foreground">{a.id}</Td>
                 <Td className="font-semibold">{a.name}</Td>
                 <Td className="text-muted-foreground">{a.vendor}</Td>
-                <Td>
-                  <StatusBadge accent="primary">{a.category}</StatusBadge>
-                </Td>
+                <Td><StatusBadge accent="primary">{a.category}</StatusBadge></Td>
                 <Td className="font-mono text-xs">{a.version}</Td>
                 <Td>
                   {(() => {
                     const sv = servers.find((s) => s.name === a.server)
                     return (
                       <div className="flex flex-col gap-0.5">
-                        <span className="font-medium text-foreground text-xs">{a.server}</span>
+                        <span className="text-xs font-medium text-foreground">{a.server}</span>
                         {sv && (
                           <span className="font-mono text-[11px] text-muted-foreground">
                             {sv.hostname} · {sv.ip}
@@ -279,13 +312,11 @@ export function AssetsView() {
                     <MiniButton accent="muted"><Pencil className="h-3 w-3" />수정</MiniButton>
                     <MiniButton
                       accent="success"
-                      onClick={() =>
-                        toast({
-                          tone: "info",
-                          title: "자산 정보 수집 시작",
-                          description: `${a.name} (${a.server}) 최신 버전/패치 상태를 수집합니다.`,
-                        })
-                      }
+                      onClick={() => toast({
+                        tone: "info",
+                        title: "자산 정보 수집 시작",
+                        description: `${a.name} (${a.server}) 최신 버전/패치 상태를 수집합니다.`,
+                      })}
                     >
                       <RefreshCw className="h-3 w-3" />수집
                     </MiniButton>
