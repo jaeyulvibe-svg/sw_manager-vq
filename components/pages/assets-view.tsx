@@ -247,7 +247,7 @@ export function AssetsView() {
               <SortTh col="vendor"     label="벤더"                 {...stProps} />
               <SortTh col="category"   label="분류"                 {...stProps} />
               <SortTh col="version"    label="현재 버전"            {...stProps} />
-              <SortTh col="server"     label="설치 서버 / Host / IP" {...stProps} />
+              <SortTh col="server"     label="설치 서버"            {...stProps} />
               <SortTh col="owner"      label="담당자"               {...stProps} />
               <SortTh col="vuln"       label="취약점"               {...stProps} />
               <SortTh col="patch"      label="패치 상태"            {...stProps} />
@@ -268,15 +268,14 @@ export function AssetsView() {
                 <Td>
                   {(() => {
                     const sv = servers.find((s) => s.name === a.server)
+                    const tip = sv ? `${sv.hostname}  ·  ${sv.ip}` : ""
                     return (
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-xs font-medium text-foreground">{a.server}</span>
-                        {sv && (
-                          <span className="font-mono text-[11px] text-muted-foreground">
-                            {sv.hostname} · {sv.ip}
-                          </span>
-                        )}
-                      </div>
+                      <span
+                        title={tip}
+                        className="cursor-default underline decoration-dotted decoration-muted-foreground/40 underline-offset-2"
+                      >
+                        {a.server}
+                      </span>
                     )
                   })()}
                 </Td>
