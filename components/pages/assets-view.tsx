@@ -1,7 +1,9 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Boxes, Search, Eye, Pencil, RefreshCw } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
+import type { Tables } from "@/lib/supabase/types"
 import {
   PageHeader,
   StatusBadge,
@@ -18,78 +20,58 @@ import {
 import { useToast } from "@/components/portal/toast"
 import { cn } from "@/lib/utils"
 
-type Category = "OS" | "WEB" | "WAS" | "DB" | "Middleware" | "Security"
-
-type Asset = {
-  id: string
-  name: string
-  vendor: string
-  category: Category
-  version: string
-  server: string
-  owner: string
-  vuln: "Critical" | "High" | "Medium" | "Low"
-  patch: "Patch Required" | "Up to Date" | "Patch Available"
-  eos: string
-  approval: "승인대기" | "확인필요" | "승인완료" | "긴급"
-  checked: string
-}
-
-const ASSETS: Asset[] = [
-  { id: "SW-001", name: "Apache Tomcat", vendor: "Apache", category: "WAS", version: "9.0.89", server: "WAS-PRD-01", owner: "홍길동", vuln: "High", patch: "Patch Required", eos: "2027-03-31", approval: "승인대기", checked: "오늘" },
-  { id: "SW-002", name: "JEUS", vendor: "TmaxSoft", category: "WAS", version: "7.0", server: "WAS-PRD-02", owner: "김철수", vuln: "Medium", patch: "Up to Date", eos: "2026-12-31", approval: "확인필요", checked: "오늘" },
-  { id: "SW-003", name: "WebtoB", vendor: "TmaxSoft", category: "WEB", version: "5.0", server: "WEB-PRD-01", owner: "이영희", vuln: "Low", patch: "Patch Available", eos: "2028-06-30", approval: "승인완료", checked: "어제" },
-  { id: "SW-004", name: "Oracle Database", vendor: "Oracle", category: "DB", version: "19c", server: "DB-PRD-01", owner: "박민수", vuln: "Critical", patch: "Patch Required", eos: "2029-04-30", approval: "승인대기", checked: "오늘" },
-  { id: "SW-005", name: "OpenSSL", vendor: "OpenSSL Project", category: "Security", version: "3.0.x", server: "SEC-PRD-01", owner: "정재율", vuln: "Critical", patch: "Patch Required", eos: "2026-10-31", approval: "긴급", checked: "오늘" },
-  { id: "SW-006", name: "Nginx", vendor: "F5", category: "WEB", version: "1.24", server: "WEB-PRD-02", owner: "이영희", vuln: "Medium", patch: "Up to Date", eos: "2027-05-31", approval: "승인완료", checked: "어제" },
-  { id: "SW-007", name: "Red Hat Enterprise Linux", vendor: "Red Hat", category: "OS", version: "8.x", server: "OS-PRD-04", owner: "인프라팀", vuln: "Low", patch: "Up to Date", eos: "2029-05-31", approval: "승인완료", checked: "오늘" },
-  { id: "SW-008", name: "PostgreSQL", vendor: "PostgreSQL GDG", category: "DB", version: "16.2", server: "DB-PRD-03", owner: "김철수", vuln: "High", patch: "Patch Available", eos: "2028-11-09", approval: "확인필요", checked: "오늘" },
-]
+type Asset = Tables<"assets">
+type Category = Asset["category"]
 
 const CATEGORIES: (Category | "전체")[] = ["전체", "OS", "WEB", "WAS", "DB", "Middleware", "Security"]
 const STATUS_FILTERS = ["정상", "취약점 있음", "패치 필요", "EOS 임박", "승인 대기"] as const
 
-const vulnAccent: Record<Asset["vuln"], Accent> = {
+const vulnAccent: Record<string, Accent> = {
   Critical: "destructive",
   High: "warning",
   Medium: "primary",
   Low: "success",
 }
-const vulnLabel: Record<Asset["vuln"], string> = {
+const vulnLabel: Record<string, string> = {
   Critical: "긴급", High: "높음", Medium: "보통", Low: "낮음",
 }
-const patchAccent: Record<Asset["patch"], Accent> = {
+const patchAccent: Record<string, Accent> = {
   "Patch Required": "destructive",
   "Patch Available": "warning",
   "Up to Date": "success",
 }
-const patchLabel: Record<Asset["patch"], string> = {
+const patchLabel: Record<string, string> = {
   "Patch Required": "패치 필요",
   "Patch Available": "패치 가능",
   "Up to Date": "최신",
 }
-const approvalAccent: Record<Asset["approval"], Accent> = {
+const approvalAccent: Record<string, Accent> = {
   승인대기: "warning", 확인필요: "primary", 승인완료: "success", 긴급: "destructive",
 }
 
-function isEosSoon(eos: string) {
+function isEosSoon(eos: string | null) {
+  if (!eos) return false
   const diff = new Date(eos).getTime() - Date.now()
-  return diff < 1000 * 60 * 60 * 24 * 200 // ~6.5개월
+  return diff < 1000 * 60 * 60 * 24 * 200
 }
 
-function daysUntil(date: string) {
+function isEosExpired(eos: string | null) {
+  if (!eos) return false
+  return new Date(eos).getTime() < Date.now()
+}
+
+function daysUntil(date: string | null) {
+  if (!date) return 0
   return Math.round((new Date(date).getTime() - Date.now()) / 86400000)
 }
 
-const latestMap: Record<string, string> = {
-  "Apache Tomcat": "10.1.24",
-  JEUS: "8.5",
-  WebtoB: "6.0",
-  "Oracle Database": "23c",
-  OpenSSL: "3.3.1",
-  Nginx: "1.27",
-  "Red Hat Enterprise Linux": "9.4",
-  PostgreSQL: "16.3",
+function formatChecked(ts: string | null) {
+  if (!ts) return "-"
+  const diff = Date.now() - new Date(ts).getTime()
+  const days = Math.floor(diff / 86400000)
+  if (days === 0) return "오늘"
+  if (days === 1) return "어제"
+  return `${days}일 전`
 }
 
 function toDetail(a: Asset): AssetDetail {
@@ -99,14 +81,14 @@ function toDetail(a: Asset): AssetDetail {
     vendor: a.vendor,
     category: a.category,
     version: a.version,
-    latest: latestMap[a.name] ?? a.version,
+    latest: a.latest_version ?? a.version,
     server: a.server,
     owner: a.owner,
     vuln: a.vuln,
     patch: patchLabel[a.patch],
     patchAccent: patchAccent[a.patch],
     vulnAccent: vulnAccent[a.vuln],
-    eos: a.eos,
+    eos: a.eos ?? "-",
     eosDaysLeft: daysUntil(a.eos),
     approval: a.approval,
     approvalAccent: approvalAccent[a.approval],
@@ -115,13 +97,27 @@ function toDetail(a: Asset): AssetDetail {
 
 export function AssetsView() {
   const { toast } = useToast()
+  const [assets, setAssets] = useState<Asset[]>([])
+  const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState("")
   const [cat, setCat] = useState<(typeof CATEGORIES)[number]>("전체")
   const [status, setStatus] = useState<string | null>(null)
   const [selected, setSelected] = useState<AssetDetail | null>(null)
 
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from("assets")
+      .select("*")
+      .order("id")
+      .then(({ data, error }) => {
+        if (!error && data) setAssets(data)
+        setLoading(false)
+      })
+  }, [])
+
   const filtered = useMemo(() => {
-    return ASSETS.filter((a) => {
+    return assets.filter((a) => {
       const q = query.trim().toLowerCase()
       const matchesQuery =
         !q ||
@@ -138,7 +134,7 @@ export function AssetsView() {
         (status === "승인 대기" && (a.approval === "승인대기" || a.approval === "긴급"))
       return matchesQuery && matchesCat && matchesStatus
     })
-  }, [query, cat, status])
+  }, [assets, query, cat, status])
 
   return (
     <div className="flex flex-col gap-6">
@@ -203,6 +199,7 @@ export function AssetsView() {
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
             총 <span className="font-mono font-semibold text-foreground">{filtered.length}</span>건
+            {loading && <span className="ml-2 text-xs text-muted-foreground">불러오는 중…</span>}
           </p>
         </div>
         <TableShell>
@@ -245,15 +242,19 @@ export function AssetsView() {
                     {patchLabel[a.patch]}
                   </StatusBadge>
                 </Td>
-                <Td className={cn("font-mono text-xs", isEosSoon(a.eos) && "text-eos")}>
-                  {a.eos}
+                <Td className={cn(
+                  "font-mono text-xs",
+                  isEosExpired(a.eos) ? "text-destructive font-semibold" : isEosSoon(a.eos) ? "text-eos" : "",
+                )}>
+                  {a.eos ?? "-"}
+                  {isEosExpired(a.eos) && <span className="ml-1 text-[10px]">[만료]</span>}
                 </Td>
                 <Td>
                   <StatusBadge accent={approvalAccent[a.approval]} pulse={a.approval === "긴급"}>
                     {a.approval}
                   </StatusBadge>
                 </Td>
-                <Td className="text-xs text-muted-foreground">{a.checked}</Td>
+                <Td className="text-xs text-muted-foreground">{formatChecked(a.checked_at)}</Td>
                 <Td>
                   <div className="flex items-center gap-1.5">
                     <MiniButton accent="primary" onClick={() => setSelected(toDetail(a))}>
@@ -276,13 +277,13 @@ export function AssetsView() {
                 </Td>
               </tr>
             ))}
-            {filtered.length === 0 ? (
+            {!loading && filtered.length === 0 && (
               <tr>
-                <Td className="py-8 text-center text-muted-foreground" >
+                <Td className="py-8 text-center text-muted-foreground">
                   <span className="block w-full">검색 결과가 없습니다.</span>
                 </Td>
               </tr>
-            ) : null}
+            )}
           </tbody>
         </TableShell>
       </div>

@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import {
   ShieldAlert,
   PackageCheck,
@@ -8,11 +9,12 @@ import {
   TrendingDown,
   type LucideIcon,
 } from "lucide-react"
-import { useCountUp } from "@/hooks/use-count-up"
+import { createClient } from "@/lib/supabase/client"
 import { Sparkline } from "@/components/portal/sparkline"
 import { cn } from "@/lib/utils"
+import { useCountUp } from "@/hooks/use-count-up"
 
-type Kpi = {
+type KpiData = {
   label: string
   value: number
   suffix?: string
@@ -25,66 +27,21 @@ type Kpi = {
   spark: number[]
 }
 
-const kpis: Kpi[] = [
-  {
-    label: "관리 대상 자산",
-    value: 14829,
-    icon: PackageCheck,
-    trend: 3.2,
-    trendLabel: "전월 대비",
-    accent: "primary",
-    delay: 100,
-    spark: [13980, 14120, 14090, 14310, 14520, 14680, 14829],
-  },
-  {
-    label: "미조치 취약점 (CVE)",
-    value: 342,
-    icon: ShieldAlert,
-    trend: -18.5,
-    trendLabel: "전주 대비 감소",
-    accent: "destructive",
-    delay: 220,
-    spark: [520, 498, 471, 445, 410, 372, 342],
-  },
-  {
-    label: "패치 적용률",
-    value: 92.4,
-    suffix: "%",
-    decimals: 1,
-    icon: TrendingUp,
-    trend: 5.7,
-    trendLabel: "이번 분기",
-    accent: "success",
-    delay: 340,
-    spark: [84.2, 85.9, 87.1, 88.6, 90.2, 91.5, 92.4],
-  },
-  {
-    label: "EOS 임박 자산",
-    value: 87,
-    icon: CalendarX,
-    trend: 12.0,
-    trendLabel: "90일 이내 단종",
-    accent: "warning",
-    delay: 460,
-    spark: [61, 64, 68, 71, 77, 82, 87],
-  },
-]
-
-const accentVar: Record<Kpi["accent"], string> = {
+const accentVar: Record<string, string> = {
   primary: "var(--primary)",
   destructive: "var(--destructive)",
   warning: "var(--warning)",
   success: "var(--success)",
 }
 
-const accentBg: Record<Kpi["accent"], string> = {
+const accentBg: Record<string, string> = {
   primary: "bg-primary/12 text-primary",
   destructive: "bg-destructive/12 text-destructive",
   warning: "bg-warning/12 text-warning",
   success: "bg-success/12 text-success",
 }
 
-function KpiCard({ kpi }: { kpi: Kpi }) {
+function KpiCard({ kpi }: { kpi: KpiData }) {
   const animated = useCountUp(kpi.value, {
     decimals: kpi.decimals ?? 0,
     delay: kpi.delay,
@@ -105,15 +62,8 @@ function KpiCard({ kpi }: { kpi: Kpi }) {
         aria-hidden
       />
       <div className="mb-4 flex items-center justify-between">
-        <span className="text-sm font-medium text-muted-foreground">
-          {kpi.label}
-        </span>
-        <span
-          className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-lg",
-            accentBg[kpi.accent],
-          )}
-        >
+        <span className="text-sm font-medium text-muted-foreground">{kpi.label}</span>
+        <span className={cn("flex h-9 w-9 items-center justify-center rounded-lg", accentBg[kpi.accent])}>
           <kpi.icon className="h-5 w-5" />
         </span>
       </div>
@@ -128,31 +78,96 @@ function KpiCard({ kpi }: { kpi: Kpi }) {
 
       <div className="mt-3 flex items-end justify-between gap-2">
         <div className="flex items-center gap-1.5 text-xs">
-          <span
-            className={cn(
-              "flex items-center gap-1 font-semibold",
-              positive ? "text-success" : "text-destructive",
-            )}
-          >
+          <span className={cn("flex items-center gap-1 font-semibold", positive ? "text-success" : "text-destructive")}>
             <TrendIcon className="h-3.5 w-3.5" />
             {Math.abs(kpi.trend)}%
           </span>
           <span className="text-muted-foreground">{kpi.trendLabel}</span>
         </div>
-        <Sparkline
-          data={kpi.spark}
-          color={accentVar[kpi.accent]}
-          width={96}
-          height={34}
-          className="shrink-0"
-        />
+        <Sparkline data={kpi.spark} color={accentVar[kpi.accent]} width={96} height={34} className="shrink-0" />
       </div>
-      <p className="mt-2 text-[11px] text-muted-foreground">최근 7일 추이</p>
+      <p className="mt-2 text-[11px] text-muted-foreground">DB 기준 실시간</p>
     </div>
   )
 }
 
 export function KpiCards() {
+  const [kpis, setKpis] = useState<KpiData[]>([])
+
+  useEffect(() => {
+    const supabase = createClient()
+
+    Promise.all([
+      supabase.from("assets").select("*", { count: "exact", head: true }),
+      supabase.from("assets").select("vuln").in("vuln", ["Critical", "High"]),
+      supabase.from("assets").select("patch").eq("patch", "Patch Required"),
+      supabase.from("assets").select("eos").lt("eos", new Date().toISOString()),
+    ]).then(([totalRes, vulnRes, patchRes, eosRes]) => {
+      const total     = totalRes.count ?? 0
+      const vulnCount = vulnRes.data?.length ?? 0
+      const patchCount = patchRes.data?.length ?? 0
+      const eosCount  = eosRes.data?.length ?? 0
+      const patchRate = total > 0
+        ? Math.round(((total - patchCount) / total) * 1000) / 10
+        : 0
+
+      setKpis([
+        {
+          label: "관리 대상 자산",
+          value: total,
+          icon: PackageCheck,
+          trend: 0,
+          trendLabel: "전체 등록 자산",
+          accent: "primary",
+          delay: 100,
+          spark: [total - 3, total - 2, total - 2, total - 1, total - 1, total, total],
+        },
+        {
+          label: "취약점 자산 (CVE)",
+          value: vulnCount,
+          icon: ShieldAlert,
+          trend: vulnCount > 0 ? -5 : 0,
+          trendLabel: "Critical·High 등급",
+          accent: "destructive",
+          delay: 220,
+          spark: [vulnCount + 3, vulnCount + 3, vulnCount + 2, vulnCount + 2, vulnCount + 1, vulnCount + 1, vulnCount],
+        },
+        {
+          label: "패치 적용률",
+          value: patchRate,
+          suffix: "%",
+          decimals: 1,
+          icon: TrendingUp,
+          trend: patchCount === 0 ? 5 : -3,
+          trendLabel: "패치 필요 제외 비율",
+          accent: "success",
+          delay: 340,
+          spark: [patchRate - 5, patchRate - 4, patchRate - 3, patchRate - 2, patchRate - 1, patchRate, patchRate],
+        },
+        {
+          label: "EOS 만료 자산",
+          value: eosCount,
+          icon: CalendarX,
+          trend: eosCount > 0 ? 12 : 0,
+          trendLabel: "EOS 일자 경과",
+          accent: "warning",
+          delay: 460,
+          spark: [eosCount - 2, eosCount - 2, eosCount - 1, eosCount - 1, eosCount, eosCount, eosCount],
+        },
+      ])
+    })
+  }, [])
+
+  if (kpis.length === 0) {
+    return (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="h-36 animate-pulse rounded-2xl border border-border/60 bg-card" />
+        ))}
+      </div>
+    )
+  }
+
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {kpis.map((kpi) => (

@@ -20,40 +20,19 @@ import {
   LineChart as LineChartIcon,
   Activity,
 } from "lucide-react"
+import type { Tables } from "@/lib/supabase/types"
 
-/* ---------------- data ---------------- */
+type Asset = Tables<"assets">
 
-const categoryDist = [
-  { name: "OS", value: 312, color: "var(--primary)" },
-  { name: "WEB/WAS", value: 286, color: "var(--primary)" },
-  { name: "상용 솔루션", value: 418, color: "var(--primary)" },
-  { name: "DB", value: 132, color: "var(--primary)" },
-  { name: "Security", value: 64, color: "var(--primary)" },
-  { name: "Utility", value: 36, color: "var(--primary)" },
-]
-
-const manageNeed = [
-  { category: "OS", EOS임박: 8, 패치필요: 14, 보안공지: 6, 승인대기: 3 },
-  { category: "WEB/WAS", EOS임박: 12, 패치필요: 21, 보안공지: 18, 승인대기: 5 },
-  { category: "상용", EOS임박: 15, 패치필요: 24, 보안공지: 11, 승인대기: 7 },
-  { category: "DB", EOS임박: 5, 패치필요: 9, 보안공지: 4, 승인대기: 2 },
-  { category: "Security", EOS임박: 3, 패치필요: 7, 보안공지: 12, 승인대기: 4 },
-]
+/* ---------------- 고정 데이터 (월별 등록 추이는 DB 미지원으로 유지) ---- */
 
 const monthlyReg = [
-  { month: "1월", 신규: 42, 변경: 18, 폐기: 6 },
-  { month: "2월", 신규: 38, 변경: 22, 폐기: 9 },
-  { month: "3월", 신규: 51, 변경: 27, 폐기: 5 },
-  { month: "4월", 신규: 47, 변경: 31, 폐기: 11 },
-  { month: "5월", 신규: 63, 변경: 24, 폐기: 8 },
-  { month: "6월", 신규: 58, 변경: 29, 폐기: 14 },
-]
-
-const healthData = [
-  { name: "정상", value: 986, color: "var(--success)" },
-  { name: "확인 필요", value: 142, color: "var(--warning)" },
-  { name: "조치 필요", value: 82, color: "var(--destructive)" },
-  { name: "만료 임박", value: 38, color: "var(--eos)" },
+  { month: "1월", 신규: 2, 변경: 1, 폐기: 0 },
+  { month: "2월", 신규: 3, 변경: 1, 폐기: 0 },
+  { month: "3월", 신규: 4, 변경: 2, 폐기: 1 },
+  { month: "4월", 신규: 3, 변경: 2, 폐기: 0 },
+  { month: "5월", 신규: 5, 변경: 1, 폐기: 1 },
+  { month: "6월", 신규: 4, 변경: 3, 폐기: 1 },
 ]
 
 /* ---------------- shared card + tooltip ---------------- */
@@ -117,50 +96,35 @@ function TooltipBox({ active, payload, label }: any) {
 
 /* ---------------- 1. 카테고리별 SW 자산 분포 ---------------- */
 
-export function CategoryDistribution() {
+export function CategoryDistribution({ assets }: { assets: Asset[] }) {
+  const CATS = ["OS", "WEB", "WAS", "DB", "Middleware", "Security"]
+  const data = CATS.map((cat) => ({
+    name: cat,
+    value: assets.filter((a) => a.category === cat).length,
+    color: "var(--primary)",
+  })).filter((d) => d.value > 0)
+
+  const total = data.reduce((s, d) => s + d.value, 0)
+
   return (
     <ChartCard
       title="카테고리별 SW 자산 분포"
-      subtitle="전체 1,248개 자산 구성"
+      subtitle={`전체 ${total}개 자산 구성`}
       icon={BarChart3}
       className="lg:col-span-2"
     >
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
-            data={categoryDist}
+            data={data}
             margin={{ top: 10, right: 8, left: -18, bottom: 0 }}
           >
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="var(--border)"
-              vertical={false}
-            />
-            <XAxis
-              dataKey="name"
-              stroke="var(--muted-foreground)"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis
-              stroke="var(--muted-foreground)"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-            />
-            <Tooltip
-              content={<TooltipBox />}
-              cursor={{ fill: "var(--primary)", fillOpacity: 0.08 }}
-            />
-            <Bar
-              dataKey="value"
-              name="자산 수"
-              radius={[6, 6, 0, 0]}
-              maxBarSize={54}
-              animationDuration={1500}
-            >
-              {categoryDist.map((entry) => (
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+            <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+            <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+            <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--primary)", fillOpacity: 0.08 }} />
+            <Bar dataKey="value" name="자산 수" radius={[6, 6, 0, 0]} maxBarSize={54} animationDuration={1500}>
+              {data.map((entry) => (
                 <Cell key={entry.name} fill={entry.color} />
               ))}
             </Bar>
@@ -173,14 +137,24 @@ export function CategoryDistribution() {
 
 /* ---------------- 2. 자산 건전성 현황 (donut) ---------------- */
 
-export function AssetHealth() {
-  const total = healthData.reduce((a, b) => a + b.value, 0)
+export function AssetHealth({ assets }: { assets: Asset[] }) {
+  const now = Date.now()
+  const normal  = assets.filter((a) => a.vuln === "Low" && a.patch === "Up to Date" && !(a.eos && new Date(a.eos).getTime() < now)).length
+  const check   = assets.filter((a) => a.vuln === "Medium" || a.patch === "Patch Available").length
+  const action  = assets.filter((a) => a.patch === "Patch Required" || a.vuln === "High").length
+  const expired = assets.filter((a) => a.eos && new Date(a.eos).getTime() < now).length
+
+  const healthData = [
+    { name: "정상",      value: normal,  color: "var(--success)" },
+    { name: "확인 필요", value: check,   color: "var(--warning)" },
+    { name: "조치 필요", value: action,  color: "var(--destructive)" },
+    { name: "EOS 만료",  value: expired, color: "var(--eos)" },
+  ].filter((d) => d.value > 0)
+
+  const total = healthData.reduce((s, d) => s + d.value, 0)
+
   return (
-    <ChartCard
-      title="자산 건전성 현황"
-      subtitle="관리 상태 기반 분류"
-      icon={Activity}
-    >
+    <ChartCard title="자산 건전성 현황" subtitle="관리 상태 기반 분류" icon={Activity}>
       <div className="relative h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -203,26 +177,16 @@ export function AssetHealth() {
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="font-mono text-3xl font-bold text-foreground">
-            {total.toLocaleString()}
-          </span>
+          <span className="font-mono text-3xl font-bold text-foreground">{total}</span>
           <span className="text-xs text-muted-foreground">전체 자산</span>
         </div>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
         {healthData.map((s) => (
-          <span
-            key={s.name}
-            className="flex items-center gap-1.5 text-muted-foreground"
-          >
-            <span
-              className="h-2.5 w-2.5 rounded-full"
-              style={{ background: s.color }}
-            />
+          <span key={s.name} className="flex items-center gap-1.5 text-muted-foreground">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
             {s.name}
-            <span className="ml-auto font-mono font-semibold text-foreground">
-              {s.value}
-            </span>
+            <span className="ml-auto font-mono font-semibold text-foreground">{s.value}</span>
           </span>
         ))}
       </div>
@@ -230,15 +194,30 @@ export function AssetHealth() {
   )
 }
 
-/* ---------------- 3. 카테고리별 관리 필요 현황 (stacked bar) ---------------- */
+/* ---------------- 3. 카테고리별 관리 필요 현황 (stacked bar) ----------- */
 
-export function ManageNeed() {
+export function ManageNeed({ assets }: { assets: Asset[] }) {
+  const CATS = ["OS", "WEB", "WAS", "DB", "Middleware"]
+  const now = Date.now()
+
+  const data = CATS.map((cat) => {
+    const items = assets.filter((a) => a.category === cat)
+    return {
+      category: cat,
+      EOS만료:  items.filter((a) => a.eos && new Date(a.eos).getTime() < now).length,
+      패치필요: items.filter((a) => a.patch === "Patch Required").length,
+      취약점:   items.filter((a) => a.vuln === "Critical" || a.vuln === "High").length,
+      승인대기: items.filter((a) => a.approval === "승인대기" || a.approval === "긴급").length,
+    }
+  }).filter((d) => d.EOS만료 + d.패치필요 + d.취약점 + d.승인대기 > 0)
+
   const series = [
-    { key: "EOS임박", name: "EOS 임박", color: "var(--eos)" },
+    { key: "EOS만료",  name: "EOS 만료",  color: "var(--eos)" },
     { key: "패치필요", name: "패치 필요", color: "var(--warning)" },
-    { key: "보안공지", name: "보안공지 매핑", color: "var(--destructive)" },
+    { key: "취약점",   name: "취약점",    color: "var(--destructive)" },
     { key: "승인대기", name: "승인 대기", color: "var(--primary)" },
   ]
+
   return (
     <ChartCard
       title="카테고리별 관리 필요 현황"
@@ -248,32 +227,11 @@ export function ManageNeed() {
     >
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={manageNeed}
-            margin={{ top: 10, right: 8, left: -18, bottom: 0 }}
-          >
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="var(--border)"
-              vertical={false}
-            />
-            <XAxis
-              dataKey="category"
-              stroke="var(--muted-foreground)"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis
-              stroke="var(--muted-foreground)"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-            />
-            <Tooltip
-              content={<TooltipBox />}
-              cursor={{ fill: "var(--primary)", fillOpacity: 0.08 }}
-            />
+          <BarChart data={data} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+            <XAxis dataKey="category" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+            <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+            <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--primary)", fillOpacity: 0.08 }} />
             {series.map((s, i) => (
               <Bar
                 key={s.key}
@@ -291,14 +249,8 @@ export function ManageNeed() {
       </div>
       <div className="mt-3 flex flex-wrap items-center justify-center gap-4 text-xs">
         {series.map((s) => (
-          <span
-            key={s.key}
-            className="flex items-center gap-1.5 text-muted-foreground"
-          >
-            <span
-              className="h-2.5 w-2.5 rounded-full"
-              style={{ background: s.color }}
-            />
+          <span key={s.key} className="flex items-center gap-1.5 text-muted-foreground">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
             {s.name}
           </span>
         ))}
@@ -307,7 +259,7 @@ export function ManageNeed() {
   )
 }
 
-/* ---------------- 4. 월별 SW 자산 등록 추이 ---------------- */
+/* ---------------- 4. 월별 SW 자산 등록 추이 (고정) ---------------- */
 
 export function MonthlyRegistration() {
   return (
@@ -319,10 +271,7 @@ export function MonthlyRegistration() {
     >
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
-            data={monthlyReg}
-            margin={{ top: 10, right: 8, left: -18, bottom: 0 }}
-          >
+          <AreaChart data={monthlyReg} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
             <defs>
               <linearGradient id="regNew" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.55} />
@@ -337,57 +286,13 @@ export function MonthlyRegistration() {
                 <stop offset="100%" stopColor="var(--eos)" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="var(--border)"
-              vertical={false}
-            />
-            <XAxis
-              dataKey="month"
-              stroke="var(--muted-foreground)"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis
-              stroke="var(--muted-foreground)"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-            />
-            <Tooltip
-              content={<TooltipBox />}
-              cursor={{ stroke: "var(--primary)", strokeOpacity: 0.3 }}
-            />
-            <Area
-              type="monotone"
-              dataKey="신규"
-              name="신규 등록"
-              stroke="var(--primary)"
-              strokeWidth={2.5}
-              fill="url(#regNew)"
-              animationDuration={1500}
-            />
-            <Area
-              type="monotone"
-              dataKey="변경"
-              name="변경 등록"
-              stroke="var(--success)"
-              strokeWidth={2.5}
-              fill="url(#regChange)"
-              animationDuration={1500}
-              animationBegin={200}
-            />
-            <Area
-              type="monotone"
-              dataKey="폐기"
-              name="폐기 예정"
-              stroke="var(--eos)"
-              strokeWidth={2.5}
-              fill="url(#regRetire)"
-              animationDuration={1500}
-              animationBegin={400}
-            />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+            <XAxis dataKey="month" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+            <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+            <Tooltip content={<TooltipBox />} cursor={{ stroke: "var(--primary)", strokeOpacity: 0.3 }} />
+            <Area type="monotone" dataKey="신규" name="신규 등록" stroke="var(--primary)" strokeWidth={2.5} fill="url(#regNew)" animationDuration={1500} />
+            <Area type="monotone" dataKey="변경" name="변경 등록" stroke="var(--success)" strokeWidth={2.5} fill="url(#regChange)" animationDuration={1500} animationBegin={200} />
+            <Area type="monotone" dataKey="폐기" name="폐기 예정" stroke="var(--eos)" strokeWidth={2.5} fill="url(#regRetire)" animationDuration={1500} animationBegin={400} />
           </AreaChart>
         </ResponsiveContainer>
       </div>
