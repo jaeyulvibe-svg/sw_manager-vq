@@ -60,6 +60,7 @@ export type Database = {
           checked_at?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
       servers: {
         Row: {
@@ -93,6 +94,7 @@ export type Database = {
           location?: string
           status?: "Running" | "Stopped" | "Maintenance"
         }
+        Relationships: []
       }
       vulnerabilities: {
         Row: {
@@ -132,6 +134,7 @@ export type Database = {
           approval?: "승인대기" | "검토중" | "승인완료" | "반려"
           collected_at?: string
         }
+        Relationships: []
       }
       asset_requests: {
         Row: {
@@ -180,6 +183,7 @@ export type Database = {
           urgency?: "일반" | "긴급"
           updated_at?: string
         }
+        Relationships: []
       }
       notifications: {
         Row: {
@@ -214,6 +218,7 @@ export type Database = {
           read?: boolean
           status?: "확인필요" | "승인대기" | "검토중" | "완료" | "긴급"
         }
+        Relationships: []
       }
       notices: {
         Row: {
@@ -241,6 +246,7 @@ export type Database = {
           status?: "일반" | "중요" | "긴급"
           views?: number
         }
+        Relationships: []
       }
     }
     Views: Record<string, never>

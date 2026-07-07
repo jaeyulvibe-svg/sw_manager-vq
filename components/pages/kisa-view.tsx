@@ -1,13 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   ShieldAlert,
   ExternalLink,
   Link2,
   Check,
   X,
-  BellRing,
   BellDot,
   Server,
   ArrowRight,
@@ -20,75 +19,18 @@ import {
   type Accent,
 } from "@/components/portal/ui"
 import { useRole } from "@/components/portal/role-context"
+import { useNotifications } from "@/components/portal/notifications-context"
+import { useToast } from "@/components/portal/toast"
 import type { ViewKey } from "@/components/portal/nav"
+import { createClient } from "@/lib/supabase/client"
+import type { Tables } from "@/lib/supabase/types"
+import { matchAssets } from "@/lib/vuln-match"
 import { cn } from "@/lib/utils"
 
-type Severity = "Critical" | "High" | "Medium" | "Low"
-type Status = "승인대기" | "검토중" | "승인완료"
-
-type Notice = {
-  id: string
-  title: string
-  source: string
-  cve: string
-  severity: Severity
-  affected: string
-  collected: string
-  assets: number
-  status: Status
-  mapped: boolean
-}
-
-const notices: Notice[] = [
-  {
-    id: "N1",
-    title: "OpenSSL Critical Vulnerability Security Advisory",
-    source: "Vendor Security Advisory",
-    cve: "CVE-2026-0001",
-    severity: "Critical",
-    affected: "OpenSSL 3.0.x",
-    collected: "오늘 09:30",
-    assets: 4,
-    status: "승인대기",
-    mapped: true,
-  },
-  {
-    id: "N2",
-    title: "Apache Tomcat High Vulnerability Notice",
-    source: "KISA",
-    cve: "CVE-2026-0002",
-    severity: "High",
-    affected: "Apache Tomcat 9.0.x",
-    collected: "오늘 10:15",
-    assets: 8,
-    status: "검토중",
-    mapped: true,
-  },
-  {
-    id: "N3",
-    title: "Oracle Critical Patch Update",
-    source: "Oracle Security Advisory",
-    cve: "Multiple CVEs",
-    severity: "Critical",
-    affected: "Oracle Database 19c",
-    collected: "어제 17:40",
-    assets: 2,
-    status: "승인완료",
-    mapped: true,
-  },
-  {
-    id: "N4",
-    title: "Nginx Medium Severity Advisory",
-    source: "Release Notes",
-    cve: "CVE-2026-0044",
-    severity: "Medium",
-    affected: "Nginx 1.24",
-    collected: "어제 14:05",
-    assets: 0,
-    status: "검토중",
-    mapped: false,
-  },
-]
+type Vulnerability = Tables<"vulnerabilities">
+type Asset = Tables<"assets">
+type Severity = Vulnerability["severity"]
+type Status = Vulnerability["approval"]
 
 const FILTERS = ["전체", "Critical", "High", "Medium", "Low", "미매핑", "승인대기"] as const
 
@@ -96,22 +38,123 @@ const sevAccent: Record<Severity, Accent> = {
   Critical: "destructive", High: "warning", Medium: "primary", Low: "success",
 }
 const statusAccent: Record<Status, Accent> = {
-  승인대기: "warning", 검토중: "primary", 승인완료: "success",
+  승인대기: "warning", 검토중: "primary", 승인완료: "success", 반려: "muted",
+}
+
+function formatCollected(iso: string) {
+  const d = new Date(iso)
+  const diffDays = Math.floor((Date.now() - d.getTime()) / 86400000)
+  const time = d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
+  if (diffDays === 0) return `오늘 ${time}`
+  if (diffDays === 1) return `어제 ${time}`
+  return `${d.toLocaleDateString("ko-KR", { month: "long", day: "numeric" })} ${time}`
+}
+
+function toUrl(sourceUrl: string) {
+  return /^https?:\/\//.test(sourceUrl) ? sourceUrl : `https://${sourceUrl}`
 }
 
 export function KisaView({ onNavigate }: { onNavigate?: (view: ViewKey) => void }) {
   const { isAdmin } = useRole()
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("전체")
-  const [selectedId, setSelectedId] = useState<string>("N1")
+  const { toast } = useToast()
+  const { refresh: refreshNotifications } = useNotifications()
 
-  const filtered = notices.filter((n) => {
+  const [vulns, setVulns] = useState<Vulnerability[]>([])
+  const [assets, setAssets] = useState<Asset[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("전체")
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const supabase = createClient()
+    Promise.all([
+      supabase.from("vulnerabilities").select("*").order("collected_at", { ascending: false }),
+      supabase.from("assets").select("*"),
+    ]).then(([vulnRes, assetRes]) => {
+      if (vulnRes.data) {
+        setVulns(vulnRes.data)
+        setSelectedId((cur) => cur ?? vulnRes.data[0]?.id ?? null)
+      }
+      if (assetRes.data) setAssets(assetRes.data)
+      setLoading(false)
+    })
+  }, [])
+
+  // 공지의 product 문자열과 실제 보유 자산명을 매칭 (실시간 계산, mapped_assets 컬럼은 신뢰하지 않음)
+  const matchMap = useMemo(() => {
+    const map = new Map<string, Asset[]>()
+    for (const v of vulns) map.set(v.id, matchAssets(v, assets))
+    return map
+  }, [vulns, assets])
+
+  const filtered = vulns.filter((v) => {
+    const count = matchMap.get(v.id)?.length ?? 0
     if (filter === "전체") return true
-    if (filter === "미매핑") return !n.mapped
-    if (filter === "승인대기") return n.status === "승인대기"
-    return n.severity === filter
+    if (filter === "미매핑") return count === 0
+    if (filter === "승인대기") return v.approval === "승인대기"
+    return v.severity === filter
   })
 
-  const selected = notices.find((n) => n.id === selectedId) ?? notices[0]
+  const selected = vulns.find((v) => v.id === selectedId) ?? vulns[0]
+  const selectedMatches = selected ? matchMap.get(selected.id) ?? [] : []
+
+  async function handleApprove(v: Vulnerability) {
+    if (busyId) return
+    setBusyId(v.id)
+    const matched = matchMap.get(v.id) ?? []
+    const supabase = createClient()
+
+    await supabase
+      .from("vulnerabilities")
+      .update({ approval: "승인완료", mapped_assets: matched.length })
+      .eq("id", v.id)
+
+    if (matched.length > 0) {
+      const toFlag = matched.filter((a) => a.approval !== "승인완료").map((a) => a.id)
+      if (toFlag.length > 0) {
+        await supabase.from("assets").update({ approval: "확인필요" }).in("id", toFlag)
+      }
+
+      await supabase.from("notifications").insert(
+        matched.map((a) => ({
+          category: "security" as const,
+          title: `${v.title} 관련 패치 필요`,
+          description: `${a.name} (${a.server}) 자산에 ${v.cve} 관련 보안 패치 적용이 필요합니다. 확인 후 조치해주세요.`,
+          asset: `${a.name} ${a.version}`,
+          owner: a.owner,
+          status: "확인필요" as const,
+          urgent: v.severity === "Critical",
+          link_view: "patch",
+          link_label: "패치 모니터링으로 이동",
+        })),
+      )
+      refreshNotifications()
+    }
+
+    setVulns((prev) =>
+      prev.map((x) => (x.id === v.id ? { ...x, approval: "승인완료", mapped_assets: matched.length } : x)),
+    )
+    setBusyId(null)
+    toast({
+      tone: "success",
+      title: "승인 완료",
+      description:
+        matched.length > 0
+          ? `매칭된 자산 ${matched.length}대의 담당자에게 패치 권고를 전달했습니다.`
+          : "매칭된 자산이 없어 별도 알림은 발송되지 않았습니다.",
+    })
+  }
+
+  async function handleReject(v: Vulnerability) {
+    if (busyId) return
+    setBusyId(v.id)
+    const supabase = createClient()
+    await supabase.from("vulnerabilities").update({ approval: "반려" }).eq("id", v.id)
+    setVulns((prev) => prev.map((x) => (x.id === v.id ? { ...x, approval: "반려" } : x)))
+    setBusyId(null)
+    toast({ tone: "info", title: "공지 반려", description: `"${v.title}" 공지를 반려 처리했습니다.` })
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -140,131 +183,156 @@ export function KisaView({ onNavigate }: { onNavigate?: (view: ViewKey) => void 
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-        {/* Feed */}
-        <div className="flex flex-col gap-3 lg:col-span-3">
-          {filtered.map((n) => (
-            <button
-              key={n.id}
-              type="button"
-              onClick={() => setSelectedId(n.id)}
-              className={cn(
-                "group animate-rise rounded-2xl border bg-card p-4 text-left transition-all hover:-translate-y-0.5",
-                n.severity === "Critical" && n.status === "승인대기"
-                  ? "border-destructive/40 animate-soft-pulse"
-                  : "border-border/60 glow-card",
-                selectedId === n.id && "ring-2 ring-primary/50",
-              )}
-            >
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <StatusBadge accent={sevAccent[n.severity]} pulse={n.severity === "Critical"}>
-                  {n.severity}
-                </StatusBadge>
-                <span className="font-mono text-xs text-muted-foreground">{n.cve}</span>
-                {!n.mapped ? (
-                  <StatusBadge accent="muted">미매핑</StatusBadge>
-                ) : null}
-                <StatusBadge accent={statusAccent[n.status]} className="ml-auto">
-                  {n.status}
-                </StatusBadge>
-              </div>
-              <p className="text-sm font-semibold text-foreground">{n.title}</p>
-              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1"><Link2 className="h-3 w-3" />{n.source}</span>
-                <span className="flex items-center gap-1"><Server className="h-3 w-3" />영향 {n.affected}</span>
-                <span>{n.status === "승인완료" ? `매핑 확정 ${n.assets}대` : `매칭 후보 ${n.assets}대`}</span>
-                <span className="ml-auto">{n.collected}</span>
-              </div>
-            </button>
-          ))}
-        </div>
+      {!loading && vulns.length === 0 ? (
+        <SectionCard title="공지 없음" icon={ShieldAlert}>
+          <p className="text-sm text-muted-foreground">수집된 취약점 공지가 없습니다.</p>
+        </SectionCard>
+      ) : (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+          {/* Feed */}
+          <div className="flex flex-col gap-3 lg:col-span-3">
+            {loading ? (
+              <p className="text-sm text-muted-foreground">불러오는 중…</p>
+            ) : (
+              filtered.map((n) => {
+                const matchedCount = matchMap.get(n.id)?.length ?? 0
+                return (
+                  <button
+                    key={n.id}
+                    type="button"
+                    onClick={() => setSelectedId(n.id)}
+                    className={cn(
+                      "group animate-rise rounded-2xl border bg-card p-4 text-left transition-all hover:-translate-y-0.5",
+                      n.severity === "Critical" && n.approval === "승인대기"
+                        ? "border-destructive/40 animate-soft-pulse"
+                        : "border-border/60 glow-card",
+                      selectedId === n.id && "ring-2 ring-primary/50",
+                    )}
+                  >
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <StatusBadge accent={sevAccent[n.severity]} pulse={n.severity === "Critical"}>
+                        {n.severity}
+                      </StatusBadge>
+                      <span className="font-mono text-xs text-muted-foreground">{n.cve}</span>
+                      {matchedCount === 0 ? (
+                        <StatusBadge accent="muted">미매핑</StatusBadge>
+                      ) : null}
+                      <StatusBadge accent={statusAccent[n.approval]} className="ml-auto">
+                        {n.approval}
+                      </StatusBadge>
+                    </div>
+                    <p className="text-sm font-semibold text-foreground">{n.title}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1"><Link2 className="h-3 w-3" />{n.source}</span>
+                      <span className="flex items-center gap-1"><Server className="h-3 w-3" />영향 {n.product}</span>
+                      <span>{n.approval === "승인완료" ? `매핑 확정 ${matchedCount}대` : `매칭 후보 ${matchedCount}대`}</span>
+                      <span className="ml-auto">{formatCollected(n.collected_at)}</span>
+                    </div>
+                  </button>
+                )
+              })
+            )}
+          </div>
 
-        {/* Detail panel */}
-        <div className="lg:col-span-2">
-          <SectionCard title="공지 상세" subtitle={selected.cve} icon={ShieldAlert}>
-            <div className="flex flex-col gap-4">
-              <div>
-                <StatusBadge accent={sevAccent[selected.severity]} pulse={selected.severity === "Critical"}>
-                  {selected.severity}
-                </StatusBadge>
-                <h4 className="mt-2 text-sm font-bold text-foreground">{selected.title}</h4>
-              </div>
-
-              <dl className="grid grid-cols-2 gap-3 text-xs">
-                {[
-                  ["수집 Source", selected.source],
-                  ["CVE ID", selected.cve],
-                  ["영향 제품", selected.affected],
-                  ["수집 일시", selected.collected],
-                ].map(([k, v]) => (
-                  <div key={k} className="rounded-lg border border-border/60 bg-background/40 p-2.5">
-                    <dt className="text-muted-foreground">{k}</dt>
-                    <dd className="mt-0.5 font-medium text-foreground">{v}</dd>
+          {/* Detail panel */}
+          {selected ? (
+            <div className="lg:col-span-2">
+              <SectionCard title="공지 상세" subtitle={selected.cve} icon={ShieldAlert}>
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <StatusBadge accent={sevAccent[selected.severity]} pulse={selected.severity === "Critical"}>
+                      {selected.severity}
+                    </StatusBadge>
+                    <h4 className="mt-2 text-sm font-bold text-foreground">{selected.title}</h4>
                   </div>
-                ))}
-              </dl>
 
-              {/* Affected assets matching */}
-              <div className="rounded-xl border border-border/60 bg-background/40 p-3">
-                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <Server className="h-3.5 w-3.5 text-primary" />
-                  {selected.status === "승인완료"
-                    ? `매핑 확정 자산 ${selected.assets}대`
-                    : `자동 매칭 후보 ${selected.assets}대 (승인 전)`}
-                </p>
-                {selected.assets > 0 ? (
-                  <>
-                    <ul className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-                      <li className="flex items-center justify-between rounded-md bg-card px-2 py-1.5">
-                        <span className="font-mono">SEC-PRD-01</span>
-                        <span>정재율</span>
-                      </li>
-                      <li className="flex items-center justify-between rounded-md bg-card px-2 py-1.5">
-                        <span className="font-mono">WAS-PRD-01</span>
-                        <span>홍길동</span>
-                      </li>
-                    </ul>
-                    {selected.status !== "승인완료" ? (
-                      <p className="mt-2 text-[11px] text-muted-foreground">
-                        시스템이 제품명 기준으로 자동 매칭한 후보 목록입니다. 관리자가 승인해야 확정되며, 승인 전까지는 담당자에게 전파되지 않습니다.
+                  <dl className="grid grid-cols-2 gap-3 text-xs">
+                    {[
+                      ["수집 Source", selected.source],
+                      ["CVE ID", selected.cve],
+                      ["영향 제품", selected.product],
+                      ["수집 일시", formatCollected(selected.collected_at)],
+                    ].map(([k, v]) => (
+                      <div key={k} className="rounded-lg border border-border/60 bg-background/40 p-2.5">
+                        <dt className="text-muted-foreground">{k}</dt>
+                        <dd className="mt-0.5 font-medium text-foreground">{v}</dd>
+                      </div>
+                    ))}
+                  </dl>
+
+                  {/* Affected assets matching — 실제 assets 테이블과 실시간 매칭 */}
+                  <div className="rounded-xl border border-border/60 bg-background/40 p-3">
+                    <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                      <Server className="h-3.5 w-3.5 text-primary" />
+                      {selected.approval === "승인완료"
+                        ? `매핑 확정 자산 ${selectedMatches.length}대`
+                        : `자동 매칭 후보 ${selectedMatches.length}대 (승인 전)`}
+                    </p>
+                    {selectedMatches.length > 0 ? (
+                      <>
+                        <ul className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+                          {selectedMatches.map((a) => (
+                            <li key={a.id} className="flex items-center justify-between rounded-md bg-card px-2 py-1.5">
+                              <span className="font-mono">{a.id} · {a.server}</span>
+                              <span>{a.owner}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        {selected.approval !== "승인완료" ? (
+                          <p className="mt-2 text-[11px] text-muted-foreground">
+                            제품명 기준으로 자동 매칭된 실제 보유 자산입니다. 관리자가 승인해야 확정되며, 승인 전까지는 담당자에게 전달되지 않습니다.
+                          </p>
+                        ) : null}
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        현재 보유 자산 중 매칭되는 항목이 없습니다.
                       </p>
-                    ) : null}
-                  </>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    매칭된 자산이 없습니다. 자산 매핑을 실행하세요.
-                  </p>
-                )}
-              </div>
+                    )}
+                  </div>
 
-              {/* Actions — 관리자는 분석 결과 승인·전파, 담당자는 알림 수신 확인 */}
-              <div className="flex flex-wrap gap-2">
-                <MiniButton accent="primary"><ExternalLink className="h-3 w-3" />상세보기</MiniButton>
-                {isAdmin ? (
-                  <>
-                    <MiniButton accent="eos"><Link2 className="h-3 w-3" />자산 매핑</MiniButton>
-                    <MiniButton accent="success"><Check className="h-3 w-3" />승인</MiniButton>
-                    <MiniButton accent="destructive"><X className="h-3 w-3" />반려</MiniButton>
-                    <MiniButton accent="warning"><BellRing className="h-3 w-3" />사용자 알림 전파</MiniButton>
-                  </>
-                ) : (
-                  <MiniButton accent="warning"><BellDot className="h-3 w-3" />알림 수신 확인</MiniButton>
-                )}
-                {selected.status === "승인완료" && onNavigate ? (
-                  <MiniButton accent="success" onClick={() => onNavigate("patch")}>
-                    <ArrowRight className="h-3 w-3" />패치&취약점 모니터링에서 보기
-                  </MiniButton>
-                ) : null}
-              </div>
-              {!isAdmin ? (
-                <p className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-                  사용자는 관리자의 승인·전파 후 배정된 자산에 대한 알림을 확인합니다.
-                </p>
-              ) : null}
+                  {/* Actions — 관리자는 승인/반려, 담당자는 알림 수신 확인 */}
+                  <div className="flex flex-wrap gap-2">
+                    {selected.source_url ? (
+                      <MiniButton accent="primary" onClick={() => window.open(toUrl(selected.source_url!), "_blank")}>
+                        <ExternalLink className="h-3 w-3" />원문 보기
+                      </MiniButton>
+                    ) : null}
+                    {isAdmin ? (
+                      selected.approval === "승인완료" || selected.approval === "반려" ? (
+                        <StatusBadge accent={selected.approval === "승인완료" ? "success" : "muted"}>
+                          {selected.approval === "승인완료" ? "승인 완료 · 담당자 전달됨" : "반려됨"}
+                        </StatusBadge>
+                      ) : (
+                        <>
+                          <MiniButton accent="success" onClick={() => handleApprove(selected)}>
+                            <Check className="h-3 w-3" />승인 및 담당자 전달
+                          </MiniButton>
+                          <MiniButton accent="destructive" onClick={() => handleReject(selected)}>
+                            <X className="h-3 w-3" />반려
+                          </MiniButton>
+                        </>
+                      )
+                    ) : (
+                      <MiniButton accent="warning"><BellDot className="h-3 w-3" />알림 수신 확인</MiniButton>
+                    )}
+                    {selected.approval === "승인완료" && onNavigate ? (
+                      <MiniButton accent="eos" onClick={() => onNavigate("patch")}>
+                        <ArrowRight className="h-3 w-3" />패치&취약점 모니터링에서 보기
+                      </MiniButton>
+                    ) : null}
+                  </div>
+                  {!isAdmin ? (
+                    <p className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+                      사용자는 관리자의 승인 후 배정된 자산에 대한 알림을 확인합니다.
+                    </p>
+                  ) : null}
+                </div>
+              </SectionCard>
             </div>
-          </SectionCard>
+          ) : null}
         </div>
-      </div>
+      )}
     </div>
   )
 }

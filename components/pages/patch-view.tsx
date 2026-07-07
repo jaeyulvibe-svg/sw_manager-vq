@@ -30,57 +30,27 @@ import {
 import { AssetSlideover, type AssetDetail } from "@/components/portal/asset-slideover"
 import { useToast } from "@/components/portal/toast"
 import type { ViewKey } from "@/components/portal/nav"
+import { matchVulnerabilities } from "@/lib/vuln-match"
 import { cn } from "@/lib/utils"
 
 type Asset = Tables<"assets">
+type Vulnerability = Tables<"vulnerabilities">
 type Vuln = Asset["vuln"]
 type Category = Asset["category"] | "전체"
 
-/* ── 제조사 패치 권고 요약(자산명 기준) ──────────────────────
-   실제 서비스에서는 vulnerabilities 테이블/제조사 Source에서 자동 수집되지만,
-   현재는 자산명 기준 목업 권고문으로 표기합니다. */
-const ADVISORY: Record<string, { cve: string; summary: string }> = {
-  "Apache Tomcat": {
-    cve: "CVE-2026-0002",
-    summary: "요청 처리 경로 원격 코드 실행 취약점 — 10.1.24 이상으로 업그레이드 권고",
-  },
-  "JEUS": {
-    cve: "TMAX-SA-2026-04",
-    summary: "세션 관리 모듈 인증 우회 취약점 — 8.5 패치 적용 권고",
-  },
-  "WebtoB": {
-    cve: "TMAX-SA-2026-02",
-    summary: "정적 리소스 경로 조작 취약점 — 6.0 패치 적용 권고",
-  },
-  "Oracle Database": {
-    cve: "Multiple CVEs (CPU)",
-    summary: "분기 Critical Patch Update — 권한 상승 취약점 다수 포함, 23c 업그레이드 권고",
-  },
-  "OpenSSL": {
-    cve: "CVE-2026-0001",
-    summary: "원격 코드 실행 취약점 — 3.3.1 이상으로 긴급 업그레이드 필요",
-  },
-  "Nginx": {
-    cve: "CVE-2026-0003",
-    summary: "HTTP/2 요청 스머글링 취약점 — 1.27 이상 업그레이드 권고",
-  },
-  "Red Hat Enterprise Linux": {
-    cve: "RHSA-2026:1042",
-    summary: "커널 권한 상승 취약점 — 최신 마이너 버전 업데이트 권고",
-  },
-  "PostgreSQL": {
-    cve: "CVE-2026-0091",
-    summary: "권한 검증 우회 취약점 — 16.3 이상으로 패치 적용 권고",
-  },
-}
+const severityRank: Record<Vuln, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
 
-function advisoryFor(a: Asset) {
-  return (
-    ADVISORY[a.name] ?? {
-      cve: "제조사 공지 확인 필요",
-      summary: `${a.vendor} 최신 보안 패치(${a.latest_version ?? "최신 버전"}) 적용 여부 확인 필요`,
-    }
-  )
+// 자산명과 실제 매칭되는 제조사 공지(vulnerabilities)를 찾아 패치 요약을 만든다.
+// 매칭되는 공지가 없으면 제조사 최신 버전 안내로 대체.
+function advisoryFor(a: Asset, vulns: Vulnerability[]) {
+  const matches = matchVulnerabilities(a, vulns)
+  const best = [...matches].sort((x, y) => severityRank[x.severity] - severityRank[y.severity])[0]
+  if (best) return { cve: best.cve, summary: best.title, approval: best.approval }
+  return {
+    cve: "제조사 공지 확인 필요",
+    summary: `${a.vendor} 최신 보안 패치(${a.latest_version ?? "최신 버전"}) 적용 여부 확인 필요`,
+    approval: null as Vulnerability["approval"] | null,
+  }
 }
 
 const vulnAccent: Record<Vuln, Accent> = {
@@ -142,6 +112,7 @@ function toDetail(a: Asset): AssetDetail {
 export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void }) {
   const { toast } = useToast()
   const [assets, setAssets] = useState<Asset[]>([])
+  const [vulns, setVulns] = useState<Vulnerability[]>([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState("")
   const [cat, setCat] = useState<Category>("전체")
@@ -151,13 +122,14 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
 
   useEffect(() => {
     const supabase = createClient()
-    supabase
-      .from("assets")
-      .select("*")
-      .then(({ data }) => {
-        if (data) setAssets(data)
-        setLoading(false)
-      })
+    Promise.all([
+      supabase.from("assets").select("*"),
+      supabase.from("vulnerabilities").select("*"),
+    ]).then(([assetRes, vulnRes]) => {
+      if (assetRes.data) setAssets(assetRes.data)
+      if (vulnRes.data) setVulns(vulnRes.data)
+      setLoading(false)
+    })
   }, [])
 
   // 제조사 패치 권고 대상: 취약점이 있거나 패치가 필요/가능한 자산만 모니터링 대상으로 집계
@@ -177,7 +149,7 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
     return [...matched]
       .filter((a) => {
         const q = query.trim().toLowerCase()
-        const adv = advisoryFor(a)
+        const adv = advisoryFor(a, vulns)
         const matchesQuery =
           !q ||
           [a.name, a.vendor, a.owner, a.server, adv.cve].some((f) =>
@@ -193,11 +165,8 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
           (review === "처리완료" && a.approval === "승인완료")
         return matchesQuery && matchesCat && matchesSeverity && matchesReview
       })
-      .sort((a, b) => {
-        const order: Record<Vuln, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
-        return order[a.vuln] - order[b.vuln]
-      })
-  }, [matched, query, cat, severity, review])
+      .sort((a, b) => severityRank[a.vuln] - severityRank[b.vuln])
+  }, [matched, query, cat, severity, review, vulns])
 
   return (
     <div className="flex flex-col gap-6">
@@ -312,7 +281,7 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
           </thead>
           <tbody>
             {filtered.map((a) => {
-              const adv = advisoryFor(a)
+              const adv = advisoryFor(a, vulns)
               return (
                 <tr key={a.id} className="transition-colors hover:bg-accent/40">
                   <Td>

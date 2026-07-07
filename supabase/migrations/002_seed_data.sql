@@ -15,6 +15,8 @@ insert into public.assets (id, name, vendor, category, version, latest_version, 
   ('SW-008', 'PostgreSQL',             'PostgreSQL GDG',    'DB',       '16.2',    '16.3',    'DB-PRD-03',   '김철수',   'High',     'Patch Available', '2028-11-09', '확인필요', now());
 
 -- ─── 취약점 공지 ─────────────────────────────────────
+-- mapped_assets는 초기 placeholder 값이며, 앱에서 assets.name 기준으로 실시간
+-- 재계산하고 승인 시점에 실제 매칭 수로 덮어쓴다 (하드코딩된 값을 신뢰하지 않음).
 insert into public.vulnerabilities (cve, title, severity, product, source, source_url, mapped_assets, approval, collected_at) values
   ('CVE-2026-0001', 'OpenSSL 원격 코드 실행 취약점 보안공지',         'Critical', 'OpenSSL 3.0.x',       'KNVD',            'knvd.krcert.or.kr', 4, '승인대기', now() - interval '30 minutes'),
   ('CVE-2026-0002', 'Apache Tomcat 취약점 보안 업데이트 권고',        'High',     'Apache Tomcat 9.0.x', 'KrCERT',          'krcert.or.kr',      8, '검토중',   now() - interval '1 hour 15 minutes'),
@@ -34,7 +36,7 @@ insert into public.notifications (category, title, description, asset, owner, st
   ('asset',    'JEUS 7 EOS 임박',                  'JEUS 7 자산의 EOS 일정이 6개월 이내로 접근했습니다.',          'JEUS 7',                  '김철수', '확인필요', true,  false, 'eos',      'EOS 관리로 이동',       now() - interval '20 minutes'),
   ('asset',    '신규 SW 자산 등록 요청',            'Apache Tomcat 자산 등록 요청이 접수되었습니다.',               'Apache Tomcat',           '홍길동', '승인대기', false, false, 'approval', '신규 자산 요청으로 이동', now() - interval '35 minutes'),
   ('security', 'KNVD 긴급 보안공지 수집',           'Apache Tomcat 관련 High 등급 취약점 공지가 수집되었습니다.',   'Apache Tomcat 9.0.x',     '홍길동', '검토중',   true,  false, 'kisa',     '보안공지 관리로 이동',   now() - interval '1 hour'),
-  ('security', 'Oracle DB 패치 확인 필요',          'Oracle Database 19c 관련 Critical Patch Update가 수집되었습니다.', 'Oracle Database 19c', '박민수', '확인필요', false, false, 'owner',    '패치 관리로 이동',      now() - interval '2 hours'),
+  ('security', 'Oracle DB 패치 확인 필요',          'Oracle Database 19c 관련 Critical Patch Update가 수집되었습니다.', 'Oracle Database 19c', '박민수', '확인필요', false, false, 'patch',    '패치 관리로 이동',      now() - interval '2 hours'),
   ('asset',    'SW 자산 담당자 변경',               'Nginx 1.24.x 자산의 담당자가 이수민으로 변경되었습니다.',      'Nginx 1.24.x',            '이수민', '완료',     false, false, 'assets',   '자산 상세로 이동',      now() - interval '3 hours'),
   ('system',   '자동수집 스케줄러 정상 완료',        '공식 Source URL 86개에 대한 정기 수집이 완료되었습니다.',      '전체',                    '관리자', '완료',     false, false, 'admin',    '수집 로그 보기',        now() - interval '45 minutes'),
   ('system',   '자동수집 실패 알림',               'Red Hat Source URL 수집이 3회 연속 실패했습니다. 점검이 필요합니다.', 'Red Hat Enterprise Linux', '관리자', '긴급', true, true, 'admin', '수집 로그 보기',        now() - interval '7 hours');

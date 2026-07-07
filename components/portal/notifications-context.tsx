@@ -4,11 +4,14 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react"
 import { Boxes, ShieldAlert, Server, type LucideIcon } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
+import type { Tables } from "@/lib/supabase/types"
 import type { Accent } from "./ui"
 import type { ViewKey } from "./nav"
 
@@ -54,177 +57,45 @@ export const STATUS_ACCENT: Record<NotifStatus, Accent> = {
   완료: "success",
 }
 
-const SEED: Notification[] = [
-  {
-    id: "N1",
-    category: "security",
-    title: "OpenSSL 패치 공지 승인 대기",
-    description: "OpenSSL 3.0.x 관련 신규 패치 공지가 수집되었습니다.",
-    time: "5분 전",
-    order: 5,
-    asset: "OpenSSL 3.0.x",
-    owner: "정재율",
-    status: "승인대기",
-    urgent: true,
-    read: false,
-    link: { label: "승인 관리로 이동", view: "approval" },
-  },
-  {
-    id: "N2",
-    category: "asset",
-    title: "JEUS 7 EOS 임박",
-    description: "JEUS 7 자산의 EOS 일정이 6개월 이내로 접근했습니다.",
-    time: "20분 전",
-    order: 20,
-    asset: "JEUS 7",
-    owner: "김철수",
-    status: "확인필요",
-    urgent: true,
-    read: false,
-    link: { label: "EOS 관리로 이동", view: "eos" },
-  },
-  {
-    id: "N3",
-    category: "asset",
-    title: "신규 SW 자산 등록 요청",
-    description: "Apache Tomcat 자산 등록 요청이 접수되었습니다.",
-    time: "35분 전",
-    order: 35,
-    asset: "Apache Tomcat",
-    owner: "홍길동",
-    status: "승인대기",
-    read: false,
-    link: { label: "신규 자산 요청으로 이동", view: "approval" },
-  },
-  {
-    id: "N4",
-    category: "security",
-    title: "KNVD 긴급 보안공지 수집",
-    description: "Apache Tomcat 관련 High 등급 취약점 공지가 수집되었습니다.",
-    time: "1시간 전",
-    order: 60,
-    asset: "Apache Tomcat 9.0.x",
-    owner: "홍길동",
-    status: "검토중",
-    urgent: true,
-    read: false,
-    link: { label: "보안공지 관리로 이동", view: "kisa" },
-  },
-  {
-    id: "N5",
-    category: "security",
-    title: "Oracle DB 패치 확인 필요",
-    description: "Oracle Database 19c 관련 Critical Patch Update가 수집되었습니다.",
-    time: "2시간 전",
-    order: 120,
-    asset: "Oracle Database 19c",
-    owner: "박민수",
-    status: "확인필요",
-    read: false,
-    link: { label: "패치 관리로 이동", view: "patch" },
-  },
-  {
-    id: "N6",
-    category: "asset",
-    title: "SW 자산 담당자 변경",
-    description: "Nginx 1.24.x 자산의 담당자가 이수민으로 변경되었습니다.",
-    time: "3시간 전",
-    order: 180,
-    asset: "Nginx 1.24.x",
-    owner: "이수민",
-    status: "완료",
-    read: false,
-    link: { label: "자산 상세로 이동", view: "assets" },
-  },
-  {
-    id: "N7",
-    category: "asset",
-    title: "SW 자산 버전 변경 감지",
-    description: "PostgreSQL 자산 버전이 15.4에서 15.6으로 변경되었습니다.",
-    time: "5시간 전",
-    order: 300,
-    asset: "PostgreSQL 15.6",
-    owner: "박민수",
-    status: "확인필요",
-    read: true,
-    link: { label: "자산 상세로 이동", view: "assets" },
-  },
-  {
-    id: "N8",
-    category: "security",
-    title: "KISA 신규 취약점 공지 수집",
-    description: "Log4j 관련 신규 CVE 공지 3건이 수집되었습니다.",
-    time: "6시간 전",
-    order: 360,
-    asset: "Apache Log4j 2.x",
-    owner: "정재율",
-    status: "검토중",
-    read: true,
-    link: { label: "보안공지 관리로 이동", view: "kisa" },
-  },
-  {
-    id: "N9",
-    category: "system",
-    title: "자동수집 실패 알림",
-    description: "Red Hat Source URL 수집이 3회 연속 실패했습니다. 점검이 필요합니다.",
-    time: "오늘 09:15",
-    order: 420,
-    asset: "Red Hat Enterprise Linux",
-    owner: "관리자",
-    status: "긴급",
-    urgent: true,
-    read: true,
-    link: { label: "수집 로그 보기", view: "admin" },
-  },
-  {
-    id: "N10",
-    category: "asset",
-    title: "CentOS 7 EOS 도래",
-    description: "CentOS 7 자산의 EOS 일정이 30일 이내로 임박했습니다.",
-    time: "오늘 08:40",
-    order: 480,
-    asset: "CentOS 7",
-    owner: "김철수",
-    status: "긴급",
-    urgent: true,
-    read: true,
-    link: { label: "EOS 관리로 이동", view: "eos" },
-  },
-  {
-    id: "N11",
-    category: "system",
-    title: "자동수집 스케줄러 정상 완료",
-    description: "공식 Source URL 86개에 대한 정기 수집이 완료되었습니다.",
-    time: "오늘 10:42",
-    order: 45,
-    asset: "전체",
-    owner: "관리자",
-    status: "완료",
-    read: false,
-    link: { label: "수집 로그 보기", view: "admin" },
-  },
-  {
-    id: "N12",
-    category: "system",
-    title: "월간 자산관리 보고서 생성 완료",
-    description: "2026년 6월 SW 자산관리 월간 보고서가 생성되었습니다.",
-    time: "어제 18:00",
-    order: 900,
-    asset: "전체",
-    owner: "관리자",
-    status: "완료",
-    read: true,
-    link: { label: "수집 로그 보기", view: "admin" },
-  },
-]
+function formatRelative(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime()
+  const min = Math.floor(diffMs / 60000)
+  if (min < 1) return "방금 전"
+  if (min < 60) return `${min}분 전`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr}시간 전`
+  const day = Math.floor(hr / 24)
+  if (day === 1) return "어제"
+  if (day < 7) return `${day}일 전`
+  return new Date(iso).toLocaleDateString("ko-KR", { month: "long", day: "numeric" })
+}
+
+function fromRow(row: Tables<"notifications">): Notification {
+  return {
+    id: row.id,
+    category: row.category,
+    title: row.title,
+    description: row.description,
+    time: formatRelative(row.created_at),
+    order: -new Date(row.created_at).getTime(),
+    asset: row.asset,
+    owner: row.owner,
+    status: row.status,
+    urgent: row.urgent,
+    read: row.read,
+    link: { label: row.link_label, view: row.link_view as ViewKey },
+  }
+}
 
 type NotificationsContextValue = {
   notifications: Notification[]
+  loading: boolean
   unreadCount: number
   urgentCount: number
   approvalCount: number
   markRead: (id: string) => void
   markAllRead: () => void
+  refresh: () => void
 }
 
 const NotificationsContext = createContext<NotificationsContextValue | null>(
@@ -232,16 +103,35 @@ const NotificationsContext = createContext<NotificationsContextValue | null>(
 )
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
-  const [notifications, setNotifications] = useState<Notification[]>(SEED)
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const refresh = useCallback(() => {
+    const supabase = createClient()
+    supabase
+      .from("notifications")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (data) setNotifications(data.map(fromRow))
+        setLoading(false)
+      })
+  }, [])
+
+  useEffect(() => {
+    refresh()
+  }, [refresh])
 
   const markRead = useCallback((id: string) => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
     )
+    createClient().from("notifications").update({ read: true }).eq("id", id).then()
   }, [])
 
   const markAllRead = useCallback(() => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+    createClient().from("notifications").update({ read: true }).eq("read", false).then()
   }, [])
 
   const value = useMemo<NotificationsContextValue>(() => {
@@ -252,13 +142,15 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     ).length
     return {
       notifications,
+      loading,
       unreadCount,
       urgentCount,
       approvalCount,
       markRead,
       markAllRead,
+      refresh,
     }
-  }, [notifications, markRead, markAllRead])
+  }, [notifications, loading, markRead, markAllRead, refresh])
 
   return (
     <NotificationsContext.Provider value={value}>
