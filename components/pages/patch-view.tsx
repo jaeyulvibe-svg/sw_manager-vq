@@ -12,6 +12,7 @@ import {
   Flame,
   AlertTriangle,
   ClipboardList,
+  ArrowRight,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import type { Tables } from "@/lib/supabase/types"
@@ -28,6 +29,7 @@ import {
 } from "@/components/portal/ui"
 import { AssetSlideover, type AssetDetail } from "@/components/portal/asset-slideover"
 import { useToast } from "@/components/portal/toast"
+import type { ViewKey } from "@/components/portal/nav"
 import { cn } from "@/lib/utils"
 
 type Asset = Tables<"assets">
@@ -137,7 +139,7 @@ function toDetail(a: Asset): AssetDetail {
   }
 }
 
-export function PatchView() {
+export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void }) {
   const { toast } = useToast()
   const [assets, setAssets] = useState<Asset[]>([])
   const [loading, setLoading] = useState(true)
@@ -202,7 +204,14 @@ export function PatchView() {
       <PageHeader
         icon={ShieldCheck}
         title="제조사 패치 권고 및 전사 취약점 모니터링"
-        description="제조사 보안 권고와 전사 SW 자산의 취약점·패치 현황을 매핑하여 조치가 필요한 항목을 한눈에 확인합니다."
+        description="승인된 제조사 패치 권고를 기준으로 전사 SW 자산의 취약점·패치 현황을 모니터링합니다. 신규 미승인 공지는 'KISA 취약점 공지'에서 검토·승인하세요."
+        action={
+          onNavigate ? (
+            <MiniButton accent="primary" onClick={() => onNavigate("kisa")}>
+              KISA 취약점 공지 바로가기<ArrowRight className="h-3 w-3" />
+            </MiniButton>
+          ) : undefined
+        }
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

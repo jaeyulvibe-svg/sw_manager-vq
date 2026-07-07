@@ -58,9 +58,9 @@ function Portal() {
       case "approval":
         return <ApprovalView />
       case "kisa":
-        return <KisaView />
+        return <KisaView onNavigate={setActive} />
       case "patch":
-        return <PatchView />
+        return <PatchView onNavigate={setActive} />
       case "manual":
         return <ManualView />
       case "admin":

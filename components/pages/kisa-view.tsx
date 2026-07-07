@@ -10,6 +10,7 @@ import {
   BellRing,
   BellDot,
   Server,
+  ArrowRight,
 } from "lucide-react"
 import {
   PageHeader,
@@ -19,6 +20,7 @@ import {
   type Accent,
 } from "@/components/portal/ui"
 import { useRole } from "@/components/portal/role-context"
+import type { ViewKey } from "@/components/portal/nav"
 import { cn } from "@/lib/utils"
 
 type Severity = "Critical" | "High" | "Medium" | "Low"
@@ -97,7 +99,7 @@ const statusAccent: Record<Status, Accent> = {
   승인대기: "warning", 검토중: "primary", 승인완료: "success",
 }
 
-export function KisaView() {
+export function KisaView({ onNavigate }: { onNavigate?: (view: ViewKey) => void }) {
   const { isAdmin } = useRole()
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("전체")
   const [selectedId, setSelectedId] = useState<string>("N1")
@@ -116,7 +118,7 @@ export function KisaView() {
       <PageHeader
         icon={ShieldAlert}
         title="KISA 취약점 공지"
-        description="KISA 및 제조사 공식 보안공지 Source에서 수집한 취약점 정보를 확인하고 SW 자산과 매핑합니다."
+        description="KISA 및 제조사 공식 보안공지 Source에서 수집한 신규 취약점 공지를 검토·승인하고 SW 자산과 매핑하는 화면입니다. 승인된 공지는 '패치&취약점 모니터링'에서 전사 현황으로 확인할 수 있습니다."
       />
 
       {/* Filters */}
@@ -239,6 +241,11 @@ export function KisaView() {
                 ) : (
                   <MiniButton accent="warning"><BellDot className="h-3 w-3" />알림 수신 확인</MiniButton>
                 )}
+                {selected.status === "승인완료" && onNavigate ? (
+                  <MiniButton accent="success" onClick={() => onNavigate("patch")}>
+                    <ArrowRight className="h-3 w-3" />패치&취약점 모니터링에서 보기
+                  </MiniButton>
+                ) : null}
               </div>
               {!isAdmin ? (
                 <p className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
