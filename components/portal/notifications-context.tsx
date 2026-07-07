@@ -121,7 +121,7 @@ const SEED: Notification[] = [
     owner: "박민수",
     status: "확인필요",
     read: false,
-    link: { label: "패치 관리로 이동", view: "owner" },
+    link: { label: "패치 관리로 이동", view: "patch" },
   },
   {
     id: "N6",

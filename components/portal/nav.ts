@@ -5,7 +5,7 @@ import {
   FilePlus2,
   ClipboardCheck,
   ShieldAlert,
-  Users,
+  ShieldCheck,
   Presentation,
   Settings,
   Bell,
@@ -19,7 +19,7 @@ export type ViewKey =
   | "request"
   | "approval"
   | "kisa"
-  | "owner"
+  | "patch"
   | "manual"
   | "admin"
   | "notifications"
@@ -47,7 +47,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "request", label: "신규 자산 요청", icon: FilePlus2, userOnly: true },
   { key: "approval", label: "신규 자산 요청 승인", icon: ClipboardCheck, adminOnly: true },
   { key: "kisa", label: "KISA 취약점 공지", icon: ShieldAlert },
-  { key: "owner", label: "소유자별 취약점 패치", icon: Users },
+  { key: "patch", label: "제조사 패치 권고 및 전사 취약점 모니터링", icon: ShieldCheck },
   { key: "manual", label: "소프트웨어 매뉴얼(PPT)", icon: Presentation },
   { key: "admin", label: "관리자 페이지", icon: Settings, adminOnly: true },
 ]

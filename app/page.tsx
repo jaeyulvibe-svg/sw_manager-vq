@@ -15,7 +15,7 @@ import { EosView } from "@/components/pages/eos-view"
 import { RequestView } from "@/components/pages/request-view"
 import { ApprovalView } from "@/components/pages/approval-view"
 import { KisaView } from "@/components/pages/kisa-view"
-import { OwnerView } from "@/components/pages/owner-view"
+import { PatchView } from "@/components/pages/patch-view"
 import { ManualView } from "@/components/pages/manual-view"
 import { AdminView } from "@/components/pages/admin-view"
 import { NotificationsView } from "@/components/pages/notifications-view"
@@ -59,8 +59,8 @@ function Portal() {
         return <ApprovalView />
       case "kisa":
         return <KisaView />
-      case "owner":
-        return <OwnerView />
+      case "patch":
+        return <PatchView />
       case "manual":
         return <ManualView />
       case "admin":
