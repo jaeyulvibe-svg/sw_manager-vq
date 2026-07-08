@@ -52,16 +52,17 @@ const statusAccent: Record<CategoryRow["status"], Accent> = {
 }
 
 const PRODUCT_MAP: Record<string, string> = {
-  OS: "CentOS, Red Hat Enterprise Linux",
-  WEB: "WebtoB",
-  DB: "Oracle Database",
-  Middleware: "JEUS, Apache Tomcat",
-  Security: "OpenSSL, 보안 Agent",
+  OS: "Red Hat Enterprise Linux",
+  WEB: "WebtoB, Nginx",
+  WAS: "Apache Tomcat, JEUS",
+  DB: "Oracle Database, PostgreSQL",
+  Middleware: "-",
+  Security: "OpenSSL",
 }
 
 function buildRows(assets: Asset[]): CategoryRow[] {
   const now = Date.now()
-  const categories = ["OS", "WEB", "DB", "Middleware"]
+  const categories = ["OS", "WEB", "WAS", "DB", "Middleware", "Security"]
 
   return categories
     .map((cat) => {
@@ -158,7 +159,7 @@ export function AssetDashboardView() {
   const total    = assets.length
   const osCount  = assets.filter((a) => a.category === "OS").length
   const webCount = assets.filter((a) => a.category === "WEB").length
-  const midCount = assets.filter((a) => a.category === "Middleware").length
+  const wasCount = assets.filter((a) => a.category === "WAS").length
   const dbCount  = assets.filter((a) => a.category === "DB").length
   const needAction = assets.filter(
     (a) => (a.eos && new Date(a.eos).getTime() < NOW) ||
@@ -195,8 +196,8 @@ export function AssetDashboardView() {
           delay={240}
         />
         <StatCard
-          label="Middleware 자산"
-          value={midCount}
+          label="WAS 자산"
+          value={wasCount}
           icon={Layers}
           accent="primary"
           trendLabel="JEUS, Apache Tomcat"

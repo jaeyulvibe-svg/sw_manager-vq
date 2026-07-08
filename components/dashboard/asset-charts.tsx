@@ -88,7 +88,7 @@ function TooltipBox({ active, payload, label }: any) {
 /* ---------------- 1. 카테고리별 SW 자산 분포 ---------------- */
 
 export function CategoryDistribution({ assets }: { assets: Asset[] }) {
-  const CATS = ["OS", "WEB", "DB", "Middleware"]
+  const CATS = ["OS", "WEB", "WAS", "DB", "Middleware", "Security"]
   const data = CATS.map((cat) => ({
     name: cat,
     value: assets.filter((a) => a.category === cat).length,

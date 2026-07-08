@@ -82,7 +82,7 @@ const approvalAccent: Record<Asset["approval"], Accent> = {
   긴급: "destructive",
 }
 
-const CATEGORIES: Category[] = ["전체", "OS", "WEB", "DB", "Middleware", "Security"]
+const CATEGORIES: Category[] = ["전체", "OS", "WEB", "WAS", "DB", "Middleware", "Security"]
 const SEVERITIES: (Vuln | "전체")[] = ["전체", "Critical", "High", "Medium", "Low"]
 const REVIEW_FILTERS = ["전체", "확인 필요", "승인대기", "긴급", "처리완료"] as const
 

@@ -70,7 +70,7 @@ function saveUserDefault(cols: ColKey[]) {
 }
 
 /* ── 필터 옵션 ──────────────────────────────────────────── */
-const CATEGORIES: (Category | "전체")[] = ["전체", "OS", "WEB", "DB", "Middleware"]
+const CATEGORIES: (Category | "전체")[] = ["전체", "OS", "WEB", "WAS", "DB", "Middleware", "Security"]
 const STATUS_FILTERS = ["전체", "정상", "취약점 있음", "패치 필요", "EOS 임박", "승인 대기"] as const
 
 /* ── 정렬 가중치 ────────────────────────────────────────── */
