@@ -120,14 +120,14 @@ export function LockToggle({
         onClick={onToggle}
         aria-pressed={!locked}
         className={cn(
-          "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+          "glow-card flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
           locked
-            ? "border-border/60 bg-card text-muted-foreground hover:text-foreground"
-            : "border-primary/50 bg-primary/15 text-primary",
+            ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15"
+            : "border-warning/50 bg-warning/15 text-warning",
         )}
       >
         {locked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
-        {locked ? "화면 잠금" : "화면 편집 중"}
+        {locked ? "화면 편집 잠금" : "화면 편집 중"}
       </button>
       {!locked ? (
         <button
