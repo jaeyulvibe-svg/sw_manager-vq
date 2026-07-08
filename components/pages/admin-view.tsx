@@ -90,9 +90,9 @@ const SOURCE_SEED_META: Record<
   string,
   { type: string; url: string; cycle: string; status?: string; last?: string }
 > = {
-  "Apache Tomcat": { type: "Vendor Security Advisory", url: "tomcat.apache.org/security", cycle: "6시간", last: "오늘 10:15" },
-  "JEUS": { type: "Vendor Security Advisory", url: "tmaxsoft.com/support/security-advisory", cycle: "일 1회", last: "어제 16:00" },
-  "WebtoB": { type: "Vendor Security Advisory", url: "tmaxsoft.com/support/webtob-security", cycle: "일 1회", status: "지연", last: "2일 전" },
+  "Apache Tomcat": { type: "Vendor Security Advisory", url: "tomcat.apache.org/security-10.html", cycle: "6시간", last: "오늘 10:15" },
+  "JEUS": { type: "Vendor Technical Notice", url: "tmaxsoft.com/kr/developer/notice/list", cycle: "일 1회", last: "어제 16:00" },
+  "WebtoB": { type: "Vendor Technical Notice", url: "tmaxsoft.com/kr/developer/notice/list", cycle: "일 1회", last: "2일 전" },
   "Oracle Database": { type: "Lifecycle Page", url: "oracle.com/security-alerts", cycle: "일 1회", last: "어제 17:40" },
   "OpenSSL": { type: "Vendor Security Advisory", url: "openssl.org/news/vulnerabilities", cycle: "1시간", last: "오늘 09:30" },
   "Nginx": { type: "Vendor Security Advisory", url: "nginx.org/en/security_advisories.html", cycle: "6시간", last: "오늘 08:50" },
@@ -430,8 +430,13 @@ function Toggle({
   )
 }
 
+type CollectLogEntry = { product: string; ok: boolean; newCount: number; error?: string }
+
+const REAL_COLLECT_PRODUCTS = ["Apache Tomcat", "JEUS", "WebtoB"] as const
+
 export function AdminView() {
   const [collecting, setCollecting] = useState(false)
+  const [collectLog, setCollectLog] = useState<CollectLogEntry[]>([])
   const [fontScale, setFontScale] = useState(FONT_SCALE_DEFAULT)
   const { isAdmin } = useRole()
   const { toast } = useToast()
@@ -555,6 +560,54 @@ export function AdminView() {
     setSources((prev) => prev.filter((s) => !selectedSourceIds.has(s.id)))
     toast({ title: `Source URL ${selectedSourceIds.size}건이 삭제되었습니다`, tone: "info" })
     cancelSourceSelection()
+  }
+
+  async function runCollection() {
+    setCollecting(true)
+    try {
+      const res = await fetch("/api/collect-source", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ products: REAL_COLLECT_PRODUCTS }),
+      })
+      const data = await res.json()
+      const results: CollectLogEntry[] = data.results ?? []
+      setCollectLog(results)
+
+      const nowLabel = new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
+      setSources((prev) =>
+        prev.map((s) => {
+          const r = results.find((x) => x.product === s.name)
+          if (!r) return s
+          return { ...s, last: `오늘 ${nowLabel}`, status: r.ok ? "정상" : "실패" }
+        }),
+      )
+
+      const totalNew = results.reduce((sum, r) => sum + r.newCount, 0)
+      const failed = results.filter((r) => !r.ok)
+      if (failed.length > 0) {
+        toast({
+          title: `자동수집 일부 실패: ${failed.map((f) => f.product).join(", ")}`,
+          tone: "danger",
+        })
+      } else if (totalNew > 0) {
+        toast({ title: `자동수집 완료: 신규 항목 ${totalNew}건 발견`, tone: "success" })
+      } else {
+        toast({ title: "자동수집 완료: 신규 항목 없음", tone: "success" })
+      }
+    } catch (err) {
+      toast({ title: "자동수집 중 오류가 발생했습니다", tone: "danger" })
+      setCollectLog(
+        REAL_COLLECT_PRODUCTS.map((p) => ({
+          product: p,
+          ok: false,
+          newCount: 0,
+          error: err instanceof Error ? err.message : String(err),
+        })),
+      )
+    } finally {
+      setCollecting(false)
+    }
   }
 
   if (!isAdmin) {
@@ -834,11 +887,9 @@ export function AdminView() {
           action={
             <button
               type="button"
-              onClick={() => {
-                setCollecting(true)
-                setTimeout(() => setCollecting(false), 3200)
-              }}
-              className="glow-card inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/15 px-3 py-1.5 text-xs font-semibold text-primary transition-transform hover:-translate-y-0.5"
+              onClick={runCollection}
+              disabled={collecting}
+              className="glow-card inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/15 px-3 py-1.5 text-xs font-semibold text-primary transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Play className="h-3.5 w-3.5" />
               즉시 수집
@@ -872,21 +923,29 @@ export function AdminView() {
                     <li className="shimmer h-7 rounded-md bg-card" />
                     <li className="shimmer h-7 rounded-md bg-card" />
                   </>
+                ) : collectLog.length === 0 ? (
+                  <li className="rounded-md bg-card px-2 py-3 text-center text-muted-foreground">
+                    아직 수집 내역이 없습니다. &quot;즉시 수집&quot;을 눌러 실행하세요.
+                  </li>
                 ) : (
-                  <>
-                    <li className="flex items-center justify-between gap-2 rounded-md bg-card px-2 py-1.5">
-                      <span className="min-w-0 truncate text-muted-foreground">OpenSSL Advisory</span>
-                      <StatusBadge accent="success" className="shrink-0">성공</StatusBadge>
+                  collectLog.map((entry) => (
+                    <li
+                      key={entry.product}
+                      className="flex items-center justify-between gap-2 rounded-md bg-card px-2 py-1.5"
+                    >
+                      <span className="min-w-0 truncate text-muted-foreground">
+                        {entry.product}
+                        {entry.ok && entry.newCount > 0 ? ` — 신규 ${entry.newCount}건` : ""}
+                      </span>
+                      <StatusBadge
+                        accent={entry.ok ? "success" : "destructive"}
+                        pulse={!entry.ok}
+                        className="shrink-0"
+                      >
+                        {entry.ok ? "성공" : "실패"}
+                      </StatusBadge>
                     </li>
-                    <li className="flex items-center justify-between gap-2 rounded-md bg-card px-2 py-1.5">
-                      <span className="min-w-0 truncate text-muted-foreground">Apache Tomcat (KISA)</span>
-                      <StatusBadge accent="success" className="shrink-0">성공</StatusBadge>
-                    </li>
-                    <li className="flex items-center justify-between gap-2 rounded-md bg-card px-2 py-1.5">
-                      <span className="min-w-0 truncate text-muted-foreground">Nginx Release Notes</span>
-                      <StatusBadge accent="destructive" pulse className="shrink-0">실패</StatusBadge>
-                    </li>
-                  </>
+                  ))
                 )}
               </ul>
             </div>

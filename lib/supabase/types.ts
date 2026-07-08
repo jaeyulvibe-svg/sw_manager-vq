@@ -107,6 +107,7 @@ export type Database = {
           source_url: string | null
           mapped_assets: number
           approval: "승인대기" | "검토중" | "승인완료" | "반려"
+          notice_type: "CVE" | "Patch" | "EOS"
           collected_at: string
           created_at: string
         }
@@ -120,6 +121,7 @@ export type Database = {
           source_url?: string | null
           mapped_assets?: number
           approval?: "승인대기" | "검토중" | "승인완료" | "반려"
+          notice_type?: "CVE" | "Patch" | "EOS"
           collected_at?: string
           created_at?: string
         }
@@ -132,6 +134,7 @@ export type Database = {
           source_url?: string | null
           mapped_assets?: number
           approval?: "승인대기" | "검토중" | "승인완료" | "반려"
+          notice_type?: "CVE" | "Patch" | "EOS"
           collected_at?: string
         }
         Relationships: []
