@@ -43,7 +43,7 @@ const severityRank: Record<Vuln, number> = { Critical: 0, High: 1, Medium: 2, Lo
 // 자산명과 실제 매칭되는 제조사 공지(vulnerabilities)를 찾아 패치 요약을 만든다.
 // 매칭되는 공지가 없으면 제조사 최신 버전 안내로 대체.
 function advisoryFor(a: Asset, vulns: Vulnerability[]) {
-  const matches = matchVulnerabilities(a, vulns)
+  const matches = matchVulnerabilities(a, vulns).filter((v) => v.approval === "승인완료")
   const best = [...matches].sort((x, y) => severityRank[x.severity] - severityRank[y.severity])[0]
   if (best) return { cve: best.cve, summary: best.title, approval: best.approval }
   return {

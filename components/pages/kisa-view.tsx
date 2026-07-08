@@ -111,7 +111,9 @@ export function KisaView({ onNavigate }: { onNavigate?: (view: ViewKey) => void 
       .eq("id", v.id)
 
     if (matched.length > 0) {
-      const toFlag = matched.filter((a) => a.approval !== "승인완료").map((a) => a.id)
+      const toFlag = matched
+        .filter((a) => a.approval !== "승인완료" && a.approval !== "긴급")
+        .map((a) => a.id)
       if (toFlag.length > 0) {
         await supabase.from("assets").update({ approval: "확인필요" }).in("id", toFlag)
       }
@@ -305,11 +307,21 @@ export function KisaView({ onNavigate }: { onNavigate?: (view: ViewKey) => void 
                         </StatusBadge>
                       ) : (
                         <>
-                          <MiniButton accent="success" onClick={() => handleApprove(selected)}>
-                            <Check className="h-3 w-3" />승인 및 담당자 전달
+                          <MiniButton
+                            accent="success"
+                            disabled={!!busyId}
+                            onClick={() => handleApprove(selected)}
+                          >
+                            <Check className="h-3 w-3" />
+                            {busyId === selected.id ? "처리 중..." : "승인 및 담당자 전달"}
                           </MiniButton>
-                          <MiniButton accent="destructive" onClick={() => handleReject(selected)}>
-                            <X className="h-3 w-3" />반려
+                          <MiniButton
+                            accent="destructive"
+                            disabled={!!busyId}
+                            onClick={() => handleReject(selected)}
+                          >
+                            <X className="h-3 w-3" />
+                            {busyId === selected.id ? "처리 중..." : "반려"}
                           </MiniButton>
                         </>
                       )
