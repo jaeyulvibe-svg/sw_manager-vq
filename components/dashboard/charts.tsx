@@ -1,8 +1,6 @@
 "use client"
 
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -14,32 +12,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import { LineChart as LineChartIcon, PieChart as PieIcon, BarChart3 } from "lucide-react"
+import { ShieldAlert, PieChart as PieIcon, BarChart3 } from "lucide-react"
+import type { Tables } from "@/lib/supabase/types"
 
-const trendData = [
-  { month: "1월", detected: 620, patched: 410 },
-  { month: "2월", detected: 700, patched: 520 },
-  { month: "3월", detected: 540, patched: 500 },
-  { month: "4월", detected: 810, patched: 690 },
-  { month: "5월", detected: 640, patched: 610 },
-  { month: "6월", detected: 480, patched: 470 },
-  { month: "7월", detected: 342, patched: 338 },
-]
+type Asset = Tables<"assets">
+type Vulnerability = Tables<"vulnerabilities">
 
-const severityData = [
-  { name: "긴급", value: 50, color: "var(--destructive)" },
-  { name: "높음", value: 92, color: "var(--warning)" },
-  { name: "보통", value: 130, color: "var(--primary)" },
-  { name: "낮음", value: 70, color: "var(--success)" },
-]
-
-const osData = [
-  { os: "Windows", value: 94 },
-  { os: "Linux", value: 88 },
-  { os: "macOS", value: 96 },
-  { os: "Network", value: 79 },
-  { os: "Cloud", value: 91 },
-]
+const CATEGORIES = ["OS", "WEB", "WAS", "DB", "Middleware", "Security"]
 
 function ChartCard({
   title,
@@ -50,7 +29,7 @@ function ChartCard({
 }: {
   title: string
   subtitle: string
-  icon: typeof LineChartIcon
+  icon: typeof PieIcon
   children: React.ReactNode
   className?: string
 }) {
@@ -95,86 +74,84 @@ function TooltipBox({ active, payload, label }: any) {
   )
 }
 
-export function VulnerabilityTrend() {
+/* ---------------- 1. 취약점 공지 처리 현황 (실데이터) ---------------- */
+
+const APPROVAL_ORDER = ["승인대기", "검토중", "승인완료", "반려"] as const
+
+const approvalColor: Record<string, string> = {
+  승인대기: "var(--warning)",
+  검토중: "var(--primary)",
+  승인완료: "var(--success)",
+  반려: "var(--destructive)",
+}
+
+export function VulnerabilityApprovalStatus({ vulns }: { vulns: Vulnerability[] }) {
+  const data = APPROVAL_ORDER.map((status) => ({
+    name: status,
+    value: vulns.filter((v) => v.approval === status).length,
+    color: approvalColor[status],
+  })).filter((d) => d.value > 0)
+
+  const criticalCount = vulns.filter((v) => v.severity === "Critical").length
+
   return (
     <ChartCard
-      title="취약점 탐지 · 조치 추이"
-      subtitle="AI 자동 패치 파이프라인 성과"
-      icon={LineChartIcon}
+      title="취약점 공지 처리 현황"
+      subtitle={`수집된 공지 ${vulns.length}건 · Critical ${criticalCount}건`}
+      icon={ShieldAlert}
       className="lg:col-span-2"
     >
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={trendData} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
-            <defs>
-              <linearGradient id="detectedGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--destructive)" stopOpacity={0.5} />
-                <stop offset="100%" stopColor="var(--destructive)" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="patchedGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.55} />
-                <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="var(--border)"
-              vertical={false}
-            />
-            <XAxis
-              dataKey="month"
-              stroke="var(--muted-foreground)"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis
-              stroke="var(--muted-foreground)"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-            />
-            <Tooltip content={<TooltipBox />} cursor={{ stroke: "var(--primary)", strokeOpacity: 0.3 }} />
-            <Area
-              type="monotone"
-              dataKey="detected"
-              name="탐지"
-              stroke="var(--destructive)"
-              strokeWidth={2.5}
-              fill="url(#detectedGrad)"
-              animationDuration={1600}
-            />
-            <Area
-              type="monotone"
-              dataKey="patched"
-              name="조치"
-              stroke="var(--primary)"
-              strokeWidth={2.5}
-              fill="url(#patchedGrad)"
-              animationDuration={1600}
-              animationBegin={300}
-            />
-          </AreaChart>
+          <BarChart data={data} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+            <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+            <YAxis allowDecimals={false} stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+            <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--primary)", fillOpacity: 0.08 }} />
+            <Bar dataKey="value" name="건수" radius={[6, 6, 0, 0]} maxBarSize={64} animationDuration={1500}>
+              {data.map((entry) => (
+                <Cell key={entry.name} fill={entry.color} />
+              ))}
+            </Bar>
+          </BarChart>
         </ResponsiveContainer>
       </div>
-      <div className="mt-3 flex items-center justify-center gap-6 text-xs">
-        <span className="flex items-center gap-1.5 text-muted-foreground">
-          <span className="h-2.5 w-2.5 rounded-full bg-destructive" /> 탐지
-        </span>
-        <span className="flex items-center gap-1.5 text-muted-foreground">
-          <span className="h-2.5 w-2.5 rounded-full bg-primary" /> 조치 완료
-        </span>
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-4 text-xs">
+        {data.map((d) => (
+          <span key={d.name} className="flex items-center gap-1.5 text-muted-foreground">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: d.color }} />
+            {d.name}
+            <span className="ml-1 font-mono font-semibold text-foreground">{d.value}</span>
+          </span>
+        ))}
       </div>
     </ChartCard>
   )
 }
 
-export function SeverityDonut() {
+/* ---------------- 2. 위험도별 분포 (실데이터) ---------------- */
+
+const SEVERITY_META = [
+  { key: "Critical", name: "긴급", color: "var(--destructive)" },
+  { key: "High", name: "높음", color: "var(--warning)" },
+  { key: "Medium", name: "보통", color: "var(--primary)" },
+  { key: "Low", name: "낮음", color: "var(--success)" },
+] as const
+
+export function SeverityDonut({ assets }: { assets: Asset[] }) {
+  const severityData = SEVERITY_META.map((s) => ({
+    name: s.name,
+    value: assets.filter((a) => a.vuln === s.key).length,
+    color: s.color,
+  })).filter((d) => d.value > 0)
+
   const total = severityData.reduce((a, b) => a + b.value, 0)
+  const unresolved = assets.filter((a) => a.vuln !== "Low").length
+
   return (
     <ChartCard
       title="위험도별 분포"
-      subtitle="미조치 취약점 342건"
+      subtitle={`미조치 취약점 ${unresolved}건`}
       icon={PieIcon}
     >
       <div className="relative h-64 w-full">
@@ -202,7 +179,7 @@ export function SeverityDonut() {
           <span className="font-mono text-3xl font-bold text-foreground">
             {total}
           </span>
-          <span className="text-xs text-muted-foreground">총 취약점</span>
+          <span className="text-xs text-muted-foreground">총 자산</span>
         </div>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -226,17 +203,26 @@ export function SeverityDonut() {
   )
 }
 
-export function PatchByOs() {
+/* ---------------- 3. 카테고리별 패치 적용률 (실데이터) ---------------- */
+
+export function PatchByCategory({ assets }: { assets: Asset[] }) {
+  const data = CATEGORIES.map((cat) => {
+    const items = assets.filter((a) => a.category === cat)
+    if (items.length === 0) return null
+    const upToDate = items.filter((a) => a.patch === "Up to Date").length
+    return { os: cat, value: Math.round((upToDate / items.length) * 100) }
+  }).filter((d): d is { os: string; value: number } => d !== null)
+
   return (
     <ChartCard
-      title="플랫폼별 패치 적용률"
-      subtitle="AI 우선순위 기반 조치 현황"
+      title="카테고리별 패치 적용률"
+      subtitle="분류별 최신 패치 반영 비율"
       icon={BarChart3}
       className="lg:col-span-3"
     >
       <div className="h-56 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={osData} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
+          <BarChart data={data} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
             <defs>
               <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--primary)" stopOpacity={1} />

@@ -1,6 +1,5 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import {
   ShieldAlert,
   PackageCheck,
@@ -9,10 +8,15 @@ import {
   TrendingDown,
   type LucideIcon,
 } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
+import type { Tables } from "@/lib/supabase/types"
 import { Sparkline } from "@/components/portal/sparkline"
 import { cn } from "@/lib/utils"
 import { useCountUp } from "@/hooks/use-count-up"
+
+type Asset = Tables<"assets">
+
+// Computed once at module load (not during render) so it stays a pure value for react-hooks/purity.
+const NOW = Date.now()
 
 type KpiData = {
   label: string
@@ -91,74 +95,8 @@ function KpiCard({ kpi }: { kpi: KpiData }) {
   )
 }
 
-export function KpiCards() {
-  const [kpis, setKpis] = useState<KpiData[]>([])
-
-  useEffect(() => {
-    const supabase = createClient()
-
-    Promise.all([
-      supabase.from("assets").select("*", { count: "exact", head: true }),
-      supabase.from("assets").select("vuln").in("vuln", ["Critical", "High"]),
-      supabase.from("assets").select("patch").eq("patch", "Patch Required"),
-      supabase.from("assets").select("eos").lt("eos", new Date().toISOString()),
-    ]).then(([totalRes, vulnRes, patchRes, eosRes]) => {
-      const total     = totalRes.count ?? 0
-      const vulnCount = vulnRes.data?.length ?? 0
-      const patchCount = patchRes.data?.length ?? 0
-      const eosCount  = eosRes.data?.length ?? 0
-      const patchRate = total > 0
-        ? Math.round(((total - patchCount) / total) * 1000) / 10
-        : 0
-
-      setKpis([
-        {
-          label: "관리 대상 자산",
-          value: total,
-          icon: PackageCheck,
-          trend: 0,
-          trendLabel: "전체 등록 자산",
-          accent: "primary",
-          delay: 100,
-          spark: [total - 3, total - 2, total - 2, total - 1, total - 1, total, total],
-        },
-        {
-          label: "취약점 자산 (CVE)",
-          value: vulnCount,
-          icon: ShieldAlert,
-          trend: vulnCount > 0 ? -5 : 0,
-          trendLabel: "Critical·High 등급",
-          accent: "destructive",
-          delay: 220,
-          spark: [vulnCount + 3, vulnCount + 3, vulnCount + 2, vulnCount + 2, vulnCount + 1, vulnCount + 1, vulnCount],
-        },
-        {
-          label: "패치 적용률",
-          value: patchRate,
-          suffix: "%",
-          decimals: 1,
-          icon: TrendingUp,
-          trend: patchCount === 0 ? 5 : -3,
-          trendLabel: "패치 필요 제외 비율",
-          accent: "success",
-          delay: 340,
-          spark: [patchRate - 5, patchRate - 4, patchRate - 3, patchRate - 2, patchRate - 1, patchRate, patchRate],
-        },
-        {
-          label: "EOS 만료 자산",
-          value: eosCount,
-          icon: CalendarX,
-          trend: eosCount > 0 ? 12 : 0,
-          trendLabel: "EOS 일자 경과",
-          accent: "warning",
-          delay: 460,
-          spark: [eosCount - 2, eosCount - 2, eosCount - 1, eosCount - 1, eosCount, eosCount, eosCount],
-        },
-      ])
-    })
-  }, [])
-
-  if (kpis.length === 0) {
+export function KpiCards({ assets, loading = false }: { assets: Asset[]; loading?: boolean }) {
+  if (loading) {
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[0, 1, 2, 3].map((i) => (
@@ -167,6 +105,59 @@ export function KpiCards() {
       </div>
     )
   }
+
+  const total = assets.length
+  const vulnCount = assets.filter((a) => a.vuln === "Critical" || a.vuln === "High").length
+  const patchCount = assets.filter((a) => a.patch === "Patch Required").length
+  const eosCount = assets.filter((a) => a.eos && new Date(a.eos).getTime() < NOW).length
+  const patchRate = total > 0
+    ? Math.round(((total - patchCount) / total) * 1000) / 10
+    : 0
+
+  const kpis: KpiData[] = [
+    {
+      label: "관리 대상 자산",
+      value: total,
+      icon: PackageCheck,
+      trend: 0,
+      trendLabel: "전체 등록 자산",
+      accent: "primary",
+      delay: 100,
+      spark: [total - 3, total - 2, total - 2, total - 1, total - 1, total, total],
+    },
+    {
+      label: "취약점 자산 (CVE)",
+      value: vulnCount,
+      icon: ShieldAlert,
+      trend: vulnCount > 0 ? -5 : 0,
+      trendLabel: "Critical·High 등급",
+      accent: "destructive",
+      delay: 220,
+      spark: [vulnCount + 3, vulnCount + 3, vulnCount + 2, vulnCount + 2, vulnCount + 1, vulnCount + 1, vulnCount],
+    },
+    {
+      label: "패치 적용률",
+      value: patchRate,
+      suffix: "%",
+      decimals: 1,
+      icon: TrendingUp,
+      trend: patchCount === 0 ? 5 : -3,
+      trendLabel: "패치 필요 제외 비율",
+      accent: "success",
+      delay: 340,
+      spark: [patchRate - 5, patchRate - 4, patchRate - 3, patchRate - 2, patchRate - 1, patchRate, patchRate],
+    },
+    {
+      label: "EOS 만료 자산",
+      value: eosCount,
+      icon: CalendarX,
+      trend: eosCount > 0 ? 12 : 0,
+      trendLabel: "EOS 일자 경과",
+      accent: "warning",
+      delay: 460,
+      spark: [eosCount - 2, eosCount - 2, eosCount - 1, eosCount - 1, eosCount, eosCount, eosCount],
+    },
+  ]
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

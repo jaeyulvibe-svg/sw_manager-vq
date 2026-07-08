@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   Megaphone,
   ShieldAlert,
@@ -23,62 +23,18 @@ import {
 } from "@/components/portal/ui"
 import { useToast } from "@/components/portal/toast"
 import { useRole } from "@/components/portal/role-context"
+import { createClient } from "@/lib/supabase/client"
+import type { Tables } from "@/lib/supabase/types"
+import { matchAssets } from "@/lib/vuln-match"
 import { cn } from "@/lib/utils"
 
-/* ==================== Board 1: 공지사항 ==================== */
+type Asset = Tables<"assets">
+type Vulnerability = Tables<"vulnerabilities">
+type Notice = Tables<"notices">
 
-type NoticeStatus = "일반" | "중요" | "긴급"
+/* ==================== Board 1: 공지사항 (실데이터) ==================== */
 
-type Notice = {
-  id: string
-  category: string
-  title: string
-  author: string
-  date: string
-  views: number
-  status: NoticeStatus
-}
-
-const notices: Notice[] = [
-  {
-    id: "NT-04",
-    category: "시스템",
-    title: "AI SW Asset Master 정기 점검 안내",
-    author: "관리자",
-    date: "2026-07-01",
-    views: 128,
-    status: "중요",
-  },
-  {
-    id: "NT-03",
-    category: "운영",
-    title: "신규 SW 자산 등록 기준 안내",
-    author: "관리자",
-    date: "2026-06-28",
-    views: 94,
-    status: "일반",
-  },
-  {
-    id: "NT-02",
-    category: "승인",
-    title: "패치 승인 프로세스 변경 안내",
-    author: "승인관리자",
-    date: "2026-06-25",
-    views: 76,
-    status: "중요",
-  },
-  {
-    id: "NT-01",
-    category: "보고서",
-    title: "6월 SW 자산·보안 월간 보고서 생성 안내",
-    author: "관리자",
-    date: "2026-06-24",
-    views: 63,
-    status: "일반",
-  },
-]
-
-const noticeStatusAccent: Record<NoticeStatus, Accent> = {
+const noticeStatusAccent: Record<string, Accent> = {
   일반: "muted",
   중요: "warning",
   긴급: "destructive",
@@ -93,15 +49,18 @@ const categoryAccent: Record<string, Accent> = {
 
 export function NoticeBoard() {
   const { toast } = useToast()
+  const [notices, setNotices] = useState<Notice[]>([])
 
-  // 최신 공지 우선 정렬
-  const sorted = useMemo(
-    () =>
-      [...notices].sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-      ),
-    [],
-  )
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from("notices")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (data) setNotices(data)
+      })
+  }, [])
 
   return (
     <SectionCard
@@ -128,11 +87,8 @@ export function NoticeBoard() {
           </tr>
         </thead>
         <tbody>
-          {sorted.map((n) => (
-            <tr
-              key={n.id}
-              className="transition-colors hover:bg-accent/40"
-            >
+          {notices.map((n) => (
+            <tr key={n.id} className="transition-colors hover:bg-accent/40">
               <Td>
                 <StatusBadge accent={categoryAccent[n.category] ?? "muted"}>
                   {n.category}
@@ -165,7 +121,7 @@ export function NoticeBoard() {
               </Td>
               <Td className="text-muted-foreground">{n.author}</Td>
               <Td className="font-mono text-xs text-muted-foreground">
-                {n.date}
+                {new Date(n.created_at).toLocaleDateString("ko-KR")}
               </Td>
               <Td className="text-right font-mono tabular-nums text-muted-foreground">
                 {n.views.toLocaleString()}
@@ -185,7 +141,7 @@ export function NoticeBoard() {
                     toast({
                       tone: "info",
                       title: "공지 상세보기",
-                      description: `${n.title} (${n.author} · ${n.date})`,
+                      description: `${n.title} (${n.author})`,
                     })
                   }
                 >
@@ -195,80 +151,35 @@ export function NoticeBoard() {
               </Td>
             </tr>
           ))}
+          {notices.length === 0 ? (
+            <tr>
+              <td
+                colSpan={7}
+                className="border-b border-border/40 px-3 py-8 text-center text-sm text-muted-foreground"
+              >
+                등록된 공지사항이 없습니다.
+              </td>
+            </tr>
+          ) : null}
         </tbody>
       </TableShell>
     </SectionCard>
   )
 }
 
-/* ============ Board 2: 긴급 보안공지 / 취약점 ============ */
+/* ============ Board 2: 긴급 보안공지 / 취약점 (실데이터) ============ */
 
-type Severity = "Critical" | "High" | "Medium" | "Low"
-type ApprovalStatus = "승인대기" | "검토중" | "승인완료" | "반려"
-
-type SecurityNotice = {
-  id: string
-  severity: Severity
-  title: string
-  cve: string
-  product: string
-  mapped: number
-  source: string
-  sourceUrl: string
-  collectedAt: string
-  approval: ApprovalStatus
+function formatCollected(iso: string) {
+  const d = new Date(iso)
+  const diffDays = Math.floor((Date.now() - d.getTime()) / 86400000)
+  const time = d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
+  if (diffDays === 0) return `오늘 ${time}`
+  if (diffDays === 1) return `어제 ${time}`
+  return `${d.toLocaleDateString("ko-KR", { month: "long", day: "numeric" })} ${time}`
 }
 
-const securityNotices: SecurityNotice[] = [
-  {
-    id: "SN-01",
-    severity: "Critical",
-    title: "OpenSSL 원격 코드 실행 취약점 보안공지",
-    cve: "CVE-2026-0001",
-    product: "OpenSSL 3.0.x",
-    mapped: 4,
-    source: "KNVD",
-    sourceUrl: "knvd.krcert.or.kr",
-    collectedAt: "오늘 09:30",
-    approval: "승인대기",
-  },
-  {
-    id: "SN-02",
-    severity: "High",
-    title: "Apache Tomcat 취약점 보안 업데이트 권고",
-    cve: "CVE-2026-0002",
-    product: "Apache Tomcat 9.0.x",
-    mapped: 8,
-    source: "KrCERT",
-    sourceUrl: "krcert.or.kr",
-    collectedAt: "오늘 10:15",
-    approval: "검토중",
-  },
-  {
-    id: "SN-03",
-    severity: "Critical",
-    title: "Oracle Database Critical Patch Update",
-    cve: "Multiple CVEs",
-    product: "Oracle Database 19c",
-    mapped: 2,
-    source: "Vendor Advisory",
-    sourceUrl: "제조사 Security Advisory",
-    collectedAt: "어제 17:40",
-    approval: "승인완료",
-  },
-  {
-    id: "SN-04",
-    severity: "High",
-    title: "Nginx 보안 패치 권고",
-    cve: "CVE-2026-0003",
-    product: "Nginx 1.x",
-    mapped: 5,
-    source: "KNVD",
-    sourceUrl: "knvd.krcert.or.kr",
-    collectedAt: "어제 15:20",
-    approval: "승인대기",
-  },
-]
+type Severity = Vulnerability["severity"]
+type ApprovalStatus = Vulnerability["approval"]
 
 const severityAccent: Record<Severity, Accent> = {
   Critical: "destructive",
@@ -299,7 +210,13 @@ const APPROVAL_FILTERS: (ApprovalStatus | "전체")[] = [
   "반려",
 ]
 
-export function SecurityNoticeBoard() {
+export function SecurityNoticeBoard({
+  assets,
+  vulns,
+}: {
+  assets: Asset[]
+  vulns: Vulnerability[]
+}) {
   const { toast } = useToast()
   const { isAdmin } = useRole()
   const [query, setQuery] = useState("")
@@ -310,8 +227,13 @@ export function SecurityNoticeBoard() {
     "전체",
   )
 
+  const rows = useMemo(
+    () => vulns.map((v) => ({ ...v, mapped: matchAssets(v, assets).length })),
+    [vulns, assets],
+  )
+
   const filtered = useMemo(() => {
-    return securityNotices.filter((s) => {
+    return rows.filter((s) => {
       const q = query.trim().toLowerCase()
       const matchesQuery =
         q === "" ||
@@ -322,7 +244,7 @@ export function SecurityNoticeBoard() {
       const matchesApproval = approval === "전체" || s.approval === approval
       return matchesQuery && matchesSeverity && matchesApproval
     })
-  }, [query, severity, approval])
+  }, [rows, query, severity, approval])
 
   return (
     <SectionCard
@@ -435,7 +357,7 @@ export function SecurityNoticeBoard() {
                     toast({
                       tone: "info",
                       title: "수집 Source 확인",
-                      description: `${s.source} · ${s.sourceUrl}`,
+                      description: `${s.source} · ${s.source_url ?? "공식 URL 미등록"}`,
                     })
                   }
                   className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-primary"
@@ -445,7 +367,7 @@ export function SecurityNoticeBoard() {
                 </button>
               </Td>
               <Td className="font-mono text-xs text-muted-foreground">
-                {s.collectedAt}
+                {formatCollected(s.collected_at)}
               </Td>
               <Td>
                 <StatusBadge accent={approvalAccent[s.approval]}>
