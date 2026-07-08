@@ -155,7 +155,8 @@ export function AssetDashboardView() {
   const { isAdmin } = useRole()
   const [locked, setLocked] = useState(true)
   const [draggingId, setDraggingId] = useState<string | null>(null)
-  const { order, moveBefore, reset } = useDashboardOrder(
+  const [overId, setOverId] = useState<string | null>(null)
+  const { order, moveBefore, moveByOffset, reset } = useDashboardOrder(
     "asset-dashboard-order",
     ASSET_DASHBOARD_BLOCKS,
   )
@@ -265,18 +266,30 @@ export function AssetDashboardView() {
         </div>
       ) : null}
 
-      {order.map((id) => (
+      {order.map((id, index) => (
         <DashboardSection
           key={id}
           id={id}
           editable={editable}
           draggingId={draggingId}
+          isOverTarget={overId === id}
+          isFirst={index === 0}
+          isLast={index === order.length - 1}
           onDragStart={setDraggingId}
           onDragOverTarget={(targetId) => {
+            setOverId(targetId)
             if (draggingId && draggingId !== targetId) moveBefore(draggingId, targetId)
           }}
-          onDrop={() => setDraggingId(null)}
-          onDragEnd={() => setDraggingId(null)}
+          onDrop={() => {
+            setDraggingId(null)
+            setOverId(null)
+          }}
+          onDragEnd={() => {
+            setDraggingId(null)
+            setOverId(null)
+          }}
+          onMoveUp={() => moveByOffset(id, -1)}
+          onMoveDown={() => moveByOffset(id, 1)}
         >
           {blocks[id]}
         </DashboardSection>

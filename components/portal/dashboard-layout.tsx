@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState, type ReactNode } from "react"
-import { GripVertical, Lock, Unlock, RotateCcw } from "lucide-react"
+import { motion } from "framer-motion"
+import { GripVertical, Lock, Unlock, RotateCcw, ChevronUp, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 /** Manages a persisted (localStorage) display order for a fixed set of block ids. */
@@ -38,12 +39,24 @@ export function useDashboardOrder(storageKey: string, blockIds: string[]) {
     })
   }
 
+  function moveByOffset(id: string, direction: -1 | 1) {
+    setOrder((prev) => {
+      const index = prev.indexOf(id)
+      const targetIndex = index + direction
+      if (targetIndex < 0 || targetIndex >= prev.length) return prev
+      const next = [...prev]
+      ;[next[index], next[targetIndex]] = [next[targetIndex], next[index]]
+      window.localStorage.setItem(storageKey, JSON.stringify(next))
+      return next
+    })
+  }
+
   function reset() {
     setOrder(blockIds)
     window.localStorage.removeItem(storageKey)
   }
 
-  return { order, moveBefore, reset }
+  return { order, moveBefore, moveByOffset, reset }
 }
 
 /** Wraps a dashboard block with an (admin-only, unlocked-only) drag handle. */
@@ -51,56 +64,89 @@ export function DashboardSection({
   id,
   editable,
   draggingId,
+  isOverTarget,
+  isFirst,
+  isLast,
   onDragStart,
   onDragOverTarget,
   onDrop,
   onDragEnd,
+  onMoveUp,
+  onMoveDown,
   children,
 }: {
   id: string
   editable: boolean
   draggingId: string | null
+  isOverTarget: boolean
+  isFirst: boolean
+  isLast: boolean
   onDragStart: (id: string) => void
   onDragOverTarget: (id: string) => void
   onDrop: () => void
   onDragEnd: () => void
+  onMoveUp: () => void
+  onMoveDown: () => void
   children: ReactNode
 }) {
   const isDragging = draggingId === id
 
   return (
-    <div
-      draggable={editable}
-      onDragStart={(e) => {
-        e.dataTransfer.effectAllowed = "move"
-        onDragStart(id)
-      }}
-      onDragOver={(e) => {
-        if (!editable) return
-        e.preventDefault()
-        onDragOverTarget(id)
-      }}
-      onDrop={(e) => {
-        e.preventDefault()
-        onDrop()
-      }}
-      onDragEnd={onDragEnd}
-      className={cn(
-        "relative transition-opacity",
-        editable && "rounded-2xl outline-dashed outline-1 outline-offset-4 outline-primary/30",
-        isDragging && "opacity-40",
-      )}
-    >
-      {editable ? (
-        <div
-          className="absolute -left-3 -top-3 z-20 flex h-7 w-7 cursor-grab items-center justify-center rounded-full border border-primary/40 bg-primary text-primary-foreground shadow-lg active:cursor-grabbing"
-          aria-hidden
-        >
-          <GripVertical className="h-4 w-4" />
-        </div>
-      ) : null}
-      {children}
-    </div>
+    <motion.div layout transition={{ type: "spring", stiffness: 420, damping: 38 }}>
+      <div
+        draggable={editable}
+        onDragStart={(e) => {
+          e.dataTransfer.effectAllowed = "move"
+          onDragStart(id)
+        }}
+        onDragOver={(e) => {
+          if (!editable) return
+          e.preventDefault()
+          onDragOverTarget(id)
+        }}
+        onDrop={(e) => {
+          e.preventDefault()
+          onDrop()
+        }}
+        onDragEnd={onDragEnd}
+        className={cn(
+          "relative rounded-2xl transition-colors duration-200",
+          editable && "outline-dashed outline-1 outline-offset-4 outline-primary/30",
+          isDragging && "opacity-40",
+          isOverTarget && !isDragging && "bg-primary/10",
+        )}
+      >
+        {editable ? (
+          <div className="absolute -left-3 -top-3 z-20 flex items-center gap-1">
+            <div
+              className="flex h-7 w-7 cursor-grab items-center justify-center rounded-full border border-primary/40 bg-primary text-primary-foreground shadow-lg active:cursor-grabbing"
+              aria-hidden
+            >
+              <GripVertical className="h-4 w-4" />
+            </div>
+            <button
+              type="button"
+              onClick={onMoveUp}
+              disabled={isFirst}
+              aria-label="위로 이동"
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-border/60 bg-card text-foreground shadow-lg transition-opacity disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              <ChevronUp className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={onMoveDown}
+              disabled={isLast}
+              aria-label="아래로 이동"
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-border/60 bg-card text-foreground shadow-lg transition-opacity disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              <ChevronDown className="h-4 w-4" />
+            </button>
+          </div>
+        ) : null}
+        {children}
+      </div>
+    </motion.div>
   )
 }
 

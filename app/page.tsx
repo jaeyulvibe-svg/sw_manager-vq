@@ -88,7 +88,7 @@ function Portal() {
           onNavigate={setActive}
           onOpenNotifications={() => setActive("notifications")}
         />
-        <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <main className="mx-auto w-full max-w-[104rem] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <div key={active} className="animate-view">
             {renderView()}
           </div>
