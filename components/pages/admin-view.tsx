@@ -15,6 +15,8 @@ import {
   Minus,
   Plus,
   Type,
+  Pencil,
+  Trash2,
 } from "lucide-react"
 import {
   PageHeader,
@@ -23,29 +25,293 @@ import {
   TableShell,
   Th,
   Td,
+  MiniButton,
   type Accent,
 } from "@/components/portal/ui"
 import { useRole } from "@/components/portal/role-context"
+import { useToast } from "@/components/portal/toast"
 import { cn } from "@/lib/utils"
 
+/* ---- Shared input style for inline add/edit forms ---- */
+const inputCls =
+  "rounded-lg border border-border/60 bg-background/50 px-3 py-1.5 text-xs text-foreground focus:border-primary/60 focus:outline-none"
+
+function nextId(prefix: string, rows: { id: string }[]) {
+  const nums = rows.map((r) => Number(r.id.split("-")[1]) || 0)
+  const next = (nums.length ? Math.max(...nums) : 0) + 1
+  return `${prefix}-${String(next).padStart(3, "0")}`
+}
+
 /* ---- Section 1: SW master ---- */
-const masters = [
-  { id: "M-001", name: "Apache Tomcat", vendor: "Apache", cat: "Middleware", std: "10.1.24", mode: "AUTO", active: true, updated: "오늘" },
-  { id: "M-002", name: "Oracle Database", vendor: "Oracle", cat: "DB", std: "19c", mode: "SEMI_AUTO", active: true, updated: "어제" },
-  { id: "M-003", name: "OpenSSL", vendor: "OpenSSL Project", cat: "Security", std: "3.2.x", mode: "AUTO", active: true, updated: "오늘" },
-  { id: "M-004", name: "JEUS", vendor: "TmaxSoft", cat: "Middleware", std: "8.0", mode: "MANUAL", active: false, updated: "2026-06-20" },
+type Master = {
+  id: string
+  name: string
+  vendor: string
+  cat: string
+  std: string
+  mode: string
+  active: boolean
+  updated: string
+}
+
+// 자산 목록(supabase/migrations/002_seed_data.sql의 assets)에 등록된 8개 제품과 동일하게 유지
+// — SW 마스터 관리에 있는 솔루션만 자산 목록에 존재한다는 원칙
+const MASTER_CATEGORIES = ["OS", "WEB", "WAS", "DB", "Middleware", "Security"]
+const COLLECT_MODES = ["AUTO", "SEMI_AUTO", "MANUAL"]
+
+const initialMasters: Master[] = [
+  { id: "M-001", name: "Apache Tomcat", vendor: "Apache", cat: "WAS", std: "10.1.24", mode: "AUTO", active: true, updated: "오늘" },
+  { id: "M-002", name: "JEUS", vendor: "TmaxSoft", cat: "WAS", std: "8.5", mode: "MANUAL", active: true, updated: "2026-06-20" },
+  { id: "M-003", name: "WebtoB", vendor: "TmaxSoft", cat: "WEB", std: "6.0", mode: "SEMI_AUTO", active: true, updated: "어제" },
+  { id: "M-004", name: "Oracle Database", vendor: "Oracle", cat: "DB", std: "23c", mode: "SEMI_AUTO", active: true, updated: "어제" },
+  { id: "M-005", name: "OpenSSL", vendor: "OpenSSL Project", cat: "Security", std: "3.3.1", mode: "AUTO", active: true, updated: "오늘" },
+  { id: "M-006", name: "Nginx", vendor: "F5", cat: "WEB", std: "1.27", mode: "AUTO", active: true, updated: "오늘" },
+  { id: "M-007", name: "Red Hat Enterprise Linux", vendor: "Red Hat", cat: "OS", std: "9.4", mode: "SEMI_AUTO", active: true, updated: "어제" },
+  { id: "M-008", name: "PostgreSQL", vendor: "PostgreSQL GDG", cat: "DB", std: "16.3", mode: "AUTO", active: true, updated: "오늘" },
 ]
 
-/* ---- Section 2: Source URL ---- */
-const sources = [
-  { name: "OpenSSL", type: "Vendor Security Advisory", url: "openssl.org/news/vulnerabilities", cycle: "1시간", last: "오늘 09:30", status: "정상" },
-  { name: "Apache Tomcat", type: "KISA", url: "knvd.krcert.or.kr", cycle: "6시간", last: "오늘 10:15", status: "정상" },
-  { name: "Oracle Database", type: "Lifecycle Page", url: "oracle.com/security-alerts", cycle: "일 1회", last: "어제 17:40", status: "지연" },
-  { name: "Nginx", type: "Release Notes", url: "nginx.org/en/CHANGES", cycle: "6시간", last: "어제 14:05", status: "실패" },
-]
+/* ---- Section 2: Source URL — SW 마스터 관리의 8개 제품을 기준으로 시딩 ---- */
+type Source = {
+  id: string
+  name: string
+  type: string
+  url: string
+  cycle: string
+  last: string
+  status: string
+}
+
+const SOURCE_CYCLES = ["1시간", "6시간", "일 1회"]
+const SOURCE_STATUSES = ["정상", "지연", "실패"]
+
+const SOURCE_SEED_META: Record<
+  string,
+  { type: string; url: string; cycle: string; status?: string; last?: string }
+> = {
+  "Apache Tomcat": { type: "Vendor Security Advisory", url: "tomcat.apache.org/security", cycle: "6시간", last: "오늘 10:15" },
+  "JEUS": { type: "Vendor Security Advisory", url: "tmaxsoft.com/support/security-advisory", cycle: "일 1회", last: "어제 16:00" },
+  "WebtoB": { type: "Vendor Security Advisory", url: "tmaxsoft.com/support/webtob-security", cycle: "일 1회", status: "지연", last: "2일 전" },
+  "Oracle Database": { type: "Lifecycle Page", url: "oracle.com/security-alerts", cycle: "일 1회", last: "어제 17:40" },
+  "OpenSSL": { type: "Vendor Security Advisory", url: "openssl.org/news/vulnerabilities", cycle: "1시간", last: "오늘 09:30" },
+  "Nginx": { type: "Vendor Security Advisory", url: "nginx.org/en/security_advisories.html", cycle: "6시간", last: "오늘 08:50" },
+  "Red Hat Enterprise Linux": { type: "Vendor Security Advisory", url: "access.redhat.com/security/security-updates", cycle: "6시간", status: "실패", last: "3일 전" },
+  "PostgreSQL": { type: "Vendor Security Advisory", url: "postgresql.org/support/security", cycle: "일 1회", last: "오늘 07:20" },
+}
+
+const initialSources: Source[] = initialMasters.map((m, i) => ({
+  id: `S-${String(i + 1).padStart(3, "0")}`,
+  name: m.name,
+  type: SOURCE_SEED_META[m.name]?.type ?? "Vendor Security Advisory",
+  url: SOURCE_SEED_META[m.name]?.url ?? "-",
+  cycle: SOURCE_SEED_META[m.name]?.cycle ?? "일 1회",
+  last: SOURCE_SEED_META[m.name]?.last ?? "-",
+  status: SOURCE_SEED_META[m.name]?.status ?? "정상",
+}))
 
 const sourceStatusAccent: Record<string, Accent> = {
   정상: "success", 지연: "warning", 실패: "destructive",
+}
+
+/* ---- Inline add/edit form for SW 마스터 관리 ---- */
+type MasterFormValues = Omit<Master, "id" | "updated">
+
+function MasterFormPanel({
+  initial,
+  onCancel,
+  onSubmit,
+}: {
+  initial?: MasterFormValues
+  onCancel: () => void
+  onSubmit: (values: MasterFormValues) => void
+}) {
+  const [values, setValues] = useState<MasterFormValues>(
+    initial ?? {
+      name: "",
+      vendor: "",
+      cat: MASTER_CATEGORIES[0],
+      std: "",
+      mode: COLLECT_MODES[0],
+      active: true,
+    },
+  )
+
+  return (
+    <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4 sm:grid-cols-2 lg:grid-cols-3">
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">제품명</span>
+        <input
+          value={values.name}
+          onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))}
+          placeholder="예: Apache Tomcat"
+          className={inputCls}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">벤더</span>
+        <input
+          value={values.vendor}
+          onChange={(e) => setValues((v) => ({ ...v, vendor: e.target.value }))}
+          placeholder="예: Apache"
+          className={inputCls}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">분류</span>
+        <select
+          value={values.cat}
+          onChange={(e) => setValues((v) => ({ ...v, cat: e.target.value }))}
+          className={inputCls}
+        >
+          {MASTER_CATEGORIES.map((c) => (
+            <option key={c}>{c}</option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">표준 버전</span>
+        <input
+          value={values.std}
+          onChange={(e) => setValues((v) => ({ ...v, std: e.target.value }))}
+          placeholder="예: 10.1.24"
+          className={inputCls}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">수집 모드</span>
+        <select
+          value={values.mode}
+          onChange={(e) => setValues((v) => ({ ...v, mode: e.target.value }))}
+          className={inputCls}
+        >
+          {COLLECT_MODES.map((m) => (
+            <option key={m}>{m}</option>
+          ))}
+        </select>
+      </label>
+      <label className="flex items-center gap-2 text-xs">
+        <input
+          type="checkbox"
+          checked={values.active}
+          onChange={(e) => setValues((v) => ({ ...v, active: e.target.checked }))}
+          className="h-4 w-4 rounded border-border/60 accent-primary"
+        />
+        <span className="font-medium text-muted-foreground">사용 여부</span>
+      </label>
+      <div className="flex items-center gap-2 sm:col-span-2 lg:col-span-3">
+        <button
+          type="button"
+          onClick={() => values.name.trim() && onSubmit(values)}
+          disabled={!values.name.trim()}
+          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          저장
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          취소
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ---- Inline add/edit form for 공식 Source URL 관리 ---- */
+type SourceFormValues = Omit<Source, "id" | "last">
+
+function SourceFormPanel({
+  initial,
+  onCancel,
+  onSubmit,
+}: {
+  initial?: SourceFormValues
+  onCancel: () => void
+  onSubmit: (values: SourceFormValues) => void
+}) {
+  const [values, setValues] = useState<SourceFormValues>(
+    initial ?? {
+      name: "",
+      type: "Vendor Security Advisory",
+      url: "",
+      cycle: SOURCE_CYCLES[0],
+      status: "정상",
+    },
+  )
+
+  return (
+    <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4 sm:grid-cols-2 lg:grid-cols-3">
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">제품명</span>
+        <input
+          value={values.name}
+          onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))}
+          placeholder="예: OpenSSL"
+          className={inputCls}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">Source 유형</span>
+        <input
+          value={values.type}
+          onChange={(e) => setValues((v) => ({ ...v, type: e.target.value }))}
+          placeholder="예: Vendor Security Advisory"
+          className={inputCls}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs sm:col-span-2 lg:col-span-1">
+        <span className="font-medium text-muted-foreground">공식 URL</span>
+        <input
+          value={values.url}
+          onChange={(e) => setValues((v) => ({ ...v, url: e.target.value }))}
+          placeholder="예: openssl.org/news/vulnerabilities"
+          className={cn(inputCls, "font-mono")}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">수집 주기</span>
+        <select
+          value={values.cycle}
+          onChange={(e) => setValues((v) => ({ ...v, cycle: e.target.value }))}
+          className={inputCls}
+        >
+          {SOURCE_CYCLES.map((c) => (
+            <option key={c}>{c}</option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">상태</span>
+        <select
+          value={values.status}
+          onChange={(e) => setValues((v) => ({ ...v, status: e.target.value }))}
+          className={inputCls}
+        >
+          {SOURCE_STATUSES.map((s) => (
+            <option key={s}>{s}</option>
+          ))}
+        </select>
+      </label>
+      <div className="flex items-center gap-2 sm:col-span-2 lg:col-span-3">
+        <button
+          type="button"
+          onClick={() => values.name.trim() && values.url.trim() && onSubmit(values)}
+          disabled={!values.name.trim() || !values.url.trim()}
+          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          저장
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          취소
+        </button>
+      </div>
+    </div>
+  )
 }
 
 /* ---- Section 5: users ---- */
@@ -166,6 +432,13 @@ export function AdminView() {
   const [collecting, setCollecting] = useState(false)
   const [fontScale, setFontScale] = useState(FONT_SCALE_DEFAULT)
   const { isAdmin } = useRole()
+  const { toast } = useToast()
+
+  const [masters, setMasters] = useState<Master[]>(initialMasters)
+  const [masterPanel, setMasterPanel] = useState<"add" | string | null>(null)
+
+  const [sources, setSources] = useState<Source[]>(initialSources)
+  const [sourcePanel, setSourcePanel] = useState<"add" | string | null>(null)
 
   useEffect(() => {
     const stored = Number(window.localStorage.getItem(FONT_SCALE_STORAGE_KEY))
@@ -178,6 +451,42 @@ export function AdminView() {
   const updateFontScale = (next: number) => {
     setFontScale(next)
     window.localStorage.setItem(FONT_SCALE_STORAGE_KEY, String(next))
+  }
+
+  function saveMaster(values: MasterFormValues) {
+    if (masterPanel === "add") {
+      setMasters((prev) => [...prev, { id: nextId("M", prev), updated: "오늘", ...values }])
+      toast({ title: "SW 마스터가 추가되었습니다", tone: "success" })
+    } else if (masterPanel) {
+      const id = masterPanel
+      setMasters((prev) => prev.map((m) => (m.id === id ? { ...m, ...values, updated: "오늘" } : m)))
+      toast({ title: "SW 마스터가 수정되었습니다", tone: "success" })
+    }
+    setMasterPanel(null)
+  }
+
+  function deleteMaster(target: Master) {
+    if (!window.confirm(`"${target.name}"을(를) 삭제하시겠습니까?`)) return
+    setMasters((prev) => prev.filter((m) => m.id !== target.id))
+    toast({ title: "SW 마스터가 삭제되었습니다", tone: "info" })
+  }
+
+  function saveSource(values: SourceFormValues) {
+    if (sourcePanel === "add") {
+      setSources((prev) => [...prev, { id: nextId("S", prev), last: "-", ...values }])
+      toast({ title: "Source URL이 추가되었습니다", tone: "success" })
+    } else if (sourcePanel) {
+      const id = sourcePanel
+      setSources((prev) => prev.map((s) => (s.id === id ? { ...s, ...values } : s)))
+      toast({ title: "Source URL이 수정되었습니다", tone: "success" })
+    }
+    setSourcePanel(null)
+  }
+
+  function deleteSource(target: Source) {
+    if (!window.confirm(`"${target.name}" Source URL을 삭제하시겠습니까?`)) return
+    setSources((prev) => prev.filter((s) => s.id !== target.id))
+    toast({ title: "Source URL이 삭제되었습니다", tone: "info" })
   }
 
   if (!isAdmin) {
@@ -216,59 +525,150 @@ export function AdminView() {
         style={{ zoom: String(fontScale / 100) }}
       >
       {/* Section 1: SW master */}
-      <SectionCard title="SW 마스터 관리" subtitle="표준 소프트웨어 마스터 데이터" icon={Database}>
+      <SectionCard
+        title="SW 마스터 관리"
+        subtitle="표준 소프트웨어 마스터 데이터"
+        icon={Database}
+        action={
+          masterPanel ? null : (
+            <MiniButton accent="primary" onClick={() => setMasterPanel("add")}>
+              <Plus className="h-3.5 w-3.5" />
+              추가
+            </MiniButton>
+          )
+        }
+      >
+        {masterPanel === "add" ? (
+          <MasterFormPanel onCancel={() => setMasterPanel(null)} onSubmit={saveMaster} />
+        ) : null}
         <TableShell>
           <thead>
             <tr>
               <Th>마스터 ID</Th><Th>제품명</Th><Th>벤더</Th><Th>분류</Th>
-              <Th>표준 버전</Th><Th>수집 모드</Th><Th>사용 여부</Th><Th>최근 갱신일</Th>
+              <Th>표준 버전</Th><Th>수집 모드</Th><Th>사용 여부</Th><Th>최근 갱신일</Th><Th>관리</Th>
             </tr>
           </thead>
           <tbody>
-            {masters.map((m) => (
-              <tr key={m.id} className="transition-colors hover:bg-accent/40">
-                <Td className="font-mono text-xs text-muted-foreground">{m.id}</Td>
-                <Td className="font-semibold">{m.name}</Td>
-                <Td className="text-muted-foreground">{m.vendor}</Td>
-                <Td><StatusBadge accent="primary">{m.cat}</StatusBadge></Td>
-                <Td className="font-mono text-xs">{m.std}</Td>
-                <Td><StatusBadge accent="eos">{m.mode}</StatusBadge></Td>
-                <Td>
-                  <StatusBadge accent={m.active ? "success" : "muted"}>
-                    {m.active ? "사용" : "미사용"}
-                  </StatusBadge>
-                </Td>
-                <Td className="text-xs text-muted-foreground">{m.updated}</Td>
-              </tr>
-            ))}
+            {masters.map((m) =>
+              masterPanel === m.id ? (
+                <tr key={m.id}>
+                  <td colSpan={9} className="border-b border-border/40 p-0">
+                    <MasterFormPanel
+                      initial={{
+                        name: m.name,
+                        vendor: m.vendor,
+                        cat: m.cat,
+                        std: m.std,
+                        mode: m.mode,
+                        active: m.active,
+                      }}
+                      onCancel={() => setMasterPanel(null)}
+                      onSubmit={saveMaster}
+                    />
+                  </td>
+                </tr>
+              ) : (
+                <tr key={m.id} className="transition-colors hover:bg-accent/40">
+                  <Td className="font-mono text-xs text-muted-foreground">{m.id}</Td>
+                  <Td className="font-semibold">{m.name}</Td>
+                  <Td className="text-muted-foreground">{m.vendor}</Td>
+                  <Td><StatusBadge accent="primary">{m.cat}</StatusBadge></Td>
+                  <Td className="font-mono text-xs">{m.std}</Td>
+                  <Td><StatusBadge accent="eos">{m.mode}</StatusBadge></Td>
+                  <Td>
+                    <StatusBadge accent={m.active ? "success" : "muted"}>
+                      {m.active ? "사용" : "미사용"}
+                    </StatusBadge>
+                  </Td>
+                  <Td className="text-xs text-muted-foreground">{m.updated}</Td>
+                  <Td>
+                    <div className="flex items-center gap-1.5">
+                      <MiniButton onClick={() => setMasterPanel(m.id)}>
+                        <Pencil className="h-3 w-3" />
+                        수정
+                      </MiniButton>
+                      <MiniButton accent="destructive" onClick={() => deleteMaster(m)}>
+                        <Trash2 className="h-3 w-3" />
+                        삭제
+                      </MiniButton>
+                    </div>
+                  </Td>
+                </tr>
+              ),
+            )}
           </tbody>
         </TableShell>
       </SectionCard>
 
       {/* Section 2: Source URL */}
-      <SectionCard title="공식 Source URL 관리" subtitle="자동수집 대상 공식 출처" icon={Link2}>
+      <SectionCard
+        title="공식 Source URL 관리"
+        subtitle="자동수집 대상 공식 출처"
+        icon={Link2}
+        action={
+          sourcePanel ? null : (
+            <MiniButton accent="primary" onClick={() => setSourcePanel("add")}>
+              <Plus className="h-3.5 w-3.5" />
+              추가
+            </MiniButton>
+          )
+        }
+      >
+        {sourcePanel === "add" ? (
+          <SourceFormPanel onCancel={() => setSourcePanel(null)} onSubmit={saveSource} />
+        ) : null}
         <TableShell>
           <thead>
             <tr>
               <Th>제품명</Th><Th>Source 유형</Th><Th>공식 URL</Th>
-              <Th>수집 주기</Th><Th>마지막 수집</Th><Th>상태</Th>
+              <Th>수집 주기</Th><Th>마지막 수집</Th><Th>상태</Th><Th>관리</Th>
             </tr>
           </thead>
           <tbody>
-            {sources.map((s) => (
-              <tr key={s.name} className="transition-colors hover:bg-accent/40">
-                <Td className="font-semibold">{s.name}</Td>
-                <Td className="text-muted-foreground">{s.type}</Td>
-                <Td className="font-mono text-xs text-primary">{s.url}</Td>
-                <Td className="text-xs">{s.cycle}</Td>
-                <Td className="text-xs text-muted-foreground">{s.last}</Td>
-                <Td>
-                  <StatusBadge accent={sourceStatusAccent[s.status]} pulse={s.status === "실패"}>
-                    {s.status}
-                  </StatusBadge>
-                </Td>
-              </tr>
-            ))}
+            {sources.map((s) =>
+              sourcePanel === s.id ? (
+                <tr key={s.id}>
+                  <td colSpan={7} className="border-b border-border/40 p-0">
+                    <SourceFormPanel
+                      initial={{
+                        name: s.name,
+                        type: s.type,
+                        url: s.url,
+                        cycle: s.cycle,
+                        status: s.status,
+                      }}
+                      onCancel={() => setSourcePanel(null)}
+                      onSubmit={saveSource}
+                    />
+                  </td>
+                </tr>
+              ) : (
+                <tr key={s.id} className="transition-colors hover:bg-accent/40">
+                  <Td className="font-semibold">{s.name}</Td>
+                  <Td className="text-muted-foreground">{s.type}</Td>
+                  <Td className="font-mono text-xs text-primary">{s.url}</Td>
+                  <Td className="text-xs">{s.cycle}</Td>
+                  <Td className="text-xs text-muted-foreground">{s.last}</Td>
+                  <Td>
+                    <StatusBadge accent={sourceStatusAccent[s.status]} pulse={s.status === "실패"}>
+                      {s.status}
+                    </StatusBadge>
+                  </Td>
+                  <Td>
+                    <div className="flex items-center gap-1.5">
+                      <MiniButton onClick={() => setSourcePanel(s.id)}>
+                        <Pencil className="h-3 w-3" />
+                        수정
+                      </MiniButton>
+                      <MiniButton accent="destructive" onClick={() => deleteSource(s)}>
+                        <Trash2 className="h-3 w-3" />
+                        삭제
+                      </MiniButton>
+                    </div>
+                  </Td>
+                </tr>
+              ),
+            )}
           </tbody>
         </TableShell>
       </SectionCard>
