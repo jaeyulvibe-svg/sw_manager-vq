@@ -20,11 +20,11 @@ export function PageHeader({
 }) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div className="flex items-start gap-3">
+      <div className="flex min-w-0 items-start gap-3">
         <div className="glow-card flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
           <Icon className="h-6 w-6" />
         </div>
-        <div>
+        <div className="min-w-0">
           <h1 className="text-balance text-xl font-bold tracking-tight text-foreground sm:text-2xl">
             {title}
           </h1>
@@ -233,21 +233,21 @@ export function SectionCard({
         className,
       )}
     >
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/12 text-primary">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary">
             <Icon className="h-5 w-5" />
           </span>
-          <div>
-            <h3 className="text-base font-bold text-foreground">{title}</h3>
+          <div className="min-w-0">
+            <h3 className="truncate text-base font-bold text-foreground">{title}</h3>
             {subtitle ? (
-              <p className="text-xs text-muted-foreground">{subtitle}</p>
+              <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
             ) : null}
           </div>
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>
-      {children}
+      <div className="min-w-0">{children}</div>
     </section>
   )
 }

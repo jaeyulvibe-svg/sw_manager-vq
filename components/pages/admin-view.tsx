@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   Settings,
   Database,
@@ -12,6 +12,9 @@ import {
   Play,
   Zap,
   Lock,
+  Minus,
+  Plus,
+  Type,
 } from "lucide-react"
 import {
   PageHeader,
@@ -67,6 +70,61 @@ const logs = [
 
 const resultAccent: Record<string, Accent> = { 성공: "success", 실패: "destructive" }
 
+/* ---- Font size control (admin page only) ---- */
+const FONT_SCALE_MIN = 80
+const FONT_SCALE_MAX = 150
+const FONT_SCALE_STEP = 10
+const FONT_SCALE_DEFAULT = 100
+const FONT_SCALE_STORAGE_KEY = "admin-font-scale"
+
+function FontSizeControl({
+  scale,
+  onChange,
+}: {
+  scale: number
+  onChange: (next: number) => void
+}) {
+  return (
+    <div
+      className="flex items-center gap-1 rounded-full border border-border/70 bg-card p-1"
+      role="group"
+      aria-label="글자 크기 조절"
+    >
+      <button
+        type="button"
+        onClick={() => onChange(Math.max(FONT_SCALE_MIN, scale - FONT_SCALE_STEP))}
+        disabled={scale <= FONT_SCALE_MIN}
+        aria-label="글자 크기 줄이기"
+        className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <Minus className="h-3.5 w-3.5" />
+      </button>
+      <span className="flex items-center gap-1 px-1.5 text-xs font-semibold tabular-nums text-foreground">
+        <Type className="h-3.5 w-3.5 text-muted-foreground" />
+        {scale}%
+      </span>
+      <button
+        type="button"
+        onClick={() => onChange(Math.min(FONT_SCALE_MAX, scale + FONT_SCALE_STEP))}
+        disabled={scale >= FONT_SCALE_MAX}
+        aria-label="글자 크기 키우기"
+        className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <Plus className="h-3.5 w-3.5" />
+      </button>
+      {scale !== FONT_SCALE_DEFAULT ? (
+        <button
+          type="button"
+          onClick={() => onChange(FONT_SCALE_DEFAULT)}
+          className="ml-0.5 rounded-full px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+        >
+          초기화
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
 function Toggle({
   label,
   desc,
@@ -106,7 +164,21 @@ function Toggle({
 
 export function AdminView() {
   const [collecting, setCollecting] = useState(false)
+  const [fontScale, setFontScale] = useState(FONT_SCALE_DEFAULT)
   const { isAdmin } = useRole()
+
+  useEffect(() => {
+    const stored = Number(window.localStorage.getItem(FONT_SCALE_STORAGE_KEY))
+    if (stored >= FONT_SCALE_MIN && stored <= FONT_SCALE_MAX) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFontScale(stored)
+    }
+  }, [])
+
+  const updateFontScale = (next: number) => {
+    setFontScale(next)
+    window.localStorage.setItem(FONT_SCALE_STORAGE_KEY, String(next))
+  }
 
   if (!isAdmin) {
     return (
@@ -136,8 +208,13 @@ export function AdminView() {
         icon={Settings}
         title="관리자 페이지"
         description="관리자는 SW 마스터 데이터, Source URL, 자동수집 정책, 승인 프로세스, 사용자 권한을 통합 관리합니다."
+        action={<FontSizeControl scale={fontScale} onChange={updateFontScale} />}
       />
 
+      <div
+        className="flex min-w-0 flex-col gap-6"
+        style={{ zoom: String(fontScale / 100) }}
+      >
       {/* Section 1: SW master */}
       <SectionCard title="SW 마스터 관리" subtitle="표준 소프트웨어 마스터 데이터" icon={Database}>
         <TableShell>
@@ -218,12 +295,12 @@ export function AdminView() {
         >
           <div className="flex flex-col gap-3">
             <Toggle label="자동 수집 스케줄러" desc="공식 Source 주기적 자동 수집" defaultOn />
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-background/40 px-3 py-3">
-              <div>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-background/40 px-3 py-3">
+              <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground">수집 주기</p>
                 <p className="text-xs text-muted-foreground">기본 수집 인터벌</p>
               </div>
-              <select className="rounded-lg border border-border/60 bg-background/50 px-3 py-1.5 text-xs text-foreground focus:border-primary/60 focus:outline-none">
+              <select className="shrink-0 rounded-lg border border-border/60 bg-background/50 px-3 py-1.5 text-xs text-foreground focus:border-primary/60 focus:outline-none">
                 <option>1시간</option>
                 <option>6시간</option>
                 <option>일 1회</option>
@@ -245,17 +322,17 @@ export function AdminView() {
                   </>
                 ) : (
                   <>
-                    <li className="flex items-center justify-between rounded-md bg-card px-2 py-1.5">
-                      <span className="text-muted-foreground">OpenSSL Advisory</span>
-                      <StatusBadge accent="success">성공</StatusBadge>
+                    <li className="flex items-center justify-between gap-2 rounded-md bg-card px-2 py-1.5">
+                      <span className="min-w-0 truncate text-muted-foreground">OpenSSL Advisory</span>
+                      <StatusBadge accent="success" className="shrink-0">성공</StatusBadge>
                     </li>
-                    <li className="flex items-center justify-between rounded-md bg-card px-2 py-1.5">
-                      <span className="text-muted-foreground">Apache Tomcat (KISA)</span>
-                      <StatusBadge accent="success">성공</StatusBadge>
+                    <li className="flex items-center justify-between gap-2 rounded-md bg-card px-2 py-1.5">
+                      <span className="min-w-0 truncate text-muted-foreground">Apache Tomcat (KISA)</span>
+                      <StatusBadge accent="success" className="shrink-0">성공</StatusBadge>
                     </li>
-                    <li className="flex items-center justify-between rounded-md bg-card px-2 py-1.5">
-                      <span className="text-muted-foreground">Nginx Release Notes</span>
-                      <StatusBadge accent="destructive" pulse>실패</StatusBadge>
+                    <li className="flex items-center justify-between gap-2 rounded-md bg-card px-2 py-1.5">
+                      <span className="min-w-0 truncate text-muted-foreground">Nginx Release Notes</span>
+                      <StatusBadge accent="destructive" pulse className="shrink-0">실패</StatusBadge>
                     </li>
                   </>
                 )}
@@ -328,6 +405,7 @@ export function AdminView() {
           </tbody>
         </TableShell>
       </SectionCard>
+      </div>
     </div>
   )
 }

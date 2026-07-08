@@ -57,13 +57,13 @@ function ChartCard({
     <div
       className={`glow-card animate-rise flex flex-col rounded-2xl border border-border/60 bg-card p-5 ${className}`}
     >
-      <div className="mb-4 flex items-center gap-2.5">
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/12 text-primary">
+      <div className="mb-4 flex min-w-0 flex-wrap items-center gap-2.5">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary">
           <Icon className="h-5 w-5" />
         </span>
-        <div>
-          <h3 className="text-base font-bold text-foreground">{title}</h3>
-          <p className="text-xs text-muted-foreground">{subtitle}</p>
+        <div className="min-w-0">
+          <h3 className="truncate text-base font-bold text-foreground">{title}</h3>
+          <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
         </div>
       </div>
       {children}

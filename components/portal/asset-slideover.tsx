@@ -139,18 +139,18 @@ export function AssetSlideover({
       >
         {/* Header */}
         <div className="relative flex items-start justify-between gap-3 border-b border-border/60 px-5 py-4">
-          <div className="flex items-start gap-3">
+          <div className="flex min-w-0 items-start gap-3">
             <span className="glow-card flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
               <PackageCheck className="h-6 w-6" />
             </span>
-            <div>
-              <p className="font-mono text-xs text-muted-foreground">
+            <div className="min-w-0">
+              <p className="truncate font-mono text-xs text-muted-foreground">
                 {asset.id}
               </p>
-              <h2 className="text-lg font-bold text-foreground">
+              <h2 className="text-balance break-words text-lg font-bold text-foreground">
                 {asset.name}
               </h2>
-              <p className="text-xs text-muted-foreground">
+              <p className="truncate text-xs text-muted-foreground">
                 v{asset.version} · 최신 v{asset.latest}
               </p>
             </div>
@@ -158,7 +158,7 @@ export function AssetSlideover({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition-colors hover:text-foreground"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition-colors hover:text-foreground"
             aria-label="닫기"
           >
             <X className="h-4 w-4" />

@@ -255,9 +255,9 @@ export function KisaView({ onNavigate }: { onNavigate?: (view: ViewKey) => void 
                       ["영향 제품", selected.product],
                       ["수집 일시", formatCollected(selected.collected_at)],
                     ].map(([k, v]) => (
-                      <div key={k} className="rounded-lg border border-border/60 bg-background/40 p-2.5">
+                      <div key={k} className="min-w-0 rounded-lg border border-border/60 bg-background/40 p-2.5">
                         <dt className="text-muted-foreground">{k}</dt>
-                        <dd className="mt-0.5 font-medium text-foreground">{v}</dd>
+                        <dd className="mt-0.5 break-words font-medium text-foreground">{v}</dd>
                       </div>
                     ))}
                   </dl>
@@ -274,9 +274,9 @@ export function KisaView({ onNavigate }: { onNavigate?: (view: ViewKey) => void 
                       <>
                         <ul className="flex flex-col gap-1.5 text-xs text-muted-foreground">
                           {selectedMatches.map((a) => (
-                            <li key={a.id} className="flex items-center justify-between rounded-md bg-card px-2 py-1.5">
-                              <span className="font-mono">{a.id} · {a.server}</span>
-                              <span>{a.owner}</span>
+                            <li key={a.id} className="flex items-center justify-between gap-2 rounded-md bg-card px-2 py-1.5">
+                              <span className="min-w-0 truncate font-mono">{a.id} · {a.server}</span>
+                              <span className="shrink-0">{a.owner}</span>
                             </li>
                           ))}
                         </ul>
