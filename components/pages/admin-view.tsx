@@ -17,6 +17,8 @@ import {
   Type,
   Pencil,
   Trash2,
+  Check,
+  X,
 } from "lucide-react"
 import {
   PageHeader,
@@ -436,9 +438,13 @@ export function AdminView() {
 
   const [masters, setMasters] = useState<Master[]>(initialMasters)
   const [masterPanel, setMasterPanel] = useState<"add" | string | null>(null)
+  const [masterSelectMode, setMasterSelectMode] = useState(false)
+  const [selectedMasterIds, setSelectedMasterIds] = useState<Set<string>>(new Set())
 
   const [sources, setSources] = useState<Source[]>(initialSources)
   const [sourcePanel, setSourcePanel] = useState<"add" | string | null>(null)
+  const [sourceSelectMode, setSourceSelectMode] = useState(false)
+  const [selectedSourceIds, setSelectedSourceIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const stored = Number(window.localStorage.getItem(FONT_SCALE_STORAGE_KEY))
@@ -471,6 +477,37 @@ export function AdminView() {
     toast({ title: "SW 마스터가 삭제되었습니다", tone: "info" })
   }
 
+  function toggleMasterSelectAll() {
+    setSelectedMasterIds((prev) =>
+      prev.size === masters.length ? new Set() : new Set(masters.map((m) => m.id)),
+    )
+  }
+
+  function toggleMasterSelected(id: string) {
+    setSelectedMasterIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function cancelMasterSelection() {
+    setMasterSelectMode(false)
+    setSelectedMasterIds(new Set())
+  }
+
+  function saveMasterSelection() {
+    if (selectedMasterIds.size === 0) {
+      cancelMasterSelection()
+      return
+    }
+    if (!window.confirm(`선택한 SW 마스터 ${selectedMasterIds.size}건을 삭제하시겠습니까?`)) return
+    setMasters((prev) => prev.filter((m) => !selectedMasterIds.has(m.id)))
+    toast({ title: `SW 마스터 ${selectedMasterIds.size}건이 삭제되었습니다`, tone: "info" })
+    cancelMasterSelection()
+  }
+
   function saveSource(values: SourceFormValues) {
     if (sourcePanel === "add") {
       setSources((prev) => [...prev, { id: nextId("S", prev), last: "-", ...values }])
@@ -487,6 +524,37 @@ export function AdminView() {
     if (!window.confirm(`"${target.name}" Source URL을 삭제하시겠습니까?`)) return
     setSources((prev) => prev.filter((s) => s.id !== target.id))
     toast({ title: "Source URL이 삭제되었습니다", tone: "info" })
+  }
+
+  function toggleSourceSelectAll() {
+    setSelectedSourceIds((prev) =>
+      prev.size === sources.length ? new Set() : new Set(sources.map((s) => s.id)),
+    )
+  }
+
+  function toggleSourceSelected(id: string) {
+    setSelectedSourceIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function cancelSourceSelection() {
+    setSourceSelectMode(false)
+    setSelectedSourceIds(new Set())
+  }
+
+  function saveSourceSelection() {
+    if (selectedSourceIds.size === 0) {
+      cancelSourceSelection()
+      return
+    }
+    if (!window.confirm(`선택한 Source URL ${selectedSourceIds.size}건을 삭제하시겠습니까?`)) return
+    setSources((prev) => prev.filter((s) => !selectedSourceIds.has(s.id)))
+    toast({ title: `Source URL ${selectedSourceIds.size}건이 삭제되었습니다`, tone: "info" })
+    cancelSourceSelection()
   }
 
   if (!isAdmin) {
@@ -530,11 +598,28 @@ export function AdminView() {
         subtitle="표준 소프트웨어 마스터 데이터"
         icon={Database}
         action={
-          masterPanel ? null : (
-            <MiniButton accent="primary" onClick={() => setMasterPanel("add")}>
-              <Plus className="h-3.5 w-3.5" />
-              추가
-            </MiniButton>
+          masterPanel ? null : masterSelectMode ? (
+            <div className="flex items-center gap-1.5">
+              <MiniButton accent="success" onClick={saveMasterSelection}>
+                <Check className="h-3.5 w-3.5" />
+                저장
+              </MiniButton>
+              <MiniButton onClick={cancelMasterSelection}>
+                <X className="h-3.5 w-3.5" />
+                취소
+              </MiniButton>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <MiniButton accent="primary" onClick={() => setMasterPanel("add")}>
+                <Plus className="h-3.5 w-3.5" />
+                추가
+              </MiniButton>
+              <MiniButton accent="destructive" onClick={() => setMasterSelectMode(true)}>
+                <Trash2 className="h-3.5 w-3.5" />
+                삭제
+              </MiniButton>
+            </div>
           )
         }
       >
@@ -544,8 +629,20 @@ export function AdminView() {
         <TableShell>
           <thead>
             <tr>
+              {masterSelectMode ? (
+                <Th className="w-8">
+                  <input
+                    type="checkbox"
+                    checked={masters.length > 0 && selectedMasterIds.size === masters.length}
+                    onChange={toggleMasterSelectAll}
+                    aria-label="전체 선택"
+                    className="h-4 w-4 rounded border-border/60 accent-primary"
+                  />
+                </Th>
+              ) : null}
               <Th>마스터 ID</Th><Th>제품명</Th><Th>벤더</Th><Th>분류</Th>
-              <Th>표준 버전</Th><Th>수집 모드</Th><Th>사용 여부</Th><Th>최근 갱신일</Th><Th>관리</Th>
+              <Th>표준 버전</Th><Th>수집 모드</Th><Th>사용 여부</Th><Th>최근 갱신일</Th>
+              {masterSelectMode ? null : <Th>관리</Th>}
             </tr>
           </thead>
           <tbody>
@@ -569,6 +666,17 @@ export function AdminView() {
                 </tr>
               ) : (
                 <tr key={m.id} className="transition-colors hover:bg-accent/40">
+                  {masterSelectMode ? (
+                    <Td>
+                      <input
+                        type="checkbox"
+                        checked={selectedMasterIds.has(m.id)}
+                        onChange={() => toggleMasterSelected(m.id)}
+                        aria-label={`${m.name} 선택`}
+                        className="h-4 w-4 rounded border-border/60 accent-primary"
+                      />
+                    </Td>
+                  ) : null}
                   <Td className="font-mono text-xs text-muted-foreground">{m.id}</Td>
                   <Td className="font-semibold">{m.name}</Td>
                   <Td className="text-muted-foreground">{m.vendor}</Td>
@@ -581,18 +689,20 @@ export function AdminView() {
                     </StatusBadge>
                   </Td>
                   <Td className="text-xs text-muted-foreground">{m.updated}</Td>
-                  <Td>
-                    <div className="flex items-center gap-1.5">
-                      <MiniButton onClick={() => setMasterPanel(m.id)}>
-                        <Pencil className="h-3 w-3" />
-                        수정
-                      </MiniButton>
-                      <MiniButton accent="destructive" onClick={() => deleteMaster(m)}>
-                        <Trash2 className="h-3 w-3" />
-                        삭제
-                      </MiniButton>
-                    </div>
-                  </Td>
+                  {masterSelectMode ? null : (
+                    <Td>
+                      <div className="flex items-center gap-1.5">
+                        <MiniButton onClick={() => setMasterPanel(m.id)}>
+                          <Pencil className="h-3 w-3" />
+                          수정
+                        </MiniButton>
+                        <MiniButton accent="destructive" onClick={() => deleteMaster(m)}>
+                          <Trash2 className="h-3 w-3" />
+                          삭제
+                        </MiniButton>
+                      </div>
+                    </Td>
+                  )}
                 </tr>
               ),
             )}
@@ -606,11 +716,28 @@ export function AdminView() {
         subtitle="자동수집 대상 공식 출처"
         icon={Link2}
         action={
-          sourcePanel ? null : (
-            <MiniButton accent="primary" onClick={() => setSourcePanel("add")}>
-              <Plus className="h-3.5 w-3.5" />
-              추가
-            </MiniButton>
+          sourcePanel ? null : sourceSelectMode ? (
+            <div className="flex items-center gap-1.5">
+              <MiniButton accent="success" onClick={saveSourceSelection}>
+                <Check className="h-3.5 w-3.5" />
+                저장
+              </MiniButton>
+              <MiniButton onClick={cancelSourceSelection}>
+                <X className="h-3.5 w-3.5" />
+                취소
+              </MiniButton>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <MiniButton accent="primary" onClick={() => setSourcePanel("add")}>
+                <Plus className="h-3.5 w-3.5" />
+                추가
+              </MiniButton>
+              <MiniButton accent="destructive" onClick={() => setSourceSelectMode(true)}>
+                <Trash2 className="h-3.5 w-3.5" />
+                삭제
+              </MiniButton>
+            </div>
           )
         }
       >
@@ -620,8 +747,20 @@ export function AdminView() {
         <TableShell>
           <thead>
             <tr>
+              {sourceSelectMode ? (
+                <Th className="w-8">
+                  <input
+                    type="checkbox"
+                    checked={sources.length > 0 && selectedSourceIds.size === sources.length}
+                    onChange={toggleSourceSelectAll}
+                    aria-label="전체 선택"
+                    className="h-4 w-4 rounded border-border/60 accent-primary"
+                  />
+                </Th>
+              ) : null}
               <Th>제품명</Th><Th>Source 유형</Th><Th>공식 URL</Th>
-              <Th>수집 주기</Th><Th>마지막 수집</Th><Th>상태</Th><Th>관리</Th>
+              <Th>수집 주기</Th><Th>마지막 수집</Th><Th>상태</Th>
+              {sourceSelectMode ? null : <Th>관리</Th>}
             </tr>
           </thead>
           <tbody>
@@ -644,6 +783,17 @@ export function AdminView() {
                 </tr>
               ) : (
                 <tr key={s.id} className="transition-colors hover:bg-accent/40">
+                  {sourceSelectMode ? (
+                    <Td>
+                      <input
+                        type="checkbox"
+                        checked={selectedSourceIds.has(s.id)}
+                        onChange={() => toggleSourceSelected(s.id)}
+                        aria-label={`${s.name} 선택`}
+                        className="h-4 w-4 rounded border-border/60 accent-primary"
+                      />
+                    </Td>
+                  ) : null}
                   <Td className="font-semibold">{s.name}</Td>
                   <Td className="text-muted-foreground">{s.type}</Td>
                   <Td className="font-mono text-xs text-primary">{s.url}</Td>
@@ -654,18 +804,20 @@ export function AdminView() {
                       {s.status}
                     </StatusBadge>
                   </Td>
-                  <Td>
-                    <div className="flex items-center gap-1.5">
-                      <MiniButton onClick={() => setSourcePanel(s.id)}>
-                        <Pencil className="h-3 w-3" />
-                        수정
-                      </MiniButton>
-                      <MiniButton accent="destructive" onClick={() => deleteSource(s)}>
-                        <Trash2 className="h-3 w-3" />
-                        삭제
-                      </MiniButton>
-                    </div>
-                  </Td>
+                  {sourceSelectMode ? null : (
+                    <Td>
+                      <div className="flex items-center gap-1.5">
+                        <MiniButton onClick={() => setSourcePanel(s.id)}>
+                          <Pencil className="h-3 w-3" />
+                          수정
+                        </MiniButton>
+                        <MiniButton accent="destructive" onClick={() => deleteSource(s)}>
+                          <Trash2 className="h-3 w-3" />
+                          삭제
+                        </MiniButton>
+                      </div>
+                    </Td>
+                  )}
                 </tr>
               ),
             )}
