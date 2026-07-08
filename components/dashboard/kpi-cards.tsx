@@ -58,7 +58,7 @@ function KpiCard({ kpi }: { kpi: KpiData }) {
       style={{ animationDelay: `${kpi.delay}ms` }}
     >
       <div
-        className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary/10 blur-2xl transition-opacity duration-300 group-hover:opacity-100 opacity-70"
+        className="pointer-events-none absolute -right-10 -top-10 hidden h-28 w-28 rounded-full bg-primary/10 blur-2xl transition-opacity duration-300 group-hover:opacity-100 dark:block dark:opacity-70"
         aria-hidden
       />
       <div className="mb-4 flex items-center justify-between">

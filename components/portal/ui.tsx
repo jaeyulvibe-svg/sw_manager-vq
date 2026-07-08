@@ -164,7 +164,7 @@ export function StatCard({
       style={{ animationDelay: `${delay}ms` }}
     >
       <div
-        className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-primary/10 opacity-70 blur-2xl transition-opacity duration-300 group-hover:opacity-100"
+        className="pointer-events-none absolute -right-10 -top-10 hidden h-24 w-24 rounded-full bg-primary/10 blur-2xl transition-opacity duration-300 group-hover:opacity-100 dark:block dark:opacity-70"
         aria-hidden
       />
       <div className="mb-3 flex items-center justify-between">

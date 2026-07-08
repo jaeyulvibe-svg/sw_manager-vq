@@ -9,9 +9,9 @@ export function ScanHero() {
       <div className="hero-grid absolute inset-0 opacity-60" aria-hidden />
       {/* Scanning sweep line */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-16 animate-scan-sweep bg-gradient-to-b from-primary/40 via-primary/10 to-transparent" aria-hidden />
-      {/* Radial glow */}
+      {/* Radial glow — dark theme only */}
       <div
-        className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-primary/20 blur-3xl"
+        className="pointer-events-none absolute -right-24 -top-24 hidden h-72 w-72 rounded-full bg-primary/20 blur-3xl dark:block"
         aria-hidden
       />
 

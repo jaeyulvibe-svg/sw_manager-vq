@@ -147,28 +147,69 @@
 }
 
 @layer utilities {
-  /* Soft neon-blue glow around cards */
+  /* Light theme: flat, non-bleeding elevation (no colored blur) */
   .glow-card {
+    box-shadow:
+      0 1px 2px oklch(0 0 0 / 0.04),
+      0 1px 3px oklch(0 0 0 / 0.06);
+    transition: box-shadow 250ms ease;
+  }
+  .glow-card-strong {
+    box-shadow:
+      0 1px 3px oklch(0 0 0 / 0.06),
+      0 4px 12px oklch(0 0 0 / 0.08);
+    transition: box-shadow 250ms ease;
+  }
+  /* Deeper elevation on hover — light theme only, no colored bleed */
+  .glow-card:hover:not(.dark *) {
+    box-shadow:
+      0 2px 6px oklch(0 0 0 / 0.07),
+      0 10px 26px oklch(0 0 0 / 0.11);
+  }
+  .glow-card-strong:hover:not(.dark *) {
+    box-shadow:
+      0 4px 10px oklch(0 0 0 / 0.09),
+      0 14px 32px oklch(0 0 0 / 0.13);
+  }
+  .glow-critical {
+    box-shadow: 0 0 0 1px oklch(0.55 0.22 22 / 0.35);
+  }
+  .text-glow {
+    text-shadow: none;
+  }
+
+  /* Dark theme: soft neon-blue glow around cards */
+  .dark .glow-card {
     box-shadow:
       0 0 0 1px oklch(0.68 0.17 235 / 0.18),
       0 0 24px -4px oklch(0.68 0.17 235 / 0.22),
       0 8px 40px -12px oklch(0 0 0 / 0.6);
   }
-  .glow-card-strong {
+  .dark .glow-card-strong {
     box-shadow:
       0 0 0 1px oklch(0.68 0.17 235 / 0.35),
       0 0 40px -6px oklch(0.68 0.17 235 / 0.4),
       0 8px 44px -10px oklch(0 0 0 / 0.7);
   }
-  .glow-critical {
+  .dark .glow-critical {
     box-shadow:
       0 0 0 1px oklch(0.62 0.23 22 / 0.4),
       0 0 30px -6px oklch(0.62 0.23 22 / 0.4);
   }
-  .text-glow {
+  .dark .text-glow {
     text-shadow: 0 0 24px oklch(0.68 0.17 235 / 0.55);
   }
 
+  /* Light theme: pulse via a crisp ring only, no blurred bleed */
+  @keyframes soft-pulse-flat {
+    0%, 100% { box-shadow: 0 0 0 1px oklch(0.55 0.22 22 / 0.35); }
+    50%      { box-shadow: 0 0 0 1.5px oklch(0.55 0.22 22 / 0.7); }
+  }
+  .animate-soft-pulse {
+    animation: soft-pulse-flat 2.4s ease-in-out infinite;
+  }
+
+  /* Dark theme: original blurred red glow pulse */
   @keyframes soft-pulse {
     0%, 100% {
       box-shadow:
@@ -181,7 +222,7 @@
         0 0 34px -2px oklch(0.62 0.23 22 / 0.6);
     }
   }
-  .animate-soft-pulse {
+  .dark .animate-soft-pulse {
     animation: soft-pulse 2.4s ease-in-out infinite;
   }
 
@@ -197,7 +238,11 @@
         0 0 40px -4px oklch(0.68 0.17 235 / 0.45);
     }
   }
+  /* Light theme: no breathing glow bleed, card stays flat (see .glow-card-strong) */
   .animate-glow-breathe {
+    animation: none;
+  }
+  .dark .animate-glow-breathe {
     animation: glow-breathe 4s ease-in-out infinite;
   }
 
@@ -300,9 +345,9 @@
     opacity: 0.025;
   }
 
-  /* Glass panel treatment */
+  /* Glass panel treatment (theme-aware: follows --card) */
   .glass {
-    background: oklch(0.22 0.04 258 / 0.72);
+    background: color-mix(in oklch, var(--card) 72%, transparent);
     backdrop-filter: blur(16px) saturate(140%);
     -webkit-backdrop-filter: blur(16px) saturate(140%);
   }
