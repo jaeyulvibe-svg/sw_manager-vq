@@ -12,7 +12,6 @@ import { CriticalAlerts } from "@/components/dashboard/critical-alerts"
 import {
   VulnerabilityApprovalStatus,
   SeverityDonut,
-  PatchByCategory,
 } from "@/components/dashboard/charts"
 import {
   NoticeBoard,
@@ -115,7 +114,6 @@ function SecurityDashboardView() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <VulnerabilityApprovalStatus vulns={vulns} />
         <SeverityDonut assets={assets} />
-        <PatchByCategory assets={assets} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

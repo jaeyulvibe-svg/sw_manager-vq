@@ -12,13 +12,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import { ShieldAlert, PieChart as PieIcon, BarChart3 } from "lucide-react"
+import { ShieldAlert, PieChart as PieIcon } from "lucide-react"
 import type { Tables } from "@/lib/supabase/types"
 
 type Asset = Tables<"assets">
 type Vulnerability = Tables<"vulnerabilities">
-
-const CATEGORIES = ["OS", "WEB", "WAS", "DB", "Middleware", "Security"]
 
 function ChartCard({
   title,
@@ -203,60 +201,3 @@ export function SeverityDonut({ assets }: { assets: Asset[] }) {
   )
 }
 
-/* ---------------- 3. 카테고리별 패치 적용률 (실데이터) ---------------- */
-
-export function PatchByCategory({ assets }: { assets: Asset[] }) {
-  const data = CATEGORIES.map((cat) => {
-    const items = assets.filter((a) => a.category === cat)
-    if (items.length === 0) return null
-    const upToDate = items.filter((a) => a.patch === "Up to Date").length
-    return { os: cat, value: Math.round((upToDate / items.length) * 100) }
-  }).filter((d): d is { os: string; value: number } => d !== null)
-
-  return (
-    <ChartCard
-      title="카테고리별 패치 적용률"
-      subtitle="분류별 최신 패치 반영 비율"
-      icon={BarChart3}
-      className="lg:col-span-3"
-    >
-      <div className="h-56 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
-            <defs>
-              <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--primary)" stopOpacity={1} />
-                <stop offset="100%" stopColor="var(--primary)" stopOpacity={0.35} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-            <XAxis
-              dataKey="os"
-              stroke="var(--muted-foreground)"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis
-              stroke="var(--muted-foreground)"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-              domain={[0, 100]}
-              unit="%"
-            />
-            <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--primary)", fillOpacity: 0.08 }} />
-            <Bar
-              dataKey="value"
-              name="패치율"
-              fill="url(#barGrad)"
-              radius={[6, 6, 0, 0]}
-              maxBarSize={56}
-              animationDuration={1500}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </ChartCard>
-  )
-}
