@@ -1,8 +1,6 @@
 "use client"
 
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -17,7 +15,8 @@ import {
 import {
   PieChart as PieIcon,
   BarChart3,
-  LineChart as LineChartIcon,
+  Grid3x3,
+  Building2,
   Activity,
 } from "lucide-react"
 import type { Tables } from "@/lib/supabase/types"
@@ -26,17 +25,6 @@ type Asset = Tables<"assets">
 
 // Computed once at module load (not during render) so it stays a pure value for react-hooks/purity.
 const NOW = Date.now()
-
-/* ---------------- 고정 데이터 (월별 등록 추이는 DB 미지원으로 유지) ---- */
-
-const monthlyReg = [
-  { month: "1월", 신규: 2, 변경: 1, 폐기: 0 },
-  { month: "2월", 신규: 3, 변경: 1, 폐기: 0 },
-  { month: "3월", 신규: 4, 변경: 2, 폐기: 1 },
-  { month: "4월", 신규: 3, 변경: 2, 폐기: 0 },
-  { month: "5월", 신규: 5, 변경: 1, 폐기: 1 },
-  { month: "6월", 신규: 4, 변경: 3, 폐기: 1 },
-]
 
 /* ---------------- shared card + tooltip ---------------- */
 
@@ -196,117 +184,102 @@ export function AssetHealth({ assets }: { assets: Asset[] }) {
   )
 }
 
-/* ---------------- 3. 카테고리별 관리 필요 현황 (stacked bar) ----------- */
+/* ---------------- 3. 카테고리별 관리 필요 현황 (히트맵 매트릭스) ----------- */
+
+const RISK_CATEGORIES = ["OS", "WEB", "WAS", "DB", "Middleware", "Security"]
+
+const RISK_METRICS = [
+  { key: "eos", name: "EOS 만료", color: "var(--eos)" },
+  { key: "patch", name: "패치 필요", color: "var(--warning)" },
+  { key: "vuln", name: "취약점", color: "var(--destructive)" },
+  { key: "approval", name: "승인 대기", color: "var(--primary)" },
+] as const
 
 export function ManageNeed({ assets }: { assets: Asset[] }) {
-  const CATS = ["OS", "WEB", "DB", "Middleware"]
-
-  const data = CATS.map((cat) => {
+  const rows = RISK_CATEGORIES.map((cat) => {
     const items = assets.filter((a) => a.category === cat)
     return {
       category: cat,
-      EOS만료:  items.filter((a) => a.eos && new Date(a.eos).getTime() < NOW).length,
-      패치필요: items.filter((a) => a.patch === "Patch Required").length,
-      취약점:   items.filter((a) => a.vuln === "Critical" || a.vuln === "High").length,
-      승인대기: items.filter((a) => a.approval === "승인대기" || a.approval === "긴급").length,
+      eos: items.filter((a) => a.eos && new Date(a.eos).getTime() < NOW).length,
+      patch: items.filter((a) => a.patch === "Patch Required").length,
+      vuln: items.filter((a) => a.vuln === "Critical" || a.vuln === "High").length,
+      approval: items.filter((a) => a.approval === "승인대기" || a.approval === "긴급").length,
     }
-  }).filter((d) => d.EOS만료 + d.패치필요 + d.취약점 + d.승인대기 > 0)
+  }).filter((r) => r.eos + r.patch + r.vuln + r.approval > 0)
 
-  const series = [
-    { key: "EOS만료",  name: "EOS 만료",  color: "var(--eos)" },
-    { key: "패치필요", name: "패치 필요", color: "var(--warning)" },
-    { key: "취약점",   name: "취약점",    color: "var(--destructive)" },
-    { key: "승인대기", name: "승인 대기", color: "var(--primary)" },
-  ]
+  const max = Math.max(1, ...rows.flatMap((r) => RISK_METRICS.map((m) => r[m.key])))
 
   return (
-    <ChartCard
-      title="카테고리별 관리 필요 현황"
-      subtitle="조치가 필요한 자산 집계"
-      icon={BarChart3}
-      className="lg:col-span-3"
-    >
-      <div className="h-64 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-            <XAxis dataKey="category" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-            <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-            <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--primary)", fillOpacity: 0.08 }} />
-            {series.map((s, i) => (
-              <Bar
-                key={s.key}
-                dataKey={s.key}
-                name={s.name}
-                stackId="need"
-                fill={s.color}
-                radius={i === series.length - 1 ? [6, 6, 0, 0] : [0, 0, 0, 0]}
-                maxBarSize={64}
-                animationDuration={1400}
-              />
+    <ChartCard title="카테고리별 관리 필요 현황" subtitle="항목별 위험도 매트릭스" icon={Grid3x3}>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-max border-collapse text-xs">
+          <thead>
+            <tr>
+              <th className="p-1.5 text-left font-semibold text-muted-foreground">분류</th>
+              {RISK_METRICS.map((m) => (
+                <th key={m.key} className="p-1.5 text-center font-semibold text-muted-foreground">
+                  {m.name}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.category}>
+                <td className="whitespace-nowrap p-1.5 font-semibold text-foreground">{r.category}</td>
+                {RISK_METRICS.map((m) => {
+                  const value = r[m.key]
+                  const pct = value === 0 ? 0 : Math.round(20 + 65 * (value / max))
+                  return (
+                    <td key={m.key} className="p-1">
+                      <div
+                        className="mx-auto flex h-9 w-9 items-center justify-center rounded-lg font-mono text-sm font-bold text-foreground"
+                        style={{
+                          background:
+                            value === 0
+                              ? "var(--muted)"
+                              : `color-mix(in oklch, ${m.color} ${pct}%, var(--card))`,
+                          opacity: value === 0 ? 0.5 : 1,
+                        }}
+                      >
+                        {value}
+                      </div>
+                    </td>
+                  )
+                })}
+              </tr>
             ))}
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-4 text-xs">
-        {series.map((s) => (
-          <span key={s.key} className="flex items-center gap-1.5 text-muted-foreground">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
-            {s.name}
-          </span>
-        ))}
+          </tbody>
+        </table>
       </div>
     </ChartCard>
   )
 }
 
-/* ---------------- 4. 월별 SW 자산 등록 추이 (고정) ---------------- */
+/* ---------------- 4. 벤더별 자산 현황 (실데이터 기반 가로 막대) ---------------- */
 
-export function MonthlyRegistration() {
+export function VendorDistribution({ assets }: { assets: Asset[] }) {
+  const counts = new Map<string, number>()
+  for (const a of assets) {
+    if (!a.vendor) continue
+    counts.set(a.vendor, (counts.get(a.vendor) ?? 0) + 1)
+  }
+  const data = [...counts.entries()]
+    .map(([vendor, value]) => ({ vendor, value }))
+    .sort((a, b) => b.value - a.value)
+
   return (
-    <ChartCard
-      title="월별 SW 자산 등록 추이"
-      subtitle="신규·변경·폐기 등록 현황"
-      icon={LineChartIcon}
-      className="lg:col-span-3"
-    >
+    <ChartCard title="벤더별 자산 현황" subtitle="공급사별 보유 자산 수" icon={Building2}>
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={monthlyReg} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
-            <defs>
-              <linearGradient id="regNew" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.55} />
-                <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="regChange" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--success)" stopOpacity={0.5} />
-                <stop offset="100%" stopColor="var(--success)" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="regRetire" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--eos)" stopOpacity={0.5} />
-                <stop offset="100%" stopColor="var(--eos)" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-            <XAxis dataKey="month" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-            <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-            <Tooltip content={<TooltipBox />} cursor={{ stroke: "var(--primary)", strokeOpacity: 0.3 }} />
-            <Area type="monotone" dataKey="신규" name="신규 등록" stroke="var(--primary)" strokeWidth={2.5} fill="url(#regNew)" animationDuration={1500} />
-            <Area type="monotone" dataKey="변경" name="변경 등록" stroke="var(--success)" strokeWidth={2.5} fill="url(#regChange)" animationDuration={1500} animationBegin={200} />
-            <Area type="monotone" dataKey="폐기" name="폐기 예정" stroke="var(--eos)" strokeWidth={2.5} fill="url(#regRetire)" animationDuration={1500} animationBegin={400} />
-          </AreaChart>
+          <BarChart data={data} layout="vertical" margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+            <XAxis type="number" allowDecimals={false} stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+            <YAxis type="category" dataKey="vendor" width={110} stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+            <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--primary)", fillOpacity: 0.08 }} />
+            <Bar dataKey="value" name="자산 수" fill="var(--primary)" radius={[0, 6, 6, 0]} maxBarSize={22} animationDuration={1400} />
+          </BarChart>
         </ResponsiveContainer>
-      </div>
-      <div className="mt-3 flex items-center justify-center gap-6 text-xs">
-        <span className="flex items-center gap-1.5 text-muted-foreground">
-          <span className="h-2.5 w-2.5 rounded-full bg-primary" /> 신규 등록
-        </span>
-        <span className="flex items-center gap-1.5 text-muted-foreground">
-          <span className="h-2.5 w-2.5 rounded-full bg-success" /> 변경 등록
-        </span>
-        <span className="flex items-center gap-1.5 text-muted-foreground">
-          <span className="h-2.5 w-2.5 rounded-full bg-eos" /> 폐기 예정
-        </span>
       </div>
     </ChartCard>
   )

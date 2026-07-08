@@ -26,7 +26,7 @@ import {
   CategoryDistribution,
   AssetHealth,
   ManageNeed,
-  MonthlyRegistration,
+  VendorDistribution,
 } from "@/components/dashboard/asset-charts"
 import { AssetBoards } from "@/components/dashboard/asset-boards"
 
@@ -225,8 +225,10 @@ export function AssetDashboardView() {
         <CategoryDistribution assets={assets} />
         <AssetHealth assets={assets} />
       </div>
-      <ManageNeed assets={assets} />
-      <MonthlyRegistration />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ManageNeed assets={assets} />
+        <VendorDistribution assets={assets} />
+      </div>
 
       {/* 카테고리 요약 테이블 */}
       <CategorySummary assets={assets} />
