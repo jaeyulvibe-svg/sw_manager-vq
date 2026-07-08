@@ -49,7 +49,25 @@ export function CommandPalette({
   const { isAdmin } = useRole()
   const [query, setQuery] = useState("")
   const [active, setActive] = useState(0)
+  const [prevOpen, setPrevOpen] = useState(open)
+  const [prevQuery, setPrevQuery] = useState(query)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Reset search state when the palette transitions to open. Adjusting state
+  // directly during render (rather than in an effect) avoids an extra paint.
+  if (open !== prevOpen) {
+    setPrevOpen(open)
+    if (open) {
+      setQuery("")
+      setActive(0)
+    }
+  }
+
+  // Keep the highlighted row in bounds whenever the search query changes.
+  if (query !== prevQuery) {
+    setPrevQuery(query)
+    setActive(0)
+  }
 
   const items = useMemo<CommandItem[]>(() => {
     const navItems: CommandItem[] = visibleNavItems(isAdmin).map((n) => ({
@@ -71,19 +89,12 @@ export function CommandPalette({
     )
   }, [query, isAdmin])
 
-  // Reset + focus on open
+  // Focus the search input once the palette opens
   useEffect(() => {
-    if (open) {
-      setQuery("")
-      setActive(0)
-      const t = setTimeout(() => inputRef.current?.focus(), 40)
-      return () => clearTimeout(t)
-    }
+    if (!open) return
+    const t = setTimeout(() => inputRef.current?.focus(), 40)
+    return () => clearTimeout(t)
   }, [open])
-
-  useEffect(() => {
-    setActive(0)
-  }, [query])
 
   if (!open) return null
 

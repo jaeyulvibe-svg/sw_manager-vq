@@ -24,6 +24,9 @@ import type { Tables } from "@/lib/supabase/types"
 
 type Asset = Tables<"assets">
 
+// Computed once at module load (not during render) so it stays a pure value for react-hooks/purity.
+const NOW = Date.now()
+
 /* ---------------- 고정 데이터 (월별 등록 추이는 DB 미지원으로 유지) ---- */
 
 const monthlyReg = [
@@ -138,11 +141,10 @@ export function CategoryDistribution({ assets }: { assets: Asset[] }) {
 /* ---------------- 2. 자산 건전성 현황 (donut) ---------------- */
 
 export function AssetHealth({ assets }: { assets: Asset[] }) {
-  const now = Date.now()
-  const normal  = assets.filter((a) => a.vuln === "Low" && a.patch === "Up to Date" && !(a.eos && new Date(a.eos).getTime() < now)).length
+  const normal  = assets.filter((a) => a.vuln === "Low" && a.patch === "Up to Date" && !(a.eos && new Date(a.eos).getTime() < NOW)).length
   const check   = assets.filter((a) => a.vuln === "Medium" || a.patch === "Patch Available").length
   const action  = assets.filter((a) => a.patch === "Patch Required" || a.vuln === "High").length
-  const expired = assets.filter((a) => a.eos && new Date(a.eos).getTime() < now).length
+  const expired = assets.filter((a) => a.eos && new Date(a.eos).getTime() < NOW).length
 
   const healthData = [
     { name: "정상",      value: normal,  color: "var(--success)" },
@@ -198,13 +200,12 @@ export function AssetHealth({ assets }: { assets: Asset[] }) {
 
 export function ManageNeed({ assets }: { assets: Asset[] }) {
   const CATS = ["OS", "WEB", "DB", "Middleware"]
-  const now = Date.now()
 
   const data = CATS.map((cat) => {
     const items = assets.filter((a) => a.category === cat)
     return {
       category: cat,
-      EOS만료:  items.filter((a) => a.eos && new Date(a.eos).getTime() < now).length,
+      EOS만료:  items.filter((a) => a.eos && new Date(a.eos).getTime() < NOW).length,
       패치필요: items.filter((a) => a.patch === "Patch Required").length,
       취약점:   items.filter((a) => a.vuln === "Critical" || a.vuln === "High").length,
       승인대기: items.filter((a) => a.approval === "승인대기" || a.approval === "긴급").length,

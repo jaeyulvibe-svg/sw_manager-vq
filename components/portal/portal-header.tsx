@@ -3,6 +3,7 @@
 import { Menu, Search } from "lucide-react"
 import { LiveClock } from "./live-clock"
 import { RoleToggle } from "./role-toggle"
+import { ThemeToggle } from "./theme-toggle"
 import { NotificationBell } from "./notification-bell"
 import { NAV_ITEMS, EXTRA_VIEW_META, type ViewKey } from "./nav"
 
@@ -58,6 +59,7 @@ export function PortalHeader({
           </kbd>
         </button>
         <RoleToggle />
+        <ThemeToggle />
         <NotificationBell
           onNavigate={onNavigate}
           onOpenCenter={onOpenNotifications}

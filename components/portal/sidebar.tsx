@@ -1,9 +1,14 @@
 "use client"
 
-import { ShieldCheck, X } from "lucide-react"
+import { ShieldCheck, UserCog, X } from "lucide-react"
 import { visibleNavItems, type ViewKey } from "./nav"
-import { useRole } from "./role-context"
+import { useRole, type Role } from "./role-context"
 import { cn } from "@/lib/utils"
+
+const CURRENT_USER: Record<Role, { name: string; label: string }> = {
+  admin: { name: "김관리", label: "관리자" },
+  owner: { name: "정재율", label: "사용자" },
+}
 
 export function Sidebar({
   active,
@@ -16,8 +21,9 @@ export function Sidebar({
   mobileOpen: boolean
   onCloseMobile: () => void
 }) {
-  const { isAdmin } = useRole()
+  const { role, isAdmin } = useRole()
   const items = visibleNavItems(isAdmin)
+  const currentUser = CURRENT_USER[role]
   return (
     <>
       {/* Mobile backdrop */}
@@ -96,7 +102,24 @@ export function Sidebar({
         </nav>
 
         {/* Footer status */}
-        <div className="border-t border-border/60 px-4 py-4">
+        <div className="space-y-2.5 border-t border-border/60 px-4 py-4">
+          <div className="flex items-center gap-2.5 rounded-lg border border-border/60 bg-card px-3 py-2">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+              {isAdmin ? (
+                <ShieldCheck className="h-4 w-4" />
+              ) : (
+                <UserCog className="h-4 w-4" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-semibold text-foreground">
+                {currentUser.name}
+              </p>
+              <p className="truncate text-[11px] text-muted-foreground">
+                {currentUser.label}로 접속 중
+              </p>
+            </div>
+          </div>
           <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-3 py-2">
             <span className="relative flex h-2.5 w-2.5">
               <span className="absolute inline-flex h-full w-full animate-blink rounded-full bg-success" />

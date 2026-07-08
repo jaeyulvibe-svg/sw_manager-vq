@@ -22,6 +22,9 @@ export function LiveClock() {
   const [now, setNow] = useState<Date | null>(null)
 
   useEffect(() => {
+    // Set the real time only after mount so SSR output (null) matches the
+    // first client render, avoiding a hydration mismatch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setNow(new Date())
     const id = setInterval(() => setNow(new Date()), 1000 * 20)
     return () => clearInterval(id)

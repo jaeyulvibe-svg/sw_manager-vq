@@ -32,6 +32,9 @@ import { AssetBoards } from "@/components/dashboard/asset-boards"
 
 type Asset = Tables<"assets">
 
+// Computed once at module load (not during render) so it stays a pure value for react-hooks/purity.
+const NOW = Date.now()
+
 type CategoryRow = {
   category: string
   count: number
@@ -152,14 +155,13 @@ export function AssetDashboardView() {
       })
   }, [])
 
-  const now = Date.now()
   const total    = assets.length
   const osCount  = assets.filter((a) => a.category === "OS").length
   const webCount = assets.filter((a) => a.category === "WEB").length
   const midCount = assets.filter((a) => a.category === "Middleware").length
   const dbCount  = assets.filter((a) => a.category === "DB").length
   const needAction = assets.filter(
-    (a) => (a.eos && new Date(a.eos).getTime() < now) ||
+    (a) => (a.eos && new Date(a.eos).getTime() < NOW) ||
             a.patch === "Patch Required" ||
             a.vuln === "Critical",
   ).length

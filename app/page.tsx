@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Sidebar } from "@/components/portal/sidebar"
 import { PortalHeader } from "@/components/portal/portal-header"
 import { RoleProvider, useRole } from "@/components/portal/role-context"
+import { ThemeProvider } from "@/components/portal/theme-context"
 import { ToastProvider } from "@/components/portal/toast"
 import { NotificationsProvider } from "@/components/portal/notifications-context"
 import { AmbientBackground } from "@/components/portal/ambient-background"
@@ -22,9 +23,12 @@ import { NotificationsView } from "@/components/pages/notifications-view"
 
 function Portal() {
   const { isAdmin } = useRole()
-  const [active, setActive] = useState<ViewKey>("dashboard")
+  const [requestedView, setActive] = useState<ViewKey>("dashboard")
   const [mobileOpen, setMobileOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+
+  // Fall back to dashboard when the requested view isn't allowed for the active role
+  const active = isViewAllowed(requestedView, isAdmin) ? requestedView : "dashboard"
 
   // Global ⌘K / Ctrl+K shortcut for the command palette
   useEffect(() => {
@@ -37,13 +41,6 @@ function Portal() {
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [])
-
-  // If the current view is not allowed for the active role, fall back to dashboard
-  useEffect(() => {
-    if (!isViewAllowed(active, isAdmin)) {
-      setActive("dashboard")
-    }
-  }, [isAdmin, active])
 
   function renderView() {
     switch (active) {
@@ -109,12 +106,14 @@ function Portal() {
 
 export default function Home() {
   return (
-    <RoleProvider>
-      <ToastProvider>
-        <NotificationsProvider>
-          <Portal />
-        </NotificationsProvider>
-      </ToastProvider>
-    </RoleProvider>
+    <ThemeProvider>
+      <RoleProvider>
+        <ToastProvider>
+          <NotificationsProvider>
+            <Portal />
+          </NotificationsProvider>
+        </ToastProvider>
+      </RoleProvider>
+    </ThemeProvider>
   )
 }
