@@ -18,6 +18,12 @@ import {
   SecurityNoticeBoard,
 } from "@/components/dashboard/notice-boards"
 import { SectionCard, type Accent } from "@/components/portal/ui"
+import { useRole } from "@/components/portal/role-context"
+import {
+  useDashboardOrder,
+  DashboardSection,
+  LockToggle,
+} from "@/components/portal/dashboard-layout"
 import {
   useNotifications,
   CATEGORY_META,
@@ -89,10 +95,19 @@ function RecentUpdates() {
   )
 }
 
+const SECURITY_DASHBOARD_BLOCKS = ["hero", "kpi", "charts", "alerts", "notices", "security-notices"]
+
 function SecurityDashboardView() {
   const [assets, setAssets] = useState<Asset[]>([])
   const [vulns, setVulns] = useState<Vulnerability[]>([])
   const [loading, setLoading] = useState(true)
+  const { isAdmin } = useRole()
+  const [locked, setLocked] = useState(true)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const { order, moveBefore, reset } = useDashboardOrder(
+    "security-dashboard-order",
+    SECURITY_DASHBOARD_BLOCKS,
+  )
 
   useEffect(() => {
     const supabase = createClient()
@@ -106,23 +121,55 @@ function SecurityDashboardView() {
     })
   }, [])
 
-  return (
-    <div className="flex flex-col gap-6">
-      <ScanHero />
-      <KpiCards assets={assets} loading={loading} />
+  const editable = isAdmin && !locked
 
+  const blocks: Record<string, React.ReactNode> = {
+    hero: <ScanHero />,
+    kpi: <KpiCards assets={assets} loading={loading} />,
+    charts: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <VulnerabilityApprovalStatus vulns={vulns} />
         <SeverityDonut assets={assets} />
       </div>
-
+    ),
+    alerts: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <CriticalAlerts assets={assets} vulns={vulns} />
         <RecentUpdates />
       </div>
+    ),
+    notices: <NoticeBoard />,
+    "security-notices": <SecurityNoticeBoard assets={assets} vulns={vulns} />,
+  }
 
-      <NoticeBoard />
-      <SecurityNoticeBoard assets={assets} vulns={vulns} />
+  return (
+    <div className="flex flex-col gap-6">
+      {isAdmin ? (
+        <div className="flex justify-end">
+          <LockToggle
+            locked={locked}
+            onToggle={() => setLocked((v) => !v)}
+            onReset={reset}
+          />
+        </div>
+      ) : null}
+
+      {order.map((id) => (
+        <DashboardSection
+          key={id}
+          id={id}
+          editable={editable}
+          draggingId={draggingId}
+          onDragStart={setDraggingId}
+          onDragOverTarget={(targetId) => {
+            if (draggingId && draggingId !== targetId) moveBefore(draggingId, targetId)
+          }}
+          onDrop={() => setDraggingId(null)}
+          onDragEnd={() => setDraggingId(null)}
+        >
+          {blocks[id]}
+        </DashboardSection>
+      ))}
     </div>
   )
 }

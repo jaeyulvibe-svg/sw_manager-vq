@@ -22,6 +22,12 @@ import {
   Td,
   type Accent,
 } from "@/components/portal/ui"
+import { useRole } from "@/components/portal/role-context"
+import {
+  useDashboardOrder,
+  DashboardSection,
+  LockToggle,
+} from "@/components/portal/dashboard-layout"
 import {
   CategoryDistribution,
   AssetHealth,
@@ -141,9 +147,18 @@ function CategorySummary({ assets }: { assets: Asset[] }) {
   )
 }
 
+const ASSET_DASHBOARD_BLOCKS = ["kpi", "charts1", "charts2", "summary", "boards"]
+
 export function AssetDashboardView() {
   const [assets, setAssets] = useState<Asset[]>([])
   const [loading, setLoading] = useState(true)
+  const { isAdmin } = useRole()
+  const [locked, setLocked] = useState(true)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const { order, moveBefore, reset } = useDashboardOrder(
+    "asset-dashboard-order",
+    ASSET_DASHBOARD_BLOCKS,
+  )
 
   useEffect(() => {
     const supabase = createClient()
@@ -167,9 +182,10 @@ export function AssetDashboardView() {
             a.vuln === "Critical",
   ).length
 
-  return (
-    <div className="flex flex-col gap-6">
-      {/* KPI 영역 */}
+  const editable = isAdmin && !locked
+
+  const blocks: Record<string, React.ReactNode> = {
+    kpi: (
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard
           label="전체 SW 자산"
@@ -184,7 +200,7 @@ export function AssetDashboardView() {
           value={osCount}
           icon={Server}
           accent="primary"
-          trendLabel="CentOS, RHEL"
+          trendLabel="Red Hat Enterprise Linux"
           delay={160}
         />
         <StatCard
@@ -192,7 +208,7 @@ export function AssetDashboardView() {
           value={webCount}
           icon={Globe}
           accent="primary"
-          trendLabel="WebtoB"
+          trendLabel="WebtoB, Nginx"
           delay={240}
         />
         <StatCard
@@ -208,7 +224,7 @@ export function AssetDashboardView() {
           value={dbCount}
           icon={Database}
           accent="primary"
-          trendLabel="Oracle Database"
+          trendLabel="Oracle Database, PostgreSQL"
           delay={400}
         />
         <StatCard
@@ -220,22 +236,51 @@ export function AssetDashboardView() {
           delay={480}
         />
       </div>
-
-      {/* 메인 차트 */}
+    ),
+    charts1: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <CategoryDistribution assets={assets} />
         <AssetHealth assets={assets} />
       </div>
+    ),
+    charts2: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ManageNeed assets={assets} />
         <VendorDistribution assets={assets} />
       </div>
+    ),
+    summary: <CategorySummary assets={assets} />,
+    boards: <AssetBoards />,
+  }
 
-      {/* 카테고리 요약 테이블 */}
-      <CategorySummary assets={assets} />
+  return (
+    <div className="flex flex-col gap-6">
+      {isAdmin ? (
+        <div className="flex justify-end">
+          <LockToggle
+            locked={locked}
+            onToggle={() => setLocked((v) => !v)}
+            onReset={reset}
+          />
+        </div>
+      ) : null}
 
-      {/* 게시판 영역 */}
-      <AssetBoards />
+      {order.map((id) => (
+        <DashboardSection
+          key={id}
+          id={id}
+          editable={editable}
+          draggingId={draggingId}
+          onDragStart={setDraggingId}
+          onDragOverTarget={(targetId) => {
+            if (draggingId && draggingId !== targetId) moveBefore(draggingId, targetId)
+          }}
+          onDrop={() => setDraggingId(null)}
+          onDragEnd={() => setDraggingId(null)}
+        >
+          {blocks[id]}
+        </DashboardSection>
+      ))}
     </div>
   )
 }
