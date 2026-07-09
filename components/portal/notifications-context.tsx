@@ -12,7 +12,7 @@ import {
 import { Boxes, ShieldAlert, Server, type LucideIcon } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import type { Tables } from "@/lib/supabase/types"
-import type { Accent } from "./ui"
+import type { Accent, RiskLevel } from "./ui"
 import type { ViewKey } from "./nav"
 
 export type NotifCategory = "asset" | "security" | "system"
@@ -49,12 +49,12 @@ export const CATEGORY_META: Record<
   system: { label: "시스템", icon: Server, accent: "muted" },
 }
 
-export const STATUS_ACCENT: Record<NotifStatus, Accent> = {
-  긴급: "destructive",
-  승인대기: "primary",
-  확인필요: "warning",
-  검토중: "warning",
-  완료: "success",
+export const STATUS_RISK: Record<NotifStatus, RiskLevel> = {
+  긴급: 5,
+  확인필요: 4,
+  승인대기: 3,
+  검토중: 2,
+  완료: 1,
 }
 
 function formatRelative(iso: string): string {

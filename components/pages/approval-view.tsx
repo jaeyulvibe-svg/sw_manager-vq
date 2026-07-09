@@ -23,7 +23,7 @@ import {
   Th,
   Td,
   MiniButton,
-  type Accent,
+  type RiskLevel,
 } from "@/components/portal/ui"
 import { useToast } from "@/components/portal/toast"
 import { cn } from "@/lib/utils"
@@ -124,10 +124,10 @@ const initialRequests: Req[] = [
   },
 ]
 
-const approvalAccent: Record<Approval, Accent> = {
-  승인대기: "warning",
-  승인완료: "success",
-  반려: "destructive",
+const approvalRisk: Record<Approval, RiskLevel> = {
+  승인대기: 3,
+  승인완료: 1,
+  반려: 5,
 }
 
 const FILTERS = ["전체", "승인대기", "승인완료", "반려"] as const
@@ -188,9 +188,9 @@ export function ApprovalView() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="승인 대기" value={counts.pending} icon={Clock3} accent="warning" delay={80} />
-        <StatCard label="승인 완료" value={counts.approved} icon={CircleCheck} accent="success" delay={180} />
-        <StatCard label="반려" value={counts.rejected} icon={CircleX} accent="destructive" delay={280} />
+        <StatCard label="승인 대기" value={counts.pending} icon={Clock3} risk={3} delay={80} />
+        <StatCard label="승인 완료" value={counts.approved} icon={CircleCheck} risk={1} delay={180} />
+        <StatCard label="반려" value={counts.rejected} icon={CircleX} risk={5} delay={280} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
@@ -245,7 +245,7 @@ export function ApprovalView() {
                     <Td>{r.requester}</Td>
                     <Td className="text-xs text-muted-foreground">{r.date}</Td>
                     <Td>
-                      <StatusBadge accent={approvalAccent[r.approval]}>{r.approval}</StatusBadge>
+                      <StatusBadge risk={approvalRisk[r.approval]}>{r.approval}</StatusBadge>
                     </Td>
                     <Td>
                       {r.approval === "승인대기" ? (
@@ -314,7 +314,7 @@ export function ApprovalView() {
                       {selected.vendor} · {selected.category} · v{selected.version}
                     </p>
                   </div>
-                  <StatusBadge accent={approvalAccent[selected.approval]}>
+                  <StatusBadge risk={approvalRisk[selected.approval]}>
                     {selected.approval}
                   </StatusBadge>
                 </div>
@@ -341,7 +341,7 @@ export function ApprovalView() {
                     <button
                       type="button"
                       onClick={() => decide(selected, "승인완료")}
-                      className="glow-card inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-success/40 bg-success/15 px-4 py-2.5 text-sm font-semibold text-success transition-transform hover:-translate-y-0.5"
+                      className="glow-card inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-risk-1/40 bg-risk-1/15 px-4 py-2.5 text-sm font-semibold text-risk-1 transition-transform hover:-translate-y-0.5"
                     >
                       <Check className="h-4 w-4" />
                       승인
@@ -349,7 +349,7 @@ export function ApprovalView() {
                     <button
                       type="button"
                       onClick={() => decide(selected, "반려")}
-                      className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-destructive/40 bg-destructive/15 px-4 py-2.5 text-sm font-semibold text-destructive transition-transform hover:-translate-y-0.5"
+                      className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-risk-5/40 bg-risk-5/15 px-4 py-2.5 text-sm font-semibold text-risk-5 transition-transform hover:-translate-y-0.5"
                     >
                       <X className="h-4 w-4" />
                       반려
@@ -360,8 +360,8 @@ export function ApprovalView() {
                     className={cn(
                       "flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium",
                       selected.approval === "승인완료"
-                        ? "border-success/30 bg-success/10 text-success"
-                        : "border-destructive/30 bg-destructive/10 text-destructive",
+                        ? "border-risk-1/30 bg-risk-1/10 text-risk-1"
+                        : "border-risk-5/30 bg-risk-5/10 text-risk-5",
                     )}
                   >
                     {selected.approval === "승인완료" ? (
@@ -405,7 +405,7 @@ function DetailRow({
       <span
         className={cn(
           "min-w-0 flex-1 truncate text-sm font-medium",
-          warn ? "text-warning" : "text-foreground",
+          warn ? "text-risk-3" : "text-foreground",
         )}
       >
         {value}

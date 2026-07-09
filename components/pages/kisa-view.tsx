@@ -16,7 +16,7 @@ import {
   SectionCard,
   StatusBadge,
   MiniButton,
-  type Accent,
+  type RiskLevel,
 } from "@/components/portal/ui"
 import { useRole } from "@/components/portal/role-context"
 import { useNotifications } from "@/components/portal/notifications-context"
@@ -34,11 +34,11 @@ type Status = Vulnerability["approval"]
 
 const FILTERS = ["전체", "Critical", "High", "Medium", "Low", "미매핑", "승인대기"] as const
 
-const sevAccent: Record<Severity, Accent> = {
-  Critical: "destructive", High: "warning", Medium: "primary", Low: "success",
+const sevRisk: Record<Severity, RiskLevel> = {
+  Critical: 5, High: 4, Medium: 3, Low: 2,
 }
-const statusAccent: Record<Status, Accent> = {
-  승인대기: "warning", 검토중: "primary", 승인완료: "success", 반려: "muted",
+const statusRisk: Record<Status, RiskLevel> = {
+  반려: 5, 승인대기: 3, 검토중: 2, 승인완료: 1,
 }
 
 function formatCollected(iso: string) {
@@ -212,14 +212,14 @@ export function KisaView({ onNavigate }: { onNavigate?: (view: ViewKey) => void 
                     )}
                   >
                     <div className="mb-2 flex flex-wrap items-center gap-2">
-                      <StatusBadge accent={sevAccent[n.severity]} pulse={n.severity === "Critical"}>
+                      <StatusBadge risk={sevRisk[n.severity]} pulse={n.severity === "Critical"}>
                         {n.severity}
                       </StatusBadge>
                       <span className="font-mono text-xs text-muted-foreground">{n.cve}</span>
                       {matchedCount === 0 ? (
                         <StatusBadge accent="muted">미매핑</StatusBadge>
                       ) : null}
-                      <StatusBadge accent={statusAccent[n.approval]} className="ml-auto">
+                      <StatusBadge risk={statusRisk[n.approval]} className="ml-auto">
                         {n.approval}
                       </StatusBadge>
                     </div>
@@ -242,7 +242,7 @@ export function KisaView({ onNavigate }: { onNavigate?: (view: ViewKey) => void 
               <SectionCard title="공지 상세" subtitle={selected.cve} icon={ShieldAlert}>
                 <div className="flex flex-col gap-4">
                   <div>
-                    <StatusBadge accent={sevAccent[selected.severity]} pulse={selected.severity === "Critical"}>
+                    <StatusBadge risk={sevRisk[selected.severity]} pulse={selected.severity === "Critical"}>
                       {selected.severity}
                     </StatusBadge>
                     <h4 className="mt-2 text-sm font-bold text-foreground">{selected.title}</h4>
@@ -302,7 +302,7 @@ export function KisaView({ onNavigate }: { onNavigate?: (view: ViewKey) => void 
                     ) : null}
                     {isAdmin ? (
                       selected.approval === "승인완료" || selected.approval === "반려" ? (
-                        <StatusBadge accent={selected.approval === "승인완료" ? "success" : "muted"}>
+                        <StatusBadge risk={selected.approval === "승인완료" ? 1 : 5}>
                           {selected.approval === "승인완료" ? "승인 완료 · 담당자 전달됨" : "반려됨"}
                         </StatusBadge>
                       ) : (

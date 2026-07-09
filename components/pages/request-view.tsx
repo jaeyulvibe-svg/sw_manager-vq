@@ -20,6 +20,7 @@ import {
   Th,
   Td,
   type Accent,
+  type RiskLevel,
 } from "@/components/portal/ui"
 import { cn } from "@/lib/utils"
 
@@ -44,8 +45,8 @@ const requests: Req[] = [
   { no: "REQ-2026-003", name: "Nginx", vendor: "F5", requester: "이영희", date: "어제", approval: "반려", comment: "Source URL 확인 필요" },
 ]
 
-const approvalAccent: Record<Approval, Accent> = {
-  승인대기: "warning", 승인완료: "success", 반려: "destructive",
+const approvalRisk: Record<Approval, RiskLevel> = {
+  승인대기: 3, 승인완료: 1, 반려: 5,
 }
 
 function Field({
@@ -83,9 +84,9 @@ export function RequestView() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="승인 대기" value={5} icon={Clock3} accent="warning" delay={80} />
-        <StatCard label="승인 완료" value={38} icon={CircleCheck} accent="success" delay={180} />
-        <StatCard label="반려" value={2} icon={CircleX} accent="destructive" delay={280} />
+        <StatCard label="승인 대기" value={5} icon={Clock3} risk={3} delay={80} />
+        <StatCard label="승인 완료" value={38} icon={CircleCheck} risk={1} delay={180} />
+        <StatCard label="반려" value={2} icon={CircleX} risk={5} delay={280} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
@@ -220,7 +221,7 @@ export function RequestView() {
                 <Td>{r.requester}</Td>
                 <Td className="text-xs text-muted-foreground">{r.date}</Td>
                 <Td>
-                  <StatusBadge accent={approvalAccent[r.approval]}>{r.approval}</StatusBadge>
+                  <StatusBadge risk={approvalRisk[r.approval]}>{r.approval}</StatusBadge>
                 </Td>
                 <Td className="text-sm text-muted-foreground">{r.comment}</Td>
               </tr>

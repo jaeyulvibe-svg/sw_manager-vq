@@ -9,7 +9,7 @@ import {
   ShieldAlert,
   ClipboardCheck,
 } from "lucide-react"
-import { SectionCard, StatusBadge, type Accent } from "@/components/portal/ui"
+import { SectionCard, StatusBadge, type Accent, type RiskLevel } from "@/components/portal/ui"
 import { cn } from "@/lib/utils"
 
 /* ---------------- 공지사항 ---------------- */
@@ -76,9 +76,14 @@ function NoticePanel() {
 type ChangeReq = {
   title: string
   requester: string
-  status: string
-  accent: Accent
+  status: "승인대기" | "검토중" | "승인완료"
   icon: typeof Package
+}
+
+const changeReqRisk: Record<ChangeReq["status"], RiskLevel> = {
+  승인대기: 3,
+  검토중: 2,
+  승인완료: 1,
 }
 
 const changeReqs: ChangeReq[] = [
@@ -86,28 +91,24 @@ const changeReqs: ChangeReq[] = [
     title: "신규 자산 등록 요청",
     requester: "김철수 · 미들웨어팀",
     status: "승인대기",
-    accent: "warning",
     icon: Package,
   },
   {
     title: "자산 정보 변경 요청",
     requester: "이영희 · 인프라팀",
     status: "검토중",
-    accent: "primary",
     icon: FileEdit,
   },
   {
     title: "담당자 변경 요청",
     requester: "박민수 · 운영팀",
     status: "승인완료",
-    accent: "success",
     icon: ClipboardCheck,
   },
   {
     title: "폐기 예정 자산 요청",
     requester: "정지훈 · DBA팀",
     status: "승인대기",
-    accent: "eos",
     icon: CalendarX,
   },
 ]
@@ -125,10 +126,9 @@ function ChangeRequestPanel() {
             <span
               className={cn(
                 "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border",
-                r.accent === "warning" && "border-warning/40 bg-warning/15 text-warning",
-                r.accent === "primary" && "border-primary/40 bg-primary/12 text-primary",
-                r.accent === "success" && "border-success/40 bg-success/12 text-success",
-                r.accent === "eos" && "border-eos/40 bg-eos/15 text-eos",
+                changeReqRisk[r.status] === 3 && "border-risk-3/40 bg-risk-3/15 text-risk-3",
+                changeReqRisk[r.status] === 2 && "border-risk-2/40 bg-risk-2/12 text-risk-2",
+                changeReqRisk[r.status] === 1 && "border-risk-1/40 bg-risk-1/12 text-risk-1",
               )}
             >
               <r.icon className="h-4 w-4" />
@@ -141,7 +141,7 @@ function ChangeRequestPanel() {
                 {r.requester}
               </p>
             </div>
-            <StatusBadge accent={r.accent}>{r.status}</StatusBadge>
+            <StatusBadge risk={changeReqRisk[r.status]}>{r.status}</StatusBadge>
           </li>
         ))}
       </ul>

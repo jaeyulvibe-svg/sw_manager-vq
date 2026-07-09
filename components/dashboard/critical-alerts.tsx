@@ -13,14 +13,14 @@ const severityStyles: Record<
   { badge: string; label: string; bar: string }
 > = {
   Critical: {
-    badge: "bg-destructive/15 text-destructive border-destructive/40",
+    badge: "bg-risk-5/15 text-risk-5 border-risk-5/40",
     label: "긴급",
-    bar: "bg-destructive",
+    bar: "bg-risk-5",
   },
   High: {
-    badge: "bg-warning/15 text-warning border-warning/40",
+    badge: "bg-risk-4/15 text-risk-4 border-risk-4/40",
     label: "높음",
-    bar: "bg-warning",
+    bar: "bg-risk-4",
   },
 }
 
@@ -37,10 +37,10 @@ export function CriticalAlerts({
     .sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "Critical" ? -1 : 1))
 
   return (
-    <div className="animate-soft-pulse flex h-full flex-col rounded-2xl border border-destructive/30 bg-card p-5">
+    <div className="animate-soft-pulse flex h-full flex-col rounded-2xl border border-risk-5/30 bg-card p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-destructive/15 text-destructive">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-risk-5/15 text-risk-5">
             <AlertTriangle className="h-5 w-5" />
           </span>
           <div className="min-w-0">
@@ -52,8 +52,8 @@ export function CriticalAlerts({
             </p>
           </div>
         </div>
-        <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive">
-          <span className="h-1.5 w-1.5 animate-blink rounded-full bg-destructive" />
+        <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-risk-5/40 bg-risk-5/10 px-2.5 py-1 text-xs font-semibold text-risk-5">
+          <span className="h-1.5 w-1.5 animate-blink rounded-full bg-risk-5" />
           LIVE
         </span>
       </div>
@@ -69,7 +69,7 @@ export function CriticalAlerts({
             return (
               <li
                 key={alert.id}
-                className="group relative flex items-center gap-3 overflow-hidden rounded-xl border border-border/60 bg-background/40 p-3 transition-colors hover:border-destructive/40"
+                className="group relative flex items-center gap-3 overflow-hidden rounded-xl border border-border/60 bg-background/40 p-3 transition-colors hover:border-risk-5/40"
               >
                 <span className={cn("h-11 w-1 rounded-full", s.bar)} />
                 <div className="min-w-0 flex-1">
@@ -93,7 +93,7 @@ export function CriticalAlerts({
                     {alert.product} · 영향 자산 {alert.mappedCount}대
                   </p>
                 </div>
-                <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-destructive" />
+                <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-risk-5" />
               </li>
             )
           })

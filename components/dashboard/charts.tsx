@@ -77,10 +77,10 @@ function TooltipBox({ active, payload, label }: any) {
 const APPROVAL_ORDER = ["승인대기", "검토중", "승인완료", "반려"] as const
 
 const approvalColor: Record<string, string> = {
-  승인대기: "var(--warning)",
-  검토중: "var(--primary)",
-  승인완료: "var(--success)",
-  반려: "var(--destructive)",
+  반려: "var(--risk-5)",
+  승인대기: "var(--risk-3)",
+  검토중: "var(--risk-2)",
+  승인완료: "var(--risk-1)",
 }
 
 export function VulnerabilityApprovalStatus({ vulns }: { vulns: Vulnerability[] }) {
@@ -130,10 +130,10 @@ export function VulnerabilityApprovalStatus({ vulns }: { vulns: Vulnerability[] 
 /* ---------------- 2. 위험도별 분포 (실데이터) ---------------- */
 
 const SEVERITY_META = [
-  { key: "Critical", name: "긴급", color: "var(--destructive)" },
-  { key: "High", name: "높음", color: "var(--warning)" },
-  { key: "Medium", name: "보통", color: "var(--primary)" },
-  { key: "Low", name: "낮음", color: "var(--success)" },
+  { key: "Critical", name: "긴급", color: "var(--risk-5)" },
+  { key: "High", name: "높음", color: "var(--risk-4)" },
+  { key: "Medium", name: "보통", color: "var(--risk-3)" },
+  { key: "Low", name: "낮음", color: "var(--risk-2)" },
 ] as const
 
 export function SeverityDonut({ assets }: { assets: Asset[] }) {

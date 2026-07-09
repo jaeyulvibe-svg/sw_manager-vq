@@ -25,7 +25,7 @@ import {
   Th,
   Td,
   MiniButton,
-  type Accent,
+  type RiskLevel,
 } from "@/components/portal/ui"
 import { AssetSlideover, type AssetDetail } from "@/components/portal/asset-slideover"
 import { useToast } from "@/components/portal/toast"
@@ -53,11 +53,11 @@ function advisoryFor(a: Asset, vulns: Vulnerability[]) {
   }
 }
 
-const vulnAccent: Record<Vuln, Accent> = {
-  Critical: "destructive",
-  High: "warning",
-  Medium: "primary",
-  Low: "success",
+const vulnRisk: Record<Vuln, RiskLevel> = {
+  Critical: 5,
+  High: 4,
+  Medium: 3,
+  Low: 2,
 }
 const vulnLabel: Record<Vuln, string> = {
   Critical: "긴급",
@@ -65,21 +65,21 @@ const vulnLabel: Record<Vuln, string> = {
   Medium: "보통",
   Low: "낮음",
 }
-const patchAccent: Record<Asset["patch"], Accent> = {
-  "Patch Required": "destructive",
-  "Patch Available": "warning",
-  "Up to Date": "success",
+const patchRisk: Record<Asset["patch"], RiskLevel> = {
+  "Patch Required": 4,
+  "Patch Available": 3,
+  "Up to Date": 1,
 }
 const patchLabel: Record<Asset["patch"], string> = {
   "Patch Required": "패치 필요",
   "Patch Available": "패치 가능",
   "Up to Date": "최신",
 }
-const approvalAccent: Record<Asset["approval"], Accent> = {
-  승인대기: "warning",
-  확인필요: "primary",
-  승인완료: "success",
-  긴급: "destructive",
+const approvalRisk: Record<Asset["approval"], RiskLevel> = {
+  승인대기: 3,
+  확인필요: 4,
+  승인완료: 1,
+  긴급: 5,
 }
 
 const CATEGORIES: Category[] = ["전체", "OS", "WEB", "WAS", "DB", "Middleware", "Security"]
@@ -102,10 +102,10 @@ function toDetail(a: Asset): AssetDetail {
     id: a.id, name: a.name, vendor: a.vendor, category: a.category,
     version: a.version, latest: a.latest_version ?? a.version,
     server: a.server, owner: a.owner, vuln: a.vuln,
-    patch: patchLabel[a.patch], patchAccent: patchAccent[a.patch],
-    vulnAccent: vulnAccent[a.vuln], eos: a.eos ?? "-",
+    patch: patchLabel[a.patch], patchRisk: patchRisk[a.patch],
+    vulnRisk: vulnRisk[a.vuln], eos: a.eos ?? "-",
     eosDaysLeft: daysUntil(a.eos), approval: a.approval,
-    approvalAccent: approvalAccent[a.approval],
+    approvalRisk: approvalRisk[a.approval],
   }
 }
 
@@ -185,8 +185,8 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="전체 건수" value={stats.total} icon={ListChecks} accent="primary" delay={80} />
-        <StatCard label="CRITICAL" value={stats.critical} icon={Flame} accent="destructive" delay={180} />
-        <StatCard label="HIGH" value={stats.high} icon={AlertTriangle} accent="warning" delay={280} />
+        <StatCard label="CRITICAL" value={stats.critical} icon={Flame} risk={5} delay={180} />
+        <StatCard label="HIGH" value={stats.high} icon={AlertTriangle} risk={4} delay={280} />
         <StatCard label="검토 필요" value={stats.reviewNeeded} icon={ClipboardList} accent="eos" delay={380} />
       </div>
 
@@ -285,7 +285,7 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
               return (
                 <tr key={a.id} className="transition-colors hover:bg-accent/40">
                   <Td>
-                    <StatusBadge accent={vulnAccent[a.vuln]} pulse={a.vuln === "Critical"}>
+                    <StatusBadge risk={vulnRisk[a.vuln]} pulse={a.vuln === "Critical"}>
                       {vulnLabel[a.vuln]}
                     </StatusBadge>
                   </Td>
@@ -301,7 +301,7 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
                     {a.version} → <span className="font-semibold text-primary">{a.latest_version ?? "-"}</span>
                   </Td>
                   <Td>
-                    <StatusBadge accent={patchAccent[a.patch]}>{patchLabel[a.patch]}</StatusBadge>
+                    <StatusBadge risk={patchRisk[a.patch]}>{patchLabel[a.patch]}</StatusBadge>
                   </Td>
                   <Td className="whitespace-normal text-xs">
                     <p className="text-foreground">{adv.summary}</p>
@@ -309,7 +309,7 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
                   </Td>
                   <Td className={cn("font-mono text-xs", isEosSoon(a.eos) && "text-eos")}>{a.eos ?? "-"}</Td>
                   <Td>
-                    <StatusBadge accent={approvalAccent[a.approval]} pulse={a.approval === "긴급"}>
+                    <StatusBadge risk={approvalRisk[a.approval]} pulse={a.approval === "긴급"}>
                       {a.approval}
                     </StatusBadge>
                   </Td>

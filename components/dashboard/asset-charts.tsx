@@ -135,10 +135,10 @@ export function AssetHealth({ assets }: { assets: Asset[] }) {
   const expired = assets.filter((a) => a.eos && new Date(a.eos).getTime() < NOW).length
 
   const healthData = [
-    { name: "정상",      value: normal,  color: "var(--success)" },
-    { name: "확인 필요", value: check,   color: "var(--warning)" },
-    { name: "조치 필요", value: action,  color: "var(--destructive)" },
-    { name: "EOS 만료",  value: expired, color: "var(--eos)" },
+    { name: "정상",      value: normal,  color: "var(--risk-1)" },
+    { name: "확인 필요", value: check,   color: "var(--risk-3)" },
+    { name: "조치 필요", value: action,  color: "var(--risk-4)" },
+    { name: "EOS 만료",  value: expired, color: "var(--risk-5)" },
   ].filter((d) => d.value > 0)
 
   const total = healthData.reduce((s, d) => s + d.value, 0)

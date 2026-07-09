@@ -29,6 +29,7 @@ import {
   Td,
   MiniButton,
   type Accent,
+  type RiskLevel,
 } from "@/components/portal/ui"
 import { useRole } from "@/components/portal/role-context"
 import { useToast } from "@/components/portal/toast"
@@ -110,8 +111,8 @@ const initialSources: Source[] = initialMasters.map((m, i) => ({
   status: SOURCE_SEED_META[m.name]?.status ?? "정상",
 }))
 
-const sourceStatusAccent: Record<string, Accent> = {
-  정상: "success", 지연: "warning", 실패: "destructive",
+const sourceStatusRisk: Record<string, RiskLevel> = {
+  정상: 1, 지연: 3, 실패: 4,
 }
 
 /* ---- Inline add/edit form for SW 마스터 관리 ---- */
@@ -336,7 +337,7 @@ const logs = [
   { time: "09:30:47", type: "매핑", target: "CVE-2026-0001", result: "성공", who: "김관리" },
 ]
 
-const resultAccent: Record<string, Accent> = { 성공: "success", 실패: "destructive" }
+const resultRisk: Record<string, RiskLevel> = { 성공: 1, 실패: 4 }
 
 /* ---- Font size control (admin page only) ---- */
 const FONT_SCALE_MIN = 80
@@ -853,7 +854,7 @@ export function AdminView() {
                   <Td className="text-xs">{s.cycle}</Td>
                   <Td className="text-xs text-muted-foreground">{s.last}</Td>
                   <Td>
-                    <StatusBadge accent={sourceStatusAccent[s.status]} pulse={s.status === "실패"}>
+                    <StatusBadge risk={sourceStatusRisk[s.status]} pulse={s.status === "실패"}>
                       {s.status}
                     </StatusBadge>
                   </Td>
@@ -1006,7 +1007,7 @@ export function AdminView() {
                 <Td><StatusBadge accent="primary">{l.type}</StatusBadge></Td>
                 <Td className="font-mono text-xs">{l.target}</Td>
                 <Td>
-                  <StatusBadge accent={resultAccent[l.result]} pulse={l.result === "실패"}>
+                  <StatusBadge risk={resultRisk[l.result]} pulse={l.result === "실패"}>
                     {l.result}
                   </StatusBadge>
                 </Td>

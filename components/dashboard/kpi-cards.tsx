@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import type { Tables } from "@/lib/supabase/types"
+import type { RiskLevel } from "@/components/portal/ui"
 import { Sparkline } from "@/components/portal/sparkline"
 import { cn } from "@/lib/utils"
 import { useCountUp } from "@/hooks/use-count-up"
@@ -18,6 +19,8 @@ type Asset = Tables<"assets">
 // Computed once at module load (not during render) so it stays a pure value for react-hooks/purity.
 const NOW = Date.now()
 
+type KpiAccent = "primary" | RiskLevel
+
 type KpiData = {
   label: string
   value: number
@@ -26,23 +29,27 @@ type KpiData = {
   icon: LucideIcon
   trend: number
   trendLabel: string
-  accent: "primary" | "destructive" | "warning" | "success"
+  accent: KpiAccent
   delay: number
   spark: number[]
 }
 
-const accentVar: Record<string, string> = {
+const accentVar: Record<KpiAccent, string> = {
   primary: "var(--primary)",
-  destructive: "var(--destructive)",
-  warning: "var(--warning)",
-  success: "var(--success)",
+  5: "var(--risk-5)",
+  4: "var(--risk-4)",
+  3: "var(--risk-3)",
+  2: "var(--risk-2)",
+  1: "var(--risk-1)",
 }
 
-const accentBg: Record<string, string> = {
+const accentBg: Record<KpiAccent, string> = {
   primary: "bg-primary/12 text-primary",
-  destructive: "bg-destructive/12 text-destructive",
-  warning: "bg-warning/12 text-warning",
-  success: "bg-success/12 text-success",
+  5: "bg-risk-5/12 text-risk-5",
+  4: "bg-risk-4/12 text-risk-4",
+  3: "bg-risk-3/12 text-risk-3",
+  2: "bg-risk-2/12 text-risk-2",
+  1: "bg-risk-1/12 text-risk-1",
 }
 
 function KpiCard({ kpi }: { kpi: KpiData }) {
@@ -131,7 +138,7 @@ export function KpiCards({ assets, loading = false }: { assets: Asset[]; loading
       icon: ShieldAlert,
       trend: vulnCount > 0 ? -5 : 0,
       trendLabel: "Critical·High 등급",
-      accent: "destructive",
+      accent: 5,
       delay: 220,
       spark: [vulnCount + 3, vulnCount + 3, vulnCount + 2, vulnCount + 2, vulnCount + 1, vulnCount + 1, vulnCount],
     },
@@ -143,7 +150,7 @@ export function KpiCards({ assets, loading = false }: { assets: Asset[]; loading
       icon: TrendingUp,
       trend: patchCount === 0 ? 5 : -3,
       trendLabel: "패치 필요 제외 비율",
-      accent: "success",
+      accent: 1,
       delay: 340,
       spark: [patchRate - 5, patchRate - 4, patchRate - 3, patchRate - 2, patchRate - 1, patchRate, patchRate],
     },
@@ -153,7 +160,7 @@ export function KpiCards({ assets, loading = false }: { assets: Asset[]; loading
       icon: CalendarX,
       trend: eosCount > 0 ? 12 : 0,
       trendLabel: "EOS 일자 경과",
-      accent: "warning",
+      accent: 5,
       delay: 460,
       spark: [eosCount - 2, eosCount - 2, eosCount - 1, eosCount - 1, eosCount, eosCount, eosCount],
     },

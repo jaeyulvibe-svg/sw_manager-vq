@@ -1,7 +1,15 @@
 "use client"
 
 import type { LucideIcon } from "lucide-react"
-import { TrendingUp, TrendingDown } from "lucide-react"
+import {
+  TrendingUp,
+  TrendingDown,
+  ShieldAlert,
+  AlertTriangle,
+  AlertCircle,
+  Info,
+  CircleCheck,
+} from "lucide-react"
 import { useCountUp } from "@/hooks/use-count-up"
 import { cn } from "@/lib/utils"
 
@@ -79,30 +87,74 @@ const barColor: Record<Accent, string> = {
   muted: "bg-muted-foreground",
 }
 
+/* ---------------- Risk scale (5-tier, app-wide status/severity standard) ---------------- */
+//   5 매우위험 · 4 위험 · 3 주의 · 2 양호 · 1 안전
+// Deliberately separate from Accent — --risk-* are fixed brand-independent tokens,
+// so changing severity semantics never touches --primary/button/link colors.
+
+export type RiskLevel = 1 | 2 | 3 | 4 | 5
+
+export const riskText: Record<RiskLevel, string> = {
+  5: "text-risk-5",
+  4: "text-risk-4",
+  3: "text-risk-3",
+  2: "text-risk-2",
+  1: "text-risk-1",
+}
+
+export const riskSoft: Record<RiskLevel, string> = {
+  5: "bg-risk-5/15 text-risk-5 border-risk-5/40",
+  4: "bg-risk-4/15 text-risk-4 border-risk-4/40",
+  3: "bg-risk-3/15 text-risk-3 border-risk-3/40",
+  2: "bg-risk-2/12 text-risk-2 border-risk-2/40",
+  1: "bg-risk-1/12 text-risk-1 border-risk-1/40",
+}
+
+export const riskBar: Record<RiskLevel, string> = {
+  5: "bg-risk-5",
+  4: "bg-risk-4",
+  3: "bg-risk-3",
+  2: "bg-risk-2",
+  1: "bg-risk-1",
+}
+
+export const riskIcon: Record<RiskLevel, LucideIcon> = {
+  5: ShieldAlert,
+  4: AlertTriangle,
+  3: AlertCircle,
+  2: Info,
+  1: CircleCheck,
+}
+
 /* ---------------- Status badge ---------------- */
 
 export function StatusBadge({
   children,
   accent = "muted",
+  risk,
   pulse = false,
   className,
 }: {
   children: React.ReactNode
   accent?: Accent
+  risk?: RiskLevel
   pulse?: boolean
   className?: string
 }) {
+  const RiskIcon = risk ? riskIcon[risk] : null
   return (
     <span
       className={cn(
         "inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-semibold",
-        accentSoft[accent],
+        risk ? riskSoft[risk] : accentSoft[accent],
         pulse && "animate-soft-pulse",
         className,
       )}
     >
       {pulse ? (
         <span className="h-1.5 w-1.5 animate-blink rounded-full bg-current" />
+      ) : RiskIcon ? (
+        <RiskIcon className="h-3 w-3" />
       ) : null}
       {children}
     </span>
@@ -114,10 +166,12 @@ export function StatusBadge({
 export function ProgressBar({
   value,
   accent = "primary",
+  risk,
   className,
 }: {
   value: number
   accent?: Accent
+  risk?: RiskLevel
   className?: string
 }) {
   return (
@@ -128,7 +182,10 @@ export function ProgressBar({
       )}
     >
       <div
-        className={cn("h-full rounded-full transition-all", barColor[accent])}
+        className={cn(
+          "h-full rounded-full transition-all",
+          risk ? riskBar[risk] : barColor[accent],
+        )}
         style={{ width: `${Math.min(Math.max(value, 0), 100)}%` }}
       />
     </div>
@@ -144,6 +201,7 @@ export function StatCard({
   decimals = 0,
   icon: Icon,
   accent = "primary",
+  risk,
   trend,
   trendLabel,
   delay = 0,
@@ -154,6 +212,7 @@ export function StatCard({
   decimals?: number
   icon: LucideIcon
   accent?: Accent
+  risk?: RiskLevel
   trend?: number
   trendLabel?: string
   delay?: number
@@ -178,7 +237,7 @@ export function StatCard({
         <span
           className={cn(
             "flex h-9 w-9 items-center justify-center rounded-lg border",
-            accentSoft[accent],
+            risk ? riskSoft[risk] : accentSoft[accent],
           )}
         >
           <Icon className="h-5 w-5" />

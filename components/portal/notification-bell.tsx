@@ -5,11 +5,11 @@ import { Bell, Check, CheckCheck, ArrowRight, X } from "lucide-react"
 import {
   useNotifications,
   CATEGORY_META,
-  STATUS_ACCENT,
+  STATUS_RISK,
   type NotifCategory,
   type Notification,
 } from "./notifications-context"
-import { StatusBadge, type Accent } from "./ui"
+import { StatusBadge, riskText, type RiskLevel } from "./ui"
 import { type ViewKey } from "./nav"
 import { cn } from "@/lib/utils"
 
@@ -72,10 +72,10 @@ export function NotificationBell({
     .filter((n) => matchesFilter(n, filter))
     .sort((a, b) => a.order - b.order)
 
-  const summary: { label: string; value: number; accent: Accent }[] = [
-    { label: "전체 알림", value: notifications.length, accent: "primary" },
-    { label: "읽지 않음", value: unreadCount, accent: "warning" },
-    { label: "긴급", value: urgentCount, accent: "destructive" },
+  const summary: { label: string; value: number; risk?: RiskLevel }[] = [
+    { label: "전체 알림", value: notifications.length },
+    { label: "읽지 않음", value: unreadCount, risk: 3 },
+    { label: "긴급", value: urgentCount, risk: 5 },
   ]
 
   const handleGo = (n: Notification) => {
@@ -129,9 +129,7 @@ export function NotificationBell({
                 <div
                   className={cn(
                     "font-mono text-lg font-bold tabular-nums",
-                    s.accent === "primary" && "text-primary",
-                    s.accent === "warning" && "text-warning",
-                    s.accent === "destructive" && "text-destructive",
+                    s.risk ? riskText[s.risk] : "text-primary",
                   )}
                 >
                   {s.value}
@@ -205,7 +203,7 @@ export function NotificationBell({
                           {meta.label}
                         </StatusBadge>
                         <StatusBadge
-                          accent={STATUS_ACCENT[n.status]}
+                          risk={STATUS_RISK[n.status]}
                           pulse={n.status === "긴급"}
                         >
                           {n.status}

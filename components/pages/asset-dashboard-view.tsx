@@ -20,7 +20,7 @@ import {
   TableShell,
   Th,
   Td,
-  type Accent,
+  type RiskLevel,
 } from "@/components/portal/ui"
 import { useRole } from "@/components/portal/role-context"
 import {
@@ -51,10 +51,10 @@ type CategoryRow = {
   status: "정상" | "확인필요" | "조치필요"
 }
 
-const statusAccent: Record<CategoryRow["status"], Accent> = {
-  정상: "success",
-  확인필요: "warning",
-  조치필요: "destructive",
+const statusRisk: Record<CategoryRow["status"], RiskLevel> = {
+  정상: 1,
+  확인필요: 3,
+  조치필요: 4,
 }
 
 const PRODUCT_MAP: Record<string, string> = {
@@ -135,7 +135,7 @@ function CategorySummary({ assets }: { assets: Asset[] }) {
                 </span>
               </Td>
               <Td>
-                <StatusBadge accent={statusAccent[r.status]} pulse={r.status === "조치필요"}>
+                <StatusBadge risk={statusRisk[r.status]} pulse={r.status === "조치필요"}>
                   {r.status}
                 </StatusBadge>
               </Td>

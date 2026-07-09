@@ -15,7 +15,7 @@ import {
   Download,
   BellRing,
 } from "lucide-react"
-import { StatusBadge, ProgressBar, type Accent } from "./ui"
+import { StatusBadge, ProgressBar, riskText, type Accent, type RiskLevel } from "./ui"
 import { Sparkline } from "./sparkline"
 import { useToast } from "./toast"
 import { cn } from "@/lib/utils"
@@ -31,12 +31,12 @@ export type AssetDetail = {
   owner: string
   vuln: "Critical" | "High" | "Medium" | "Low"
   patch: string
-  patchAccent: Accent
-  vulnAccent: Accent
+  patchRisk: RiskLevel
+  vulnRisk: RiskLevel
   eos: string
   eosDaysLeft: number
   approval: string
-  approvalAccent: Accent
+  approvalRisk: RiskLevel
 }
 
 const vulnLabel: Record<AssetDetail["vuln"], string> = {
@@ -109,12 +109,16 @@ export function AssetSlideover({
     0,
     Math.min(100, Math.round((asset.eosDaysLeft / 1095) * 100)),
   )
-  const eosAccent: Accent =
-    asset.eosDaysLeft < 180
-      ? "destructive"
-      : asset.eosDaysLeft < 365
-        ? "warning"
-        : "success"
+  const eosRisk: RiskLevel =
+    asset.eosDaysLeft <= 0
+      ? 5
+      : asset.eosDaysLeft < 90
+        ? 4
+        : asset.eosDaysLeft < 180
+          ? 3
+          : asset.eosDaysLeft < 365
+            ? 2
+            : 1
 
   const facts: { icon: typeof Server; label: string; value: string }[] = [
     { icon: Building2, label: "벤더", value: asset.vendor },
@@ -169,11 +173,11 @@ export function AssetSlideover({
         <div className="flex-1 overflow-y-auto px-5 py-5">
           {/* Status badges */}
           <div className="flex flex-wrap gap-2">
-            <StatusBadge accent={asset.vulnAccent} pulse={asset.vuln === "Critical"}>
+            <StatusBadge risk={asset.vulnRisk} pulse={asset.vuln === "Critical"}>
               취약점 {vulnLabel[asset.vuln]}
             </StatusBadge>
-            <StatusBadge accent={asset.patchAccent}>{asset.patch}</StatusBadge>
-            <StatusBadge accent={asset.approvalAccent}>{asset.approval}</StatusBadge>
+            <StatusBadge risk={asset.patchRisk}>{asset.patch}</StatusBadge>
+            <StatusBadge risk={asset.approvalRisk}>{asset.approval}</StatusBadge>
           </div>
 
           {/* Facts grid */}
@@ -201,11 +205,11 @@ export function AssetSlideover({
                 <CalendarClock className="h-4 w-4" />
                 EOS 카운트다운
               </span>
-              <span className={cn("font-mono text-sm font-bold", `text-${eosAccent}`)}>
+              <span className={cn("font-mono text-sm font-bold", riskText[eosRisk])}>
                 D-{asset.eosDaysLeft}
               </span>
             </div>
-            <ProgressBar value={eosPct} accent={eosAccent} />
+            <ProgressBar value={eosPct} risk={eosRisk} />
             <p className="mt-2 text-[11px] text-muted-foreground">
               단종 예정일 <span className="font-mono">{asset.eos}</span>
             </p>

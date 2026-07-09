@@ -8,7 +8,7 @@ import {
 import { createClient } from "@/lib/supabase/client"
 import type { Tables } from "@/lib/supabase/types"
 import {
-  PageHeader, StatusBadge, TableShell, Th, Td, MiniButton, type Accent,
+  PageHeader, StatusBadge, TableShell, Th, Td, MiniButton, type RiskLevel,
 } from "@/components/portal/ui"
 import { AssetSlideover, type AssetDetail } from "@/components/portal/asset-slideover"
 import { useToast } from "@/components/portal/toast"
@@ -78,11 +78,11 @@ const vulnOrder:  Record<string, number> = { Critical: 0, High: 1, Medium: 2, Lo
 const patchOrder: Record<string, number> = { "Patch Required": 0, "Patch Available": 1, "Up to Date": 2 }
 
 /* ── 배지 매핑 ──────────────────────────────────────────── */
-const vulnAccent:  Record<string, Accent> = { Critical: "destructive", High: "warning", Medium: "primary", Low: "success" }
+const vulnRisk:  Record<string, RiskLevel> = { Critical: 5, High: 4, Medium: 3, Low: 2 }
 const vulnLabel:   Record<string, string> = { Critical: "긴급", High: "높음", Medium: "보통", Low: "낮음" }
-const patchAccent: Record<string, Accent> = { "Patch Required": "destructive", "Patch Available": "warning", "Up to Date": "success" }
+const patchRisk: Record<string, RiskLevel> = { "Patch Required": 4, "Patch Available": 3, "Up to Date": 1 }
 const patchLabel:  Record<string, string> = { "Patch Required": "패치 필요", "Patch Available": "패치 가능", "Up to Date": "최신" }
-const approvalAccent: Record<string, Accent> = { 승인대기: "warning", 확인필요: "primary", 승인완료: "success", 긴급: "destructive" }
+const approvalRisk: Record<string, RiskLevel> = { 승인대기: 3, 확인필요: 4, 승인완료: 1, 긴급: 5 }
 
 /* ── 헬퍼 ──────────────────────────────────────────────── */
 function isEosSoon(eos: string | null) {
@@ -109,10 +109,10 @@ function toDetail(a: Asset): AssetDetail {
     id: a.id, name: a.name, vendor: a.vendor, category: a.category,
     version: a.version, latest: a.latest_version ?? a.version,
     server: a.server, owner: a.owner, vuln: a.vuln,
-    patch: patchLabel[a.patch], patchAccent: patchAccent[a.patch],
-    vulnAccent: vulnAccent[a.vuln], eos: a.eos ?? "-",
+    patch: patchLabel[a.patch], patchRisk: patchRisk[a.patch],
+    vulnRisk: vulnRisk[a.vuln], eos: a.eos ?? "-",
     eosDaysLeft: daysUntil(a.eos), approval: a.approval,
-    approvalAccent: approvalAccent[a.approval],
+    approvalRisk: approvalRisk[a.approval],
   }
 }
 
@@ -438,14 +438,14 @@ export function AssetsView() {
                   {show("owner")    && <Td>{a.owner}</Td>}
                   {show("vuln")     && (
                     <Td>
-                      <StatusBadge accent={vulnAccent[a.vuln]} pulse={a.vuln === "Critical"}>
+                      <StatusBadge risk={vulnRisk[a.vuln]} pulse={a.vuln === "Critical"}>
                         {vulnLabel[a.vuln]}
                       </StatusBadge>
                     </Td>
                   )}
                   {show("patch")    && (
                     <Td>
-                      <StatusBadge accent={patchAccent[a.patch]}>{patchLabel[a.patch]}</StatusBadge>
+                      <StatusBadge risk={patchRisk[a.patch]}>{patchLabel[a.patch]}</StatusBadge>
                     </Td>
                   )}
                   {show("eos")      && (
@@ -459,7 +459,7 @@ export function AssetsView() {
                   )}
                   {show("approval") && (
                     <Td>
-                      <StatusBadge accent={approvalAccent[a.approval]} pulse={a.approval === "긴급"}>
+                      <StatusBadge risk={approvalRisk[a.approval]} pulse={a.approval === "긴급"}>
                         {a.approval}
                       </StatusBadge>
                     </Td>

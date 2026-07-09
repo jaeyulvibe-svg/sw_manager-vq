@@ -27,7 +27,7 @@ import {
   TableShell,
   Th,
   Td,
-  type Accent,
+  type RiskLevel,
 } from "@/components/portal/ui"
 import { cn } from "@/lib/utils"
 
@@ -63,8 +63,8 @@ const items: EosItem[] = [
   { name: "Red Hat Enterprise Linux", vendor: "Red Hat", version: "8.x", owner: "인프라팀", eos: "2029-05-31", remain: "장기", remainPct: 92, risk: "Low", action: "정상" },
 ]
 
-const riskAccent: Record<Risk, Accent> = {
-  Critical: "destructive", High: "warning", Medium: "primary", Low: "success",
+const riskLevelMap: Record<Risk, RiskLevel> = {
+  Critical: 5, High: 4, Medium: 3, Low: 2,
 }
 const riskLabel: Record<Risk, string> = {
   Critical: "긴급", High: "높음", Medium: "보통", Low: "낮음",
@@ -116,10 +116,10 @@ export function EosView() {
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="만료자산" value={expired} icon={CalendarX} accent="destructive" delay={80} />
-        <StatCard label="3개월 이내" value={within3m} icon={CalendarClock} accent="warning" delay={180} />
-        <StatCard label="6개월 이내" value={within6m} icon={CalendarDays} accent="yellow" delay={280} />
-        <StatCard label="12개월 이내" value={within12m} icon={CalendarRange} accent="primary" delay={380} />
+        <StatCard label="만료자산" value={expired} icon={CalendarX} risk={5} delay={80} />
+        <StatCard label="3개월 이내" value={within3m} icon={CalendarClock} risk={4} delay={180} />
+        <StatCard label="6개월 이내" value={within6m} icon={CalendarDays} risk={3} delay={280} />
+        <StatCard label="12개월 이내" value={within12m} icon={CalendarRange} risk={2} delay={380} />
       </div>
 
       <SectionCard
@@ -191,14 +191,24 @@ export function EosView() {
                     <div className="flex items-center gap-2">
                       <ProgressBar
                         value={it.remainPct}
-                        accent={it.remainPct <= 20 ? "destructive" : it.remainPct <= 35 ? "warning" : it.remainPct <= 60 ? "primary" : "success"}
+                        risk={
+                          it.remainPct <= 20
+                            ? 5
+                            : it.remainPct <= 35
+                              ? 4
+                              : it.remainPct <= 50
+                                ? 3
+                                : it.remainPct <= 70
+                                  ? 2
+                                  : 1
+                        }
                         className="w-24"
                       />
                       <span className="font-mono text-xs text-muted-foreground">{it.remainPct}%</span>
                     </div>
                   </Td>
                   <Td>
-                    <StatusBadge accent={riskAccent[it.risk]} pulse={it.risk === "Critical"}>
+                    <StatusBadge risk={riskLevelMap[it.risk]} pulse={it.risk === "Critical"}>
                       {riskLabel[it.risk]}
                     </StatusBadge>
                   </Td>

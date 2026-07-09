@@ -14,7 +14,7 @@ import {
 import {
   useNotifications,
   CATEGORY_META,
-  STATUS_ACCENT,
+  STATUS_RISK,
   type NotifCategory,
 } from "@/components/portal/notifications-context"
 import { type ViewKey } from "@/components/portal/nav"
@@ -93,7 +93,7 @@ export function NotificationsView({
           label="읽지 않음"
           value={unreadCount}
           icon={Check}
-          accent="warning"
+          risk={3}
           trendLabel="확인 대기"
           delay={160}
         />
@@ -101,7 +101,7 @@ export function NotificationsView({
           label="긴급"
           value={urgentCount}
           icon={Bell}
-          accent="destructive"
+          risk={5}
           trendLabel="즉시 조치 필요"
           delay={240}
         />
@@ -167,7 +167,7 @@ export function NotificationsView({
                 <Td className="text-muted-foreground">{n.owner}</Td>
                 <Td>
                   {n.urgent ? (
-                    <StatusBadge accent="destructive" pulse>
+                    <StatusBadge risk={5} pulse>
                       긴급
                     </StatusBadge>
                   ) : (
@@ -176,7 +176,7 @@ export function NotificationsView({
                 </Td>
                 <Td>
                   <StatusBadge
-                    accent={STATUS_ACCENT[n.status]}
+                    risk={STATUS_RISK[n.status]}
                     pulse={n.status === "긴급"}
                   >
                     {n.status}

@@ -20,6 +20,7 @@ import {
   StatusBadge,
   MiniButton,
   type Accent,
+  type RiskLevel,
 } from "@/components/portal/ui"
 import { useToast } from "@/components/portal/toast"
 import { useRole } from "@/components/portal/role-context"
@@ -34,10 +35,10 @@ type Notice = Tables<"notices">
 
 /* ==================== Board 1: 공지사항 (실데이터) ==================== */
 
-const noticeStatusAccent: Record<string, Accent> = {
-  일반: "muted",
-  중요: "warning",
-  긴급: "destructive",
+const noticeStatusRisk: Record<string, RiskLevel | undefined> = {
+  일반: undefined,
+  중요: 3,
+  긴급: 5,
 }
 
 const categoryAccent: Record<string, Accent> = {
@@ -101,8 +102,8 @@ export function NoticeBoard() {
                       className={cn(
                         "h-1.5 w-1.5 shrink-0 rounded-full",
                         n.status === "긴급"
-                          ? "bg-destructive animate-blink"
-                          : "bg-warning",
+                          ? "bg-risk-5 animate-blink"
+                          : "bg-risk-3",
                       )}
                       aria-hidden
                     />
@@ -128,7 +129,8 @@ export function NoticeBoard() {
               </Td>
               <Td>
                 <StatusBadge
-                  accent={noticeStatusAccent[n.status]}
+                  accent="muted"
+                  risk={noticeStatusRisk[n.status]}
                   pulse={n.status === "긴급"}
                 >
                   {n.status}
@@ -181,18 +183,18 @@ function formatCollected(iso: string) {
 type Severity = Vulnerability["severity"]
 type ApprovalStatus = Vulnerability["approval"]
 
-const severityAccent: Record<Severity, Accent> = {
-  Critical: "destructive",
-  High: "warning",
-  Medium: "primary",
-  Low: "muted",
+const severityRisk: Record<Severity, RiskLevel> = {
+  Critical: 5,
+  High: 4,
+  Medium: 3,
+  Low: 2,
 }
 
-const approvalAccent: Record<ApprovalStatus, Accent> = {
-  승인대기: "warning",
-  검토중: "primary",
-  승인완료: "success",
-  반려: "destructive",
+const approvalRisk: Record<ApprovalStatus, RiskLevel> = {
+  반려: 5,
+  승인대기: 3,
+  검토중: 2,
+  승인완료: 1,
 }
 
 const SEVERITY_FILTERS: (Severity | "전체")[] = [
@@ -282,7 +284,7 @@ export function SecurityNoticeBoard({
                   severity === f
                     ? f === "전체"
                       ? "border-primary/50 bg-primary/15 text-primary"
-                      : accentPill[severityAccent[f as Severity]]
+                      : riskPill[severityRisk[f as Severity]]
                     : "border-border/60 text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -334,7 +336,7 @@ export function SecurityNoticeBoard({
             <tr key={s.id} className="transition-colors hover:bg-accent/40">
               <Td>
                 <StatusBadge
-                  accent={severityAccent[s.severity]}
+                  risk={severityRisk[s.severity]}
                   pulse={s.severity === "Critical"}
                 >
                   {s.severity}
@@ -370,7 +372,7 @@ export function SecurityNoticeBoard({
                 {formatCollected(s.collected_at)}
               </Td>
               <Td>
-                <StatusBadge accent={approvalAccent[s.approval]}>
+                <StatusBadge risk={approvalRisk[s.approval]}>
                   {s.approval}
                 </StatusBadge>
               </Td>
@@ -479,12 +481,10 @@ export function SecurityNoticeBoard({
   )
 }
 
-const accentPill: Record<Accent, string> = {
-  primary: "border-primary/50 bg-primary/15 text-primary",
-  success: "border-success/50 bg-success/15 text-success",
-  warning: "border-warning/50 bg-warning/15 text-warning",
-  yellow: "border-yellow/50 bg-yellow/15 text-yellow",
-  destructive: "border-destructive/50 bg-destructive/15 text-destructive",
-  eos: "border-eos/50 bg-eos/15 text-eos",
-  muted: "border-border/60 bg-muted/60 text-muted-foreground",
+const riskPill: Record<RiskLevel, string> = {
+  5: "border-risk-5/50 bg-risk-5/15 text-risk-5",
+  4: "border-risk-4/50 bg-risk-4/15 text-risk-4",
+  3: "border-risk-3/50 bg-risk-3/15 text-risk-3",
+  2: "border-risk-2/50 bg-risk-2/15 text-risk-2",
+  1: "border-risk-1/50 bg-risk-1/15 text-risk-1",
 }
