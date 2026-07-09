@@ -483,6 +483,7 @@ const accentPill: Record<Accent, string> = {
   primary: "border-primary/50 bg-primary/15 text-primary",
   success: "border-success/50 bg-success/15 text-success",
   warning: "border-warning/50 bg-warning/15 text-warning",
+  yellow: "border-yellow/50 bg-yellow/15 text-yellow",
   destructive: "border-destructive/50 bg-destructive/15 text-destructive",
   eos: "border-eos/50 bg-eos/15 text-eos",
   muted: "border-border/60 bg-muted/60 text-muted-foreground",

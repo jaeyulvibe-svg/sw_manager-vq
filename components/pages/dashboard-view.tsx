@@ -36,6 +36,7 @@ const accentIconColor: Record<Accent, string> = {
   primary: "text-primary",
   destructive: "text-destructive",
   warning: "text-warning",
+  yellow: "text-yellow",
   success: "text-success",
   eos: "text-eos",
   muted: "text-muted-foreground",

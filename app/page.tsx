@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { cn } from "@/lib/utils"
 import { Sidebar } from "@/components/portal/sidebar"
 import { PortalHeader } from "@/components/portal/portal-header"
 import { RoleProvider, useRole } from "@/components/portal/role-context"
@@ -17,7 +18,6 @@ import { RequestView } from "@/components/pages/request-view"
 import { ApprovalView } from "@/components/pages/approval-view"
 import { KisaView } from "@/components/pages/kisa-view"
 import { PatchView } from "@/components/pages/patch-view"
-import { ManualView } from "@/components/pages/manual-view"
 import { AdminView } from "@/components/pages/admin-view"
 import { NotificationsView } from "@/components/pages/notifications-view"
 
@@ -26,6 +26,7 @@ function Portal() {
   const [requestedView, setActive] = useState<ViewKey>("dashboard")
   const [mobileOpen, setMobileOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
 
   // Fall back to dashboard when the requested view isn't allowed for the active role
   const active = isViewAllowed(requestedView, isAdmin) ? requestedView : "dashboard"
@@ -58,8 +59,6 @@ function Portal() {
         return <KisaView onNavigate={setActive} />
       case "patch":
         return <PatchView onNavigate={setActive} />
-      case "manual":
-        return <ManualView />
       case "admin":
         return <AdminView />
       case "notifications":
@@ -78,9 +77,16 @@ function Portal() {
         onChange={setActive}
         mobileOpen={mobileOpen}
         onCloseMobile={() => setMobileOpen(false)}
+        collapsed={collapsed}
+        onToggleCollapsed={() => setCollapsed((v) => !v)}
       />
 
-      <div className="relative z-10 lg:pl-72">
+      <div
+        className={cn(
+          "relative z-10 transition-[padding] duration-300",
+          collapsed ? "lg:pl-[72px]" : "lg:pl-72",
+        )}
+      >
         <PortalHeader
           active={active}
           onOpenMobile={() => setMobileOpen(true)}

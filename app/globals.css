@@ -41,6 +41,7 @@
   --color-background: var(--background);
   --color-neon: var(--neon);
   --color-warning: var(--warning);
+  --color-yellow: var(--yellow);
   --color-success: var(--success);
   --color-eos: var(--eos);
   --radius-sm: calc(var(--radius) * 0.6);
@@ -71,6 +72,7 @@
   --accent-foreground: oklch(0.24 0.025 258);
   --destructive: oklch(0.55 0.22 22);
   --warning: oklch(0.62 0.16 75);
+  --yellow: oklch(0.75 0.16 98);
   --success: oklch(0.58 0.15 160);
   --eos: oklch(0.54 0.19 303);
   --neon: oklch(0.52 0.18 235);
@@ -112,6 +114,7 @@
   --accent-foreground: oklch(0.98 0.005 250);
   --destructive: oklch(0.62 0.23 22);
   --warning: oklch(0.78 0.16 75);
+  --yellow: oklch(0.82 0.15 98);
   --success: oklch(0.72 0.16 160);
   --eos: oklch(0.62 0.2 303);
   --neon: oklch(0.72 0.19 235);

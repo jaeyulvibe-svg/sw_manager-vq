@@ -44,6 +44,7 @@ export type Accent =
   | "primary"
   | "success"
   | "warning"
+  | "yellow"
   | "destructive"
   | "eos"
   | "muted"
@@ -52,6 +53,7 @@ const accentText: Record<Accent, string> = {
   primary: "text-primary",
   success: "text-success",
   warning: "text-warning",
+  yellow: "text-yellow",
   destructive: "text-destructive",
   eos: "text-eos",
   muted: "text-muted-foreground",
@@ -61,6 +63,7 @@ const accentSoft: Record<Accent, string> = {
   primary: "bg-primary/12 text-primary border-primary/40",
   success: "bg-success/12 text-success border-success/40",
   warning: "bg-warning/15 text-warning border-warning/40",
+  yellow: "bg-yellow/15 text-yellow border-yellow/40",
   destructive: "bg-destructive/15 text-destructive border-destructive/40",
   eos: "bg-eos/15 text-eos border-eos/40",
   muted: "bg-muted/60 text-muted-foreground border-border/60",
@@ -70,6 +73,7 @@ const barColor: Record<Accent, string> = {
   primary: "bg-primary",
   success: "bg-success",
   warning: "bg-warning",
+  yellow: "bg-yellow",
   destructive: "bg-destructive",
   eos: "bg-eos",
   muted: "bg-muted-foreground",

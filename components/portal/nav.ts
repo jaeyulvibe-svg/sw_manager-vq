@@ -6,7 +6,6 @@ import {
   ClipboardCheck,
   ShieldAlert,
   ShieldCheck,
-  Presentation,
   Settings,
   Bell,
   type LucideIcon,
@@ -20,7 +19,6 @@ export type ViewKey =
   | "approval"
   | "kisa"
   | "patch"
-  | "manual"
   | "admin"
   | "notifications"
 
@@ -48,7 +46,6 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "approval", label: "신규 자산 요청 승인", icon: ClipboardCheck, adminOnly: true },
   { key: "kisa", label: "KISA 취약점 공지", icon: ShieldAlert },
   { key: "patch", label: "패치&취약점 모니터링", icon: ShieldCheck },
-  { key: "manual", label: "소프트웨어 매뉴얼(PPT)", icon: Presentation },
   { key: "admin", label: "관리자 페이지", icon: Settings, adminOnly: true },
 ]
 

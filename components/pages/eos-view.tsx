@@ -4,7 +4,7 @@ import {
   CalendarClock,
   CalendarX,
   CalendarDays,
-  CalendarCheck,
+  CalendarRange,
   CircleCheck,
   AlertTriangle,
 } from "lucide-react"
@@ -70,6 +70,27 @@ const riskLabel: Record<Risk, string> = {
   Critical: "긴급", High: "높음", Medium: "보통", Low: "낮음",
 }
 
+function daysUntil(dateStr: string): number {
+  const ms = new Date(dateStr).getTime() - Date.now()
+  return Math.floor(ms / (1000 * 60 * 60 * 24))
+}
+
+/** EOS 날짜 기준 상호 배타적 위험 구간별 자산 건수 */
+function countByEosWindow(list: EosItem[]) {
+  let expired = 0
+  let within3m = 0
+  let within6m = 0
+  let within12m = 0
+  for (const it of list) {
+    const days = daysUntil(it.eos)
+    if (days < 0) expired++
+    else if (days <= 90) within3m++
+    else if (days <= 182) within6m++
+    else if (days <= 365) within12m++
+  }
+  return { expired, within3m, within6m, within12m }
+}
+
 function TooltipBox({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
@@ -84,6 +105,8 @@ function TooltipBox({ active, payload, label }: any) {
 }
 
 export function EosView() {
+  const { expired, within3m, within6m, within12m } = countByEosWindow(items)
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -93,10 +116,10 @@ export function EosView() {
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="30일 이내 EOS" value={3} icon={CalendarX} accent="destructive" delay={80} />
-        <StatCard label="90일 이내 EOS" value={7} icon={CalendarClock} accent="warning" delay={180} />
-        <StatCard label="6개월 이내 EOS" value={12} icon={CalendarDays} accent="eos" delay={280} />
-        <StatCard label="EOS 완료 자산" value={5} icon={CalendarCheck} accent="success" delay={380} />
+        <StatCard label="만료자산" value={expired} icon={CalendarX} accent="destructive" delay={80} />
+        <StatCard label="3개월 이내" value={within3m} icon={CalendarClock} accent="warning" delay={180} />
+        <StatCard label="6개월 이내" value={within6m} icon={CalendarDays} accent="yellow" delay={280} />
+        <StatCard label="12개월 이내" value={within12m} icon={CalendarRange} accent="primary" delay={380} />
       </div>
 
       <SectionCard

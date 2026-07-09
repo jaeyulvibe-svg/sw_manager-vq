@@ -38,12 +38,18 @@ Role state lives in `RoleProvider` (`components/portal/role-context.tsx`). Curre
 
 ### Data & state
 
-All data is **hardcoded mock arrays** inside each component — there is no backend or database connection. Supabase integration is planned but not yet implemented.
+Supabase is **live and wired up**, but the migration off mock arrays is partial — check each file before assuming either way:
+
+- **Migrated** (query real tables, no mock data standing in for query results): `dashboard-view.tsx`, `assets-view.tsx`, `patch-view.tsx`, `kisa-view.tsx`, `notifications-view.tsx`, `notice-boards.tsx`, and the presentational dashboard widgets they feed (`charts.tsx`, `kpi-cards.tsx`, `critical-alerts.tsx`, `asset-charts.tsx`).
+- **Partially migrated** (real Supabase/API calls coexist with hardcoded mock arrays):
+  - `admin-view.tsx` — "즉시 수집" really scrapes and inserts into `vulnerabilities` via `app/api/collect-source/route.ts`, but SW 마스터/Source URL/사용자 권한/시스템 로그 sections are mock `useState` with no backing table.
+  - `asset-dashboard-view.tsx` — the page itself queries `assets`, but its `<AssetBoards />` child (`components/dashboard/asset-boards.tsx`) renders frozen mock notices/change-requests/feeds instead of the real `notices`/`asset_requests` data.
+- **Not migrated** (100% hardcoded, no backend calls): `eos-view.tsx`, `approval-view.tsx`, `request-view.tsx` (these three are pure wiring gaps — the underlying tables like `assets.eos` and `asset_requests` already exist and are seeded), and `manual-view.tsx` (genuinely schema-blocked — no `documents`-style table exists yet).
 
 The three React contexts provided at the root:
-- `RoleProvider` — current role (admin/owner)
-- `ToastProvider` — imperative toast API (`useToast().toast({...})`)
-- `NotificationsProvider` — notification list with read/unread state
+- `RoleProvider` — current role (admin/owner), still mock — no real auth
+- `ToastProvider` — imperative toast API (`useToast().toast({...})`), in-memory only
+- `NotificationsProvider` — Supabase-backed: reads/writes the `notifications` table (read/unread state persists)
 
 ### Design system conventions
 
@@ -66,7 +72,7 @@ Required env vars (see `.env.example`):
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY` (server only — never expose to client)
 
-All current data is **hardcoded mock arrays** inside each page component. When wiring up Supabase, replace those arrays with `supabase.from("table").select()` calls in Server Components or via client-side hooks.
+Tables actually in use: `assets`, `servers`, `vulnerabilities`, `notifications`, `notices` (read via `select`, written via `update`/`insert` where noted above). `asset_requests` exists in the schema and is seeded but is not queried by any component yet — wiring it up is the smallest remaining lift (see `approval-view.tsx` / `request-view.tsx` above). See "Data & state" above for the per-file migration status; don't assume a page is mock just because a sibling page is, or fully migrated just because it has a `supabase.from(...)` call somewhere in it.
 
 ### Key patterns
 
