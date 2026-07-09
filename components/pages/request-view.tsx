@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   FilePlus2,
   Save,
@@ -22,31 +22,51 @@ import {
   type Accent,
   type RiskLevel,
 } from "@/components/portal/ui"
+import { createClient } from "@/lib/supabase/client"
+import type { Tables } from "@/lib/supabase/types"
+import { useToast } from "@/components/portal/toast"
+import { useNotifications } from "@/components/portal/notifications-context"
 import { cn } from "@/lib/utils"
 
+type AssetRequest = Tables<"asset_requests">
+
 const CATEGORIES = ["OS", "WEB", "WAS", "DB", "Middleware", "Security"]
-const MODES = ["AUTO", "SEMI_AUTO", "MANUAL"] as const
 
-type Approval = "승인대기" | "승인완료" | "반려"
-
-type Req = {
-  no: string
-  name: string
-  vendor: string
-  requester: string
-  date: string
-  approval: Approval
-  comment: string
+const approvalRisk: Record<AssetRequest["approval"], RiskLevel> = {
+  반려: 5,
+  승인대기: 3,
+  검토중: 2,
+  승인완료: 1,
 }
 
-const requests: Req[] = [
-  { no: "REQ-2026-001", name: "Apache Tomcat", vendor: "Apache", requester: "홍길동", date: "오늘", approval: "승인대기", comment: "검토중" },
-  { no: "REQ-2026-002", name: "PostgreSQL", vendor: "PostgreSQL Global Development Group", requester: "김철수", date: "어제", approval: "승인완료", comment: "등록 완료" },
-  { no: "REQ-2026-003", name: "Nginx", vendor: "F5", requester: "이영희", date: "어제", approval: "반려", comment: "Source URL 확인 필요" },
-]
+type FormState = {
+  name: string
+  vendor: string
+  category: string
+  version: string
+  server: string
+  dept: string
+  owner: string
+  reason: string
+}
 
-const approvalRisk: Record<Approval, RiskLevel> = {
-  승인대기: 3, 승인완료: 1, 반려: 5,
+const EMPTY_FORM: FormState = {
+  name: "",
+  vendor: "",
+  category: CATEGORIES[4], // Middleware
+  version: "",
+  server: "",
+  dept: "",
+  owner: "",
+  reason: "",
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
 }
 
 function Field({
@@ -73,7 +93,107 @@ const inputCls =
   "w-full rounded-lg border border-border/60 bg-background/50 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20"
 
 export function RequestView() {
-  const [mode, setMode] = useState<(typeof MODES)[number]>("AUTO")
+  const { toast } = useToast()
+  const { refresh: refreshNotifications } = useNotifications()
+
+  const [requests, setRequests] = useState<AssetRequest[]>([])
+  const [loading, setLoading] = useState(true)
+  const [form, setForm] = useState<FormState>(EMPTY_FORM)
+  const [submitting, setSubmitting] = useState(false)
+
+  function loadRequests() {
+    const supabase = createClient()
+    supabase
+      .from("asset_requests")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (data) setRequests(data)
+        setLoading(false)
+      })
+  }
+
+  useEffect(() => {
+    loadRequests()
+  }, [])
+
+  const counts = {
+    pending: requests.filter((r) => r.approval === "승인대기" || r.approval === "검토중").length,
+    approved: requests.filter((r) => r.approval === "승인완료").length,
+    rejected: requests.filter((r) => r.approval === "반려").length,
+  }
+
+  function update<K extends keyof FormState>(key: K, value: FormState[K]) {
+    setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  async function handleSubmit() {
+    if (submitting) return
+    const required: (keyof FormState)[] = [
+      "name",
+      "vendor",
+      "category",
+      "version",
+      "server",
+      "dept",
+      "owner",
+      "reason",
+    ]
+    const missing = required.some((key) => !form[key].trim())
+    if (missing) {
+      toast({
+        tone: "danger",
+        title: "필수 항목 누락",
+        description: "제품명·벤더·분류·버전·설치 서버·사용 부서·담당자·요청 사유는 필수 입력 항목입니다.",
+      })
+      return
+    }
+
+    setSubmitting(true)
+    const supabase = createClient()
+    const { error } = await supabase.from("asset_requests").insert({
+      name: form.name,
+      vendor: form.vendor,
+      category: form.category,
+      version: form.version,
+      server: form.server,
+      owner: form.owner,
+      requester: form.owner,
+      requester_dept: form.dept,
+      reason: form.reason,
+    })
+    setSubmitting(false)
+
+    if (error) {
+      toast({
+        tone: "danger",
+        title: "요청 등록 실패",
+        description: error.message,
+      })
+      return
+    }
+
+    await supabase.from("notifications").insert({
+      category: "asset",
+      title: "신규 SW 자산 등록 요청",
+      description: `${form.name} 자산 등록 요청이 접수되었습니다.`,
+      asset: form.name,
+      owner: form.owner,
+      status: "승인대기",
+      urgent: false,
+      link_view: "approval",
+      link_label: "승인 관리로 이동",
+    })
+    refreshNotifications()
+
+    toast({
+      tone: "success",
+      title: "요청 등록 완료",
+      description: `${form.name} 신규 자산 등록 요청이 접수되었습니다. 관리자 승인 후 반영됩니다.`,
+    })
+    setForm(EMPTY_FORM)
+    loadRequests()
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -84,9 +204,9 @@ export function RequestView() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="승인 대기" value={5} icon={Clock3} risk={3} delay={80} />
-        <StatCard label="승인 완료" value={38} icon={CircleCheck} risk={1} delay={180} />
-        <StatCard label="반려" value={2} icon={CircleX} risk={5} delay={280} />
+        <StatCard label="승인 대기" value={counts.pending} icon={Clock3} risk={3} delay={80} />
+        <StatCard label="승인 완료" value={counts.approved} icon={CircleCheck} risk={1} delay={180} />
+        <StatCard label="반려" value={counts.rejected} icon={CircleX} risk={5} delay={280} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
@@ -95,76 +215,101 @@ export function RequestView() {
           <SectionCard title="신규 자산 등록 요청서" subtitle="필수 항목을 입력해 주세요" icon={FilePlus2}>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="제품명" required>
-                <input className={inputCls} placeholder="예: Apache Tomcat" />
+                <input
+                  className={inputCls}
+                  placeholder="예: Apache Tomcat"
+                  value={form.name}
+                  onChange={(e) => update("name", e.target.value)}
+                />
               </Field>
               <Field label="벤더" required>
-                <input className={inputCls} placeholder="예: Apache" />
+                <input
+                  className={inputCls}
+                  placeholder="예: Apache"
+                  value={form.vendor}
+                  onChange={(e) => update("vendor", e.target.value)}
+                />
               </Field>
               <Field label="분류" required>
-                <select className={inputCls} defaultValue="Middleware">
+                <select
+                  className={inputCls}
+                  value={form.category}
+                  onChange={(e) => update("category", e.target.value)}
+                >
                   {CATEGORIES.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
               </Field>
               <Field label="버전" required>
-                <input className={inputCls} placeholder="예: 10.1.24" />
+                <input
+                  className={inputCls}
+                  placeholder="예: 10.1.24"
+                  value={form.version}
+                  onChange={(e) => update("version", e.target.value)}
+                />
               </Field>
-              <Field label="설치 서버">
-                <input className={inputCls} placeholder="예: WAS-PRD-03" />
+              <Field label="설치 서버" required>
+                <input
+                  className={inputCls}
+                  placeholder="예: WAS-PRD-03"
+                  value={form.server}
+                  onChange={(e) => update("server", e.target.value)}
+                />
               </Field>
-              <Field label="사용 부서">
-                <input className={inputCls} placeholder="예: WAS운영팀" />
+              <Field label="사용 부서" required>
+                <input
+                  className={inputCls}
+                  placeholder="예: WAS운영팀"
+                  value={form.dept}
+                  onChange={(e) => update("dept", e.target.value)}
+                />
               </Field>
               <Field label="담당자" required>
-                <input className={inputCls} placeholder="예: 홍길동" />
+                <input
+                  className={inputCls}
+                  placeholder="예: 홍길동"
+                  value={form.owner}
+                  onChange={(e) => update("owner", e.target.value)}
+                />
               </Field>
-              <Field label="공식 Source URL">
-                <input className={inputCls} placeholder="https://vendor.com/security" />
-              </Field>
-            </div>
-
-            <div className="mt-4">
-              <span className="text-xs font-medium text-muted-foreground">수집 모드</span>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {MODES.map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setMode(m)}
-                    className={cn(
-                      "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors",
-                      mode === m
-                        ? "border-primary/50 bg-primary/15 text-primary"
-                        : "border-border/60 text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-4">
-              <Field label="요청 사유">
-                <textarea rows={3} className={inputCls} placeholder="신규 도입 배경 및 사용 목적을 입력하세요" />
+              <Field label="요청 사유" required>
+                <textarea
+                  rows={3}
+                  className={inputCls}
+                  placeholder="신규 도입 배경 및 사용 목적을 입력하세요"
+                  value={form.reason}
+                  onChange={(e) => update("reason", e.target.value)}
+                />
               </Field>
               <Field label="첨부 파일">
                 <div className="flex items-center gap-2 rounded-lg border border-dashed border-border/60 bg-background/40 px-3 py-3 text-sm text-muted-foreground">
                   <Paperclip className="h-4 w-4" />
-                  구성도 / 도입 계획서 등을 첨부하세요
+                  구성도 / 도입 계획서 등을 첨부하세요 (준비 중)
                 </div>
               </Field>
             </div>
 
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-background/50 px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+              <button
+                type="button"
+                onClick={() => setForm(EMPTY_FORM)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-background/50 px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
                 <Save className="h-4 w-4" />
-                임시저장
+                초기화
               </button>
-              <button type="button" className="glow-card inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/15 px-4 py-2 text-sm font-semibold text-primary transition-transform hover:-translate-y-0.5">
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={handleSubmit}
+                className="glow-card inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/15 px-4 py-2 text-sm font-semibold text-primary transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+              >
                 <Send className="h-4 w-4" />
-                등록 요청
+                {submitting ? "등록 중..." : "등록 요청"}
               </button>
             </div>
           </SectionCard>
@@ -176,7 +321,7 @@ export function RequestView() {
             <ol className="flex flex-col gap-3">
               {[
                 { step: "1", label: "요청 등록", desc: "사용자 신규 자산 요청", accent: "primary" as Accent, done: true },
-                { step: "2", label: "관리자 검토", desc: "Source URL·중복 여부 확인", accent: "warning" as Accent, done: true },
+                { step: "2", label: "관리자 검토", desc: "중복 여부 확인", accent: "warning" as Accent, done: true },
                 { step: "3", label: "승인 / 반려", desc: "관리자 승인 결정", accent: "success" as Accent, done: false },
                 { step: "4", label: "마스터 등록", desc: "공식 관리 대상 편입", accent: "eos" as Accent, done: false },
               ].map((s) => (
@@ -209,25 +354,31 @@ export function RequestView() {
               <Th>요청자</Th>
               <Th>요청일</Th>
               <Th>승인 상태</Th>
-              <Th>관리자 의견</Th>
             </tr>
           </thead>
           <tbody>
             {requests.map((r) => (
-              <tr key={r.no} className="transition-colors hover:bg-accent/40">
+              <tr key={r.id} className="transition-colors hover:bg-accent/40">
                 <Td className="font-mono text-xs text-muted-foreground">{r.no}</Td>
                 <Td className="font-semibold">{r.name}</Td>
                 <Td className="text-muted-foreground">{r.vendor}</Td>
                 <Td>{r.requester}</Td>
-                <Td className="text-xs text-muted-foreground">{r.date}</Td>
+                <Td className="text-xs text-muted-foreground">{formatDate(r.created_at)}</Td>
                 <Td>
                   <StatusBadge risk={approvalRisk[r.approval]}>{r.approval}</StatusBadge>
                 </Td>
-                <Td className="text-sm text-muted-foreground">{r.comment}</Td>
               </tr>
             ))}
+            {!loading && requests.length === 0 ? (
+              <tr>
+                <Td className={cn("py-8 text-center text-muted-foreground")}>
+                  <span className="block w-full">등록된 요청이 없습니다.</span>
+                </Td>
+              </tr>
+            ) : null}
           </tbody>
         </TableShell>
+        {loading ? <p className="mt-2 text-xs text-muted-foreground">불러오는 중…</p> : null}
       </SectionCard>
     </div>
   )

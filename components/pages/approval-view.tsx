@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   ClipboardCheck,
   Clock3,
@@ -9,10 +9,10 @@ import {
   Check,
   X,
   Eye,
-  Building2,
   User,
   Server,
-  Link2,
+  CalendarClock,
+  Flag,
 } from "lucide-react"
 import {
   PageHeader,
@@ -25,124 +25,66 @@ import {
   MiniButton,
   type RiskLevel,
 } from "@/components/portal/ui"
+import { createClient } from "@/lib/supabase/client"
+import type { Tables } from "@/lib/supabase/types"
 import { useToast } from "@/components/portal/toast"
+import { useNotifications } from "@/components/portal/notifications-context"
 import { cn } from "@/lib/utils"
 
-type Approval = "승인대기" | "승인완료" | "반려"
-
-type Req = {
-  no: string
-  name: string
-  vendor: string
-  category: string
-  version: string
-  server: string
-  dept: string
-  requester: string
-  date: string
-  mode: string
-  sourceUrl: string
-  reason: string
-  approval: Approval
-}
-
-const initialRequests: Req[] = [
-  {
-    no: "REQ-2026-004",
-    name: "Redis",
-    vendor: "Redis Ltd.",
-    category: "Middleware",
-    version: "7.4",
-    server: "CACHE-PRD-02",
-    dept: "플랫폼개발팀",
-    requester: "박민수",
-    date: "오늘 09:14",
-    mode: "AUTO",
-    sourceUrl: "https://redis.io/docs/latest/",
-    reason: "세션 캐시 및 실시간 랭킹 처리를 위한 신규 도입",
-    approval: "승인대기",
-  },
-  {
-    no: "REQ-2026-005",
-    name: "Kubernetes",
-    vendor: "CNCF",
-    category: "Middleware",
-    version: "1.30",
-    server: "K8S-PRD-CLUSTER",
-    dept: "인프라운영팀",
-    requester: "정수빈",
-    date: "오늘 08:40",
-    mode: "SEMI_AUTO",
-    sourceUrl: "https://kubernetes.io/docs/",
-    reason: "컨테이너 오케스트레이션 표준화 및 배포 자동화",
-    approval: "승인대기",
-  },
-  {
-    no: "REQ-2026-006",
-    name: "HAProxy",
-    vendor: "HAProxy Technologies",
-    category: "Security",
-    version: "3.0",
-    server: "LB-PRD-01",
-    dept: "네트워크팀",
-    requester: "김도현",
-    date: "어제 17:22",
-    mode: "AUTO",
-    sourceUrl: "https://www.haproxy.org/",
-    reason: "L7 로드밸런싱 및 TLS 종단 처리",
-    approval: "승인대기",
-  },
-  {
-    no: "REQ-2026-001",
-    name: "Apache Tomcat",
-    vendor: "Apache",
-    category: "Middleware",
-    version: "10.1.24",
-    server: "WAS-PRD-03",
-    dept: "WAS운영팀",
-    requester: "홍길동",
-    date: "어제 11:05",
-    mode: "AUTO",
-    sourceUrl: "https://tomcat.apache.org/security.html",
-    reason: "레거시 WAS 교체용 최신 버전 도입",
-    approval: "승인완료",
-  },
-  {
-    no: "REQ-2026-003",
-    name: "Nginx",
-    vendor: "F5",
-    category: "WEB",
-    version: "1.27",
-    server: "WEB-PRD-02",
-    dept: "웹서비스팀",
-    requester: "이영희",
-    date: "2일 전",
-    mode: "AUTO",
-    sourceUrl: "",
-    reason: "정적 콘텐츠 서빙 및 리버스 프록시",
-    approval: "반려",
-  },
-]
+type AssetRequest = Tables<"asset_requests">
+type Approval = AssetRequest["approval"]
 
 const approvalRisk: Record<Approval, RiskLevel> = {
-  승인대기: 3,
-  승인완료: 1,
   반려: 5,
+  승인대기: 3,
+  검토중: 2,
+  승인완료: 1,
 }
 
-const FILTERS = ["전체", "승인대기", "승인완료", "반려"] as const
+const FILTERS = ["전체", "승인대기", "검토중", "승인완료", "반려"] as const
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+}
 
 export function ApprovalView() {
   const { toast } = useToast()
-  const [requests, setRequests] = useState<Req[]>(initialRequests)
+  const { refresh: refreshNotifications } = useNotifications()
+
+  const [requests, setRequests] = useState<AssetRequest[]>([])
+  const [loading, setLoading] = useState(true)
+  const [busyId, setBusyId] = useState<string | null>(null)
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("승인대기")
-  const [selected, setSelected] = useState<Req | null>(
-    initialRequests.find((r) => r.approval === "승인대기") ?? null,
-  )
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  function loadRequests() {
+    const supabase = createClient()
+    supabase
+      .from("asset_requests")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (data) {
+          setRequests(data)
+          setSelectedId((cur) => cur ?? data.find((r) => r.approval === "승인대기")?.id ?? data[0]?.id ?? null)
+        }
+        setLoading(false)
+      })
+  }
+
+  useEffect(() => {
+    loadRequests()
+  }, [])
+
+  const selected = requests.find((r) => r.id === selectedId) ?? null
 
   const counts = useMemo(
     () => ({
-      pending: requests.filter((r) => r.approval === "승인대기").length,
+      pending: requests.filter((r) => r.approval === "승인대기" || r.approval === "검토중").length,
       approved: requests.filter((r) => r.approval === "승인완료").length,
       rejected: requests.filter((r) => r.approval === "반려").length,
     }),
@@ -150,20 +92,53 @@ export function ApprovalView() {
   )
 
   const filtered = useMemo(
-    () =>
-      filter === "전체"
-        ? requests
-        : requests.filter((r) => r.approval === filter),
+    () => (filter === "전체" ? requests : requests.filter((r) => r.approval === filter)),
     [requests, filter],
   )
 
-  function decide(req: Req, decision: Approval) {
+  async function decide(req: AssetRequest, decision: "승인완료" | "반려") {
+    if (busyId) return
+    setBusyId(req.id)
+    const supabase = createClient()
+
+    if (decision === "승인완료") {
+      await supabase.from("assets").insert({
+        name: req.name,
+        vendor: req.vendor,
+        category: req.category as Tables<"assets">["category"],
+        version: req.version,
+        latest_version: req.version,
+        server: req.server,
+        owner: req.owner,
+        vuln: "Low",
+        patch: "Up to Date",
+        approval: "확인필요",
+      })
+    }
+
+    await supabase.from("asset_requests").update({ approval: decision }).eq("id", req.id)
+
+    await supabase.from("notifications").insert({
+      category: "asset",
+      title: decision === "승인완료" ? "신규 자산 요청 승인 완료" : "신규 자산 요청 반려",
+      description:
+        decision === "승인완료"
+          ? `${req.name} (${req.no}) 요청을 승인하고 관리 대상으로 등록했습니다.`
+          : `${req.name} (${req.no}) 요청을 반려했습니다.`,
+      asset: req.name,
+      owner: req.owner,
+      status: "완료",
+      urgent: false,
+      link_view: decision === "승인완료" ? "assets" : "request",
+      link_label: decision === "승인완료" ? "자산 목록에서 보기" : "요청 내역 확인",
+    })
+    refreshNotifications()
+
     setRequests((prev) =>
-      prev.map((r) => (r.no === req.no ? { ...r, approval: decision } : r)),
+      prev.map((r) => (r.id === req.id ? { ...r, approval: decision } : r)),
     )
-    setSelected((prev) =>
-      prev && prev.no === req.no ? { ...prev, approval: decision } : prev,
-    )
+    setBusyId(null)
+
     if (decision === "승인완료") {
       toast({
         tone: "success",
@@ -233,25 +208,26 @@ export function ApprovalView() {
               <tbody>
                 {filtered.map((r) => (
                   <tr
-                    key={r.no}
-                    onClick={() => setSelected(r)}
+                    key={r.id}
+                    onClick={() => setSelectedId(r.id)}
                     className={cn(
                       "cursor-pointer transition-colors hover:bg-accent/40",
-                      selected?.no === r.no ? "bg-primary/10" : "",
+                      selectedId === r.id ? "bg-primary/10" : "",
                     )}
                   >
                     <Td className="font-mono text-xs text-muted-foreground">{r.no}</Td>
                     <Td className="font-semibold">{r.name}</Td>
                     <Td>{r.requester}</Td>
-                    <Td className="text-xs text-muted-foreground">{r.date}</Td>
+                    <Td className="text-xs text-muted-foreground">{formatDate(r.created_at)}</Td>
                     <Td>
                       <StatusBadge risk={approvalRisk[r.approval]}>{r.approval}</StatusBadge>
                     </Td>
                     <Td>
-                      {r.approval === "승인대기" ? (
+                      {r.approval === "승인대기" || r.approval === "검토중" ? (
                         <div className="flex items-center gap-1.5">
                           <MiniButton
                             accent="success"
+                            disabled={!!busyId}
                             onClick={(e) => {
                               e.stopPropagation()
                               decide(r, "승인완료")
@@ -261,6 +237,7 @@ export function ApprovalView() {
                           </MiniButton>
                           <MiniButton
                             accent="destructive"
+                            disabled={!!busyId}
                             onClick={(e) => {
                               e.stopPropagation()
                               decide(r, "반려")
@@ -274,7 +251,7 @@ export function ApprovalView() {
                           accent="primary"
                           onClick={(e) => {
                             e.stopPropagation()
-                            setSelected(r)
+                            setSelectedId(r.id)
                           }}
                         >
                           <Eye className="h-3 w-3" />상세
@@ -283,7 +260,7 @@ export function ApprovalView() {
                     </Td>
                   </tr>
                 ))}
-                {filtered.length === 0 ? (
+                {!loading && filtered.length === 0 ? (
                   <tr>
                     <td
                       colSpan={6}
@@ -320,14 +297,14 @@ export function ApprovalView() {
                 </div>
 
                 <dl className="grid grid-cols-1 gap-2.5">
-                  <DetailRow icon={User} label="요청자" value={`${selected.requester} · ${selected.dept}`} />
+                  <DetailRow icon={User} label="요청자" value={`${selected.requester} · ${selected.requester_dept}`} />
                   <DetailRow icon={Server} label="설치 서버" value={selected.server} />
-                  <DetailRow icon={Building2} label="수집 모드" value={selected.mode} />
+                  <DetailRow icon={CalendarClock} label="요청일시" value={formatDate(selected.created_at)} />
                   <DetailRow
-                    icon={Link2}
-                    label="Source URL"
-                    value={selected.sourceUrl || "미등록 (확인 필요)"}
-                    warn={!selected.sourceUrl}
+                    icon={Flag}
+                    label="긴급도"
+                    value={selected.urgency}
+                    warn={selected.urgency === "긴급"}
                   />
                 </dl>
 
@@ -336,23 +313,25 @@ export function ApprovalView() {
                   <p className="mt-1 text-sm leading-relaxed text-foreground">{selected.reason}</p>
                 </div>
 
-                {selected.approval === "승인대기" ? (
+                {selected.approval === "승인대기" || selected.approval === "검토중" ? (
                   <div className="flex gap-2">
                     <button
                       type="button"
+                      disabled={!!busyId}
                       onClick={() => decide(selected, "승인완료")}
-                      className="glow-card inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-risk-1/40 bg-risk-1/15 px-4 py-2.5 text-sm font-semibold text-risk-1 transition-transform hover:-translate-y-0.5"
+                      className="glow-card inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-risk-1/40 bg-risk-1/15 px-4 py-2.5 text-sm font-semibold text-risk-1 transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Check className="h-4 w-4" />
-                      승인
+                      {busyId === selected.id ? "처리 중..." : "승인"}
                     </button>
                     <button
                       type="button"
+                      disabled={!!busyId}
                       onClick={() => decide(selected, "반려")}
-                      className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-risk-5/40 bg-risk-5/15 px-4 py-2.5 text-sm font-semibold text-risk-5 transition-transform hover:-translate-y-0.5"
+                      className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-risk-5/40 bg-risk-5/15 px-4 py-2.5 text-sm font-semibold text-risk-5 transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <X className="h-4 w-4" />
-                      반려
+                      {busyId === selected.id ? "처리 중..." : "반려"}
                     </button>
                   </div>
                 ) : (
@@ -377,7 +356,7 @@ export function ApprovalView() {
               </div>
             ) : (
               <p className="py-10 text-center text-sm text-muted-foreground">
-                왼쪽 목록에서 요청을 선택하면 상세 정보가 표시됩니다.
+                {loading ? "불러오는 중…" : "왼쪽 목록에서 요청을 선택하면 상세 정보가 표시됩니다."}
               </p>
             )}
           </SectionCard>
@@ -405,7 +384,7 @@ function DetailRow({
       <span
         className={cn(
           "min-w-0 flex-1 truncate text-sm font-medium",
-          warn ? "text-risk-3" : "text-foreground",
+          warn ? "text-risk-5" : "text-foreground",
         )}
       >
         {value}
