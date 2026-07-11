@@ -76,6 +76,67 @@ function saveVisibleCols(cols: ColKey[]) {
   window.localStorage.setItem(LS_COLUMNS_KEY, JSON.stringify(cols))
 }
 
+/* ---- 컬럼 너비 조절 ---- */
+const DEFAULT_COL_WIDTHS: Record<ColKey, number> = {
+  id: 100,
+  name: 180,
+  vendor: 140,
+  category: 110,
+  std_version: 110,
+  collect_mode: 130,
+  active: 90,
+  updated_at: 130,
+  manager: 110,
+  updated_by: 100,
+  created_at: 110,
+  note: 160,
+}
+const MIN_COL_WIDTH = 60
+const MAX_COL_WIDTH = 480
+const LS_COL_WIDTHS_KEY = "sw_master_col_widths"
+
+function loadColWidths(): Partial<Record<ColKey, number>> {
+  if (typeof window === "undefined") return {}
+  try {
+    const raw = window.localStorage.getItem(LS_COL_WIDTHS_KEY)
+    if (raw) return JSON.parse(raw) as Partial<Record<ColKey, number>>
+  } catch {}
+  return {}
+}
+function saveColWidths(widths: Partial<Record<ColKey, number>>) {
+  window.localStorage.setItem(LS_COL_WIDTHS_KEY, JSON.stringify(widths))
+}
+
+function ColumnResizeHandle({ onResize }: { onResize: (deltaPx: number) => void }) {
+  const lastX = useRef(0)
+
+  function handleMouseDown(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    lastX.current = e.clientX
+
+    function onMouseMove(ev: MouseEvent) {
+      const delta = ev.clientX - lastX.current
+      lastX.current = ev.clientX
+      onResize(delta)
+    }
+    function onMouseUp() {
+      window.removeEventListener("mousemove", onMouseMove)
+      window.removeEventListener("mouseup", onMouseUp)
+    }
+    window.addEventListener("mousemove", onMouseMove)
+    window.addEventListener("mouseup", onMouseUp)
+  }
+
+  return (
+    <span
+      onMouseDown={handleMouseDown}
+      onClick={(e) => e.stopPropagation()}
+      className="absolute right-0 top-0 z-10 h-full w-1.5 cursor-col-resize select-none hover:bg-primary/50 active:bg-primary/70"
+    />
+  )
+}
+
 /* ---- 정렬 ---- */
 type SortKey = "id" | keyof EditableFields | "updated_at"
 type SortDir = "asc" | "desc"
@@ -109,11 +170,15 @@ function SortTh({
   label,
   sort,
   onSort,
+  width,
+  onResize,
 }: {
   col: SortKey
   label: string
   sort: SortSpec[]
   onSort: (key: SortKey, additive: boolean) => void
+  width: number
+  onResize: (deltaPx: number) => void
 }) {
   const idx = sort.findIndex((s) => s.key === col)
   const active = idx !== -1
@@ -121,8 +186,9 @@ function SortTh({
   return (
     <th
       onClick={(e) => onSort(col, e.shiftKey)}
+      style={{ width, minWidth: width, maxWidth: width }}
       className={cn(
-        "cursor-pointer select-none whitespace-nowrap border-b border-border/60 bg-muted/40 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground",
+        "relative cursor-pointer select-none overflow-hidden text-ellipsis whitespace-nowrap border-b border-border/60 bg-muted/40 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground",
         active && "text-primary",
       )}
     >
@@ -141,6 +207,7 @@ function SortTh({
           <ChevronsUpDown className="h-3 w-3 opacity-30" />
         )}
       </span>
+      <ColumnResizeHandle onResize={onResize} />
     </th>
   )
 }
@@ -168,10 +235,9 @@ export function SwMasterView() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(20)
   const [visibleCols, setVisibleCols] = useState<ColKey[]>(() => loadVisibleCols())
+  const [colWidths, setColWidths] = useState<Partial<Record<ColKey, number>>>(() => loadColWidths())
   const [colMenuOpen, setColMenuOpen] = useState(false)
   const colMenuRef = useRef<HTMLDivElement>(null)
-  const [bulkModeOpen, setBulkModeOpen] = useState(false)
-  const bulkModeRef = useRef<HTMLDivElement>(null)
 
   const [detailRow, setDetailRow] = useState<EffectiveRow | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -188,7 +254,6 @@ export function SwMasterView() {
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
       if (colMenuRef.current && !colMenuRef.current.contains(e.target as Node)) setColMenuOpen(false)
-      if (bulkModeRef.current && !bulkModeRef.current.contains(e.target as Node)) setBulkModeOpen(false)
     }
     document.addEventListener("mousedown", onClickOutside)
     return () => document.removeEventListener("mousedown", onClickOutside)
@@ -254,6 +319,20 @@ export function SwMasterView() {
     setPage(1)
   }
 
+  function getColWidth(key: ColKey) {
+    return colWidths[key] ?? DEFAULT_COL_WIDTHS[key]
+  }
+
+  function resizeColumn(key: ColKey, deltaPx: number) {
+    setColWidths((prev) => {
+      const current = prev[key] ?? DEFAULT_COL_WIDTHS[key]
+      const next = Math.min(MAX_COL_WIDTH, Math.max(MIN_COL_WIDTH, current + deltaPx))
+      const updated = { ...prev, [key]: next }
+      saveColWidths(updated)
+      return updated
+    })
+  }
+
   function resetFilters() {
     setQuery("")
     setCatFilter("전체")
@@ -287,15 +366,6 @@ export function SwMasterView() {
   function handleBulkDelete() {
     selected.forEach((id) => draft.markDeleted(id))
     setSelected(new Set())
-  }
-  function handleBulkActive(active: boolean) {
-    selected.forEach((id) => draft.editCell(id, "active", active))
-    setSelected(new Set())
-  }
-  function handleBulkMode(mode: EditableFields["collect_mode"]) {
-    selected.forEach((id) => draft.editCell(id, "collect_mode", mode))
-    setSelected(new Set())
-    setBulkModeOpen(false)
   }
 
   function handleSaveClick() {
@@ -510,33 +580,8 @@ export function SwMasterView() {
             <span className="text-xs text-muted-foreground">총 {sorted.length}건</span>
           )}
           <MiniButton accent="destructive" onClick={handleBulkDelete} disabled={selected.size === 0}>
-            일괄 삭제
+            삭제
           </MiniButton>
-          <MiniButton accent="success" onClick={() => handleBulkActive(true)} disabled={selected.size === 0}>
-            사용 처리
-          </MiniButton>
-          <MiniButton onClick={() => handleBulkActive(false)} disabled={selected.size === 0}>
-            미사용 처리
-          </MiniButton>
-          <div ref={bulkModeRef} className="relative">
-            <MiniButton onClick={() => setBulkModeOpen((v) => !v)} disabled={selected.size === 0}>
-              수집 모드 변경
-            </MiniButton>
-            {bulkModeOpen && selected.size > 0 ? (
-              <div className="absolute left-0 top-8 z-50 w-32 rounded-xl border border-border/70 bg-card py-1 shadow-2xl">
-                {COLLECT_MODES.map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => handleBulkMode(m)}
-                    className="flex w-full px-3 py-1.5 text-left text-xs transition-colors hover:bg-accent/60"
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
         </div>
         <div className="flex items-center gap-2">
           <MiniButton accent="primary" onClick={handleAddRow}>
@@ -610,18 +655,54 @@ export function SwMasterView() {
               />
             </Th>
             <Th className="w-8">{null}</Th>
-            {show("id") && <SortTh col="id" label="마스터 ID" sort={sort} onSort={handleSort} />}
-            {show("name") && <SortTh col="name" label="제품명" sort={sort} onSort={handleSort} />}
-            {show("vendor") && <SortTh col="vendor" label="벤더" sort={sort} onSort={handleSort} />}
-            {show("category") && <SortTh col="category" label="분류" sort={sort} onSort={handleSort} />}
-            {show("std_version") && <SortTh col="std_version" label="표준 버전" sort={sort} onSort={handleSort} />}
-            {show("collect_mode") && <SortTh col="collect_mode" label="수집 모드" sort={sort} onSort={handleSort} />}
-            {show("active") && <SortTh col="active" label="사용 여부" sort={sort} onSort={handleSort} />}
-            {show("updated_at") && <SortTh col="updated_at" label="최근 갱신일" sort={sort} onSort={handleSort} />}
-            {show("manager") && <Th>관리자</Th>}
-            {show("updated_by") && <Th>수정자</Th>}
-            {show("created_at") && <Th>등록일</Th>}
-            {show("note") && <Th>비고</Th>}
+            {show("id") && (
+              <SortTh col="id" label="마스터 ID" sort={sort} onSort={handleSort} width={getColWidth("id")} onResize={(d) => resizeColumn("id", d)} />
+            )}
+            {show("name") && (
+              <SortTh col="name" label="제품명" sort={sort} onSort={handleSort} width={getColWidth("name")} onResize={(d) => resizeColumn("name", d)} />
+            )}
+            {show("vendor") && (
+              <SortTh col="vendor" label="벤더" sort={sort} onSort={handleSort} width={getColWidth("vendor")} onResize={(d) => resizeColumn("vendor", d)} />
+            )}
+            {show("category") && (
+              <SortTh col="category" label="분류" sort={sort} onSort={handleSort} width={getColWidth("category")} onResize={(d) => resizeColumn("category", d)} />
+            )}
+            {show("std_version") && (
+              <SortTh col="std_version" label="표준 버전" sort={sort} onSort={handleSort} width={getColWidth("std_version")} onResize={(d) => resizeColumn("std_version", d)} />
+            )}
+            {show("collect_mode") && (
+              <SortTh col="collect_mode" label="수집 모드" sort={sort} onSort={handleSort} width={getColWidth("collect_mode")} onResize={(d) => resizeColumn("collect_mode", d)} />
+            )}
+            {show("active") && (
+              <SortTh col="active" label="사용 여부" sort={sort} onSort={handleSort} width={getColWidth("active")} onResize={(d) => resizeColumn("active", d)} />
+            )}
+            {show("updated_at") && (
+              <SortTh col="updated_at" label="최근 갱신일" sort={sort} onSort={handleSort} width={getColWidth("updated_at")} onResize={(d) => resizeColumn("updated_at", d)} />
+            )}
+            {show("manager") && (
+              <Th className="relative" style={{ width: getColWidth("manager"), minWidth: getColWidth("manager"), maxWidth: getColWidth("manager") }}>
+                관리자
+                <ColumnResizeHandle onResize={(d) => resizeColumn("manager", d)} />
+              </Th>
+            )}
+            {show("updated_by") && (
+              <Th className="relative" style={{ width: getColWidth("updated_by"), minWidth: getColWidth("updated_by"), maxWidth: getColWidth("updated_by") }}>
+                수정자
+                <ColumnResizeHandle onResize={(d) => resizeColumn("updated_by", d)} />
+              </Th>
+            )}
+            {show("created_at") && (
+              <Th className="relative" style={{ width: getColWidth("created_at"), minWidth: getColWidth("created_at"), maxWidth: getColWidth("created_at") }}>
+                등록일
+                <ColumnResizeHandle onResize={(d) => resizeColumn("created_at", d)} />
+              </Th>
+            )}
+            {show("note") && (
+              <Th className="relative" style={{ width: getColWidth("note"), minWidth: getColWidth("note"), maxWidth: getColWidth("note") }}>
+                비고
+                <ColumnResizeHandle onResize={(d) => resizeColumn("note", d)} />
+              </Th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -677,7 +758,10 @@ export function SwMasterView() {
                     />
                   </Td>
                   {show("id") && (
-                    <Td className="font-mono text-xs text-muted-foreground">
+                    <Td
+                      className="font-mono text-xs text-muted-foreground"
+                      style={{ width: getColWidth("id"), minWidth: getColWidth("id"), maxWidth: getColWidth("id") }}
+                    >
                       <div className="flex items-center gap-1.5">
                         {row.id}
                         <RowStatusBadge status={row.status} />
@@ -685,7 +769,7 @@ export function SwMasterView() {
                     </Td>
                   )}
                   {show("name") && (
-                    <Td>
+                    <Td style={{ width: getColWidth("name"), minWidth: getColWidth("name"), maxWidth: getColWidth("name") }}>
                       <EditableText
                         value={row.values.name}
                         onChange={(v) => draft.editCell(row.id, "name", v)}
@@ -696,7 +780,7 @@ export function SwMasterView() {
                     </Td>
                   )}
                   {show("vendor") && (
-                    <Td>
+                    <Td style={{ width: getColWidth("vendor"), minWidth: getColWidth("vendor"), maxWidth: getColWidth("vendor") }}>
                       <EditableVendor
                         rowId={row.id}
                         value={row.values.vendor}
@@ -709,7 +793,7 @@ export function SwMasterView() {
                     </Td>
                   )}
                   {show("category") && (
-                    <Td>
+                    <Td style={{ width: getColWidth("category"), minWidth: getColWidth("category"), maxWidth: getColWidth("category") }}>
                       <EditableCategory
                         value={row.values.category}
                         onChange={(v) => draft.editCell(row.id, "category", v)}
@@ -718,7 +802,7 @@ export function SwMasterView() {
                     </Td>
                   )}
                   {show("std_version") && (
-                    <Td>
+                    <Td style={{ width: getColWidth("std_version"), minWidth: getColWidth("std_version"), maxWidth: getColWidth("std_version") }}>
                       <EditableText
                         value={row.values.std_version}
                         onChange={(v) => draft.editCell(row.id, "std_version", v)}
@@ -729,7 +813,7 @@ export function SwMasterView() {
                     </Td>
                   )}
                   {show("collect_mode") && (
-                    <Td>
+                    <Td style={{ width: getColWidth("collect_mode"), minWidth: getColWidth("collect_mode"), maxWidth: getColWidth("collect_mode") }}>
                       <EditableCollectMode
                         value={row.values.collect_mode}
                         onChange={(v) => draft.editCell(row.id, "collect_mode", v)}
@@ -738,7 +822,7 @@ export function SwMasterView() {
                     </Td>
                   )}
                   {show("active") && (
-                    <Td>
+                    <Td style={{ width: getColWidth("active"), minWidth: getColWidth("active"), maxWidth: getColWidth("active") }}>
                       <ActiveToggle
                         value={row.values.active}
                         onChange={(v) => draft.editCell(row.id, "active", v)}
@@ -747,7 +831,10 @@ export function SwMasterView() {
                     </Td>
                   )}
                   {show("updated_at") && (
-                    <Td className="text-xs text-muted-foreground">
+                    <Td
+                      className="text-xs text-muted-foreground"
+                      style={{ width: getColWidth("updated_at"), minWidth: getColWidth("updated_at"), maxWidth: getColWidth("updated_at") }}
+                    >
                       {row.updatedAt
                         ? new Date(row.updatedAt).toLocaleString("ko-KR", {
                             month: "2-digit",
@@ -759,7 +846,7 @@ export function SwMasterView() {
                     </Td>
                   )}
                   {show("manager") && (
-                    <Td>
+                    <Td style={{ width: getColWidth("manager"), minWidth: getColWidth("manager"), maxWidth: getColWidth("manager") }}>
                       <EditableText
                         value={row.values.manager}
                         onChange={(v) => draft.editCell(row.id, "manager", v)}
@@ -767,14 +854,24 @@ export function SwMasterView() {
                       />
                     </Td>
                   )}
-                  {show("updated_by") && <Td className="text-xs text-muted-foreground">{row.updatedBy ?? "-"}</Td>}
+                  {show("updated_by") && (
+                    <Td
+                      className="text-xs text-muted-foreground"
+                      style={{ width: getColWidth("updated_by"), minWidth: getColWidth("updated_by"), maxWidth: getColWidth("updated_by") }}
+                    >
+                      {row.updatedBy ?? "-"}
+                    </Td>
+                  )}
                   {show("created_at") && (
-                    <Td className="text-xs text-muted-foreground">
+                    <Td
+                      className="text-xs text-muted-foreground"
+                      style={{ width: getColWidth("created_at"), minWidth: getColWidth("created_at"), maxWidth: getColWidth("created_at") }}
+                    >
                       {row.createdAt ? new Date(row.createdAt).toLocaleDateString("ko-KR") : "-"}
                     </Td>
                   )}
                   {show("note") && (
-                    <Td>
+                    <Td style={{ width: getColWidth("note"), minWidth: getColWidth("note"), maxWidth: getColWidth("note") }}>
                       <EditableText
                         value={row.values.note}
                         onChange={(v) => draft.editCell(row.id, "note", v)}

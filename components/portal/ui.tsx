@@ -332,14 +332,18 @@ export function TableShell({ children }: { children: React.ReactNode }) {
 export function Th({
   children,
   className,
+  style,
 }: {
   children: React.ReactNode
   className?: string
+  style?: React.CSSProperties
 }) {
   return (
     <th
+      style={style}
       className={cn(
         "whitespace-nowrap border-b border-border/60 bg-muted/40 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground",
+        style?.width !== undefined && "overflow-hidden text-ellipsis",
         className,
       )}
     >
@@ -351,14 +355,18 @@ export function Th({
 export function Td({
   children,
   className,
+  style,
 }: {
   children: React.ReactNode
   className?: string
+  style?: React.CSSProperties
 }) {
   return (
     <td
+      style={style}
       className={cn(
         "whitespace-nowrap border-b border-border/40 px-3 py-2.5 text-foreground",
+        style?.width !== undefined && "overflow-hidden text-ellipsis",
         className,
       )}
     >
