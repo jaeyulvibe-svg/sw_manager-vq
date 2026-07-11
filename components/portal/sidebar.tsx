@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { ChevronDown, ChevronsLeft, ChevronsRight, ShieldCheck, UserCog, X } from "lucide-react"
 import { visibleNavItems, isNavGroup, type ViewKey } from "./nav"
 import { useRole, type Role } from "./role-context"
@@ -30,6 +30,7 @@ export function Sidebar({
   const items = visibleNavItems(isAdmin)
   const currentUser = CURRENT_USER[role]
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
+  const groupRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
   // 활성 뷰가 속한 그룹은 항상 펼쳐진 상태를 유지
   useEffect(() => {
@@ -40,6 +41,13 @@ export function Sidebar({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active])
+
+  // 그룹이 펼쳐지면 하위 메뉴가 스크롤 영역 아래로 잘리지 않도록 자동으로 스크롤
+  useEffect(() => {
+    openGroups.forEach((key) => {
+      groupRefs.current.get(key)?.scrollIntoView({ block: "nearest", behavior: "smooth" })
+    })
+  }, [openGroups])
 
   function toggleGroup(key: string) {
     setOpenGroups((prev) => {
@@ -126,7 +134,13 @@ export function Sidebar({
               const expanded = openGroups.has(entry.groupKey)
               const groupActive = entry.children.some((c) => c.key === active)
               return (
-                <div key={entry.groupKey}>
+                <div
+                  key={entry.groupKey}
+                  ref={(el) => {
+                    if (el) groupRefs.current.set(entry.groupKey, el)
+                    else groupRefs.current.delete(entry.groupKey)
+                  }}
+                >
                   <button
                     type="button"
                     onClick={() => {

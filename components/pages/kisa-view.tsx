@@ -204,13 +204,19 @@ export function KisaView({ onNavigate }: { onNavigate?: (view: ViewKey) => void 
                     type="button"
                     onClick={() => setSelectedId(n.id)}
                     className={cn(
-                      "group animate-rise rounded-2xl border bg-card p-4 text-left transition-all hover:-translate-y-0.5",
+                      "group animate-rise relative rounded-2xl border bg-card p-4 text-left transition-all hover:-translate-y-0.5",
                       n.severity === "Critical" && n.approval === "승인대기"
                         ? "border-destructive/40 animate-soft-pulse"
                         : "border-border/60 glow-card",
-                      selectedId === n.id && "ring-2 ring-primary/50",
+                      selectedId === n.id && "bg-primary/5",
                     )}
                   >
+                    {selectedId === n.id ? (
+                      <span
+                        className="absolute left-0 top-1/2 h-10 w-1 -translate-y-1/2 rounded-r-full bg-primary"
+                        aria-hidden
+                      />
+                    ) : null}
                     <div className="mb-2 flex flex-wrap items-center gap-2">
                       <StatusBadge risk={sevRisk[n.severity]} pulse={n.severity === "Critical"}>
                         {n.severity}

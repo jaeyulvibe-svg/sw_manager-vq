@@ -624,8 +624,8 @@ function Toggle({
       >
         <span
           className={cn(
-            "absolute top-0.5 h-5 w-5 rounded-full bg-background transition-transform",
-            on ? "translate-x-[22px]" : "translate-x-0.5",
+            "absolute top-0.5 h-5 w-5 rounded-full bg-background transition-[left]",
+            on ? "left-[22px]" : "left-0.5",
           )}
         />
       </button>
