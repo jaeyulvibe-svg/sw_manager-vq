@@ -251,6 +251,34 @@ export type Database = {
         }
         Relationships: []
       }
+      licenses: {
+        Row: {
+          id: string
+          asset_id: string
+          total_seats: number
+          used_seats: number
+          note: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          asset_id: string
+          total_seats: number
+          used_seats?: number
+          note?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string
+          total_seats?: number
+          used_seats?: number
+          note?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>

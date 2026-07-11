@@ -25,6 +25,7 @@ import {
   Th,
   Td,
   MiniButton,
+  ExportExcelButton,
   type RiskLevel,
 } from "@/components/portal/ui"
 import { AssetSlideover, type AssetDetail } from "@/components/portal/asset-slideover"
@@ -194,6 +195,25 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
         title="패치 대상 자산 목록"
         subtitle="보유 자산 중 제조사 패치 권고와 매핑되는 항목입니다"
         icon={ShieldAlert}
+        action={
+          <ExportExcelButton
+            rows={filtered}
+            filename="패치_취약점_모니터링"
+            columns={[
+              { label: "심각도", value: (a: Asset) => vulnLabel[a.vuln] },
+              { label: "자산", value: (a: Asset) => a.name },
+              { label: "설치 서버", value: (a: Asset) => a.server },
+              { label: "담당자", value: (a: Asset) => a.owner },
+              { label: "현재 버전", value: (a: Asset) => a.version },
+              { label: "권고 버전", value: (a: Asset) => a.latest_version ?? "-" },
+              { label: "패치 상태", value: (a: Asset) => patchLabel[a.patch] },
+              { label: "패치 요약", value: (a: Asset) => advisoryFor(a, vulns).summary },
+              { label: "CVE", value: (a: Asset) => advisoryFor(a, vulns).cve },
+              { label: "EOS", value: (a: Asset) => a.eos ?? "-" },
+              { label: "검토 상태", value: (a: Asset) => a.approval },
+            ]}
+          />
+        }
       >
         {/* 필터 */}
         <div className="mb-4 flex flex-col gap-3 border-b border-border/50 pb-4">

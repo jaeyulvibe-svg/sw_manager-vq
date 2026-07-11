@@ -30,6 +30,7 @@ import {
   Th,
   Td,
   MiniButton,
+  ExportExcelButton,
   type Accent,
   type RiskLevel,
 } from "@/components/portal/ui"
@@ -962,6 +963,20 @@ export function AdminView() {
             </div>
           ) : (
             <div className="flex items-center gap-1.5">
+              <ExportExcelButton
+                rows={masters}
+                filename="SW_마스터_관리"
+                columns={[
+                  { label: "마스터 ID", value: (m: Master) => m.id },
+                  { label: "제품명", value: (m: Master) => m.name },
+                  { label: "벤더", value: (m: Master) => m.vendor },
+                  { label: "분류", value: (m: Master) => m.cat },
+                  { label: "표준 버전", value: (m: Master) => m.std },
+                  { label: "수집 모드", value: (m: Master) => m.mode },
+                  { label: "사용 여부", value: (m: Master) => (m.active ? "사용" : "미사용") },
+                  { label: "최근 갱신일", value: (m: Master) => m.updated },
+                ]}
+              />
               <MiniButton accent="primary" onClick={() => setMasterPanel("add")}>
                 <Plus className="h-3.5 w-3.5" />
                 추가
@@ -1080,6 +1095,18 @@ export function AdminView() {
             </div>
           ) : (
             <div className="flex items-center gap-1.5">
+              <ExportExcelButton
+                rows={sources}
+                filename="공식_Source_URL_관리"
+                columns={[
+                  { label: "제품명", value: (s: Source) => s.name },
+                  { label: "Source 유형", value: (s: Source) => s.type },
+                  { label: "공식 URL", value: (s: Source) => s.url },
+                  { label: "수집 주기", value: (s: Source) => s.cycle },
+                  { label: "마지막 수집", value: (s: Source) => s.last },
+                  { label: "상태", value: (s: Source) => s.status },
+                ]}
+              />
               <MiniButton accent="primary" onClick={() => setSourcePanel("add")}>
                 <Plus className="h-3.5 w-3.5" />
                 추가
@@ -1293,7 +1320,25 @@ export function AdminView() {
       {activeTab === "users" && (
       <>
       {/* Section 5: Users */}
-      <SectionCard title="사용자 권한 관리" subtitle="관리자 · 승인자 · 담당자 · 조회 사용자" icon={UsersRound}>
+      <SectionCard
+        title="사용자 권한 관리"
+        subtitle="관리자 · 승인자 · 담당자 · 조회 사용자"
+        icon={UsersRound}
+        action={
+          <ExportExcelButton
+            rows={users}
+            filename="사용자_권한_관리"
+            columns={[
+              { label: "사용자명", value: (u) => u.name },
+              { label: "이메일", value: (u) => u.email },
+              { label: "부서", value: (u) => u.dept },
+              { label: "권한", value: (u) => u.role },
+              { label: "담당 자산 수", value: (u) => u.assets },
+              { label: "상태", value: (u) => (u.active ? "활성" : "비활성") },
+            ]}
+          />
+        }
+      >
         <TableShell>
           <thead>
             <tr>
@@ -1321,7 +1366,24 @@ export function AdminView() {
       </SectionCard>
 
       {/* Section 6: Logs */}
-      <SectionCard title="시스템 로그" subtitle="수집·승인·매핑 작업 이력" icon={ScrollText}>
+      <SectionCard
+        title="시스템 로그"
+        subtitle="수집·승인·매핑 작업 이력"
+        icon={ScrollText}
+        action={
+          <ExportExcelButton
+            rows={logs}
+            filename="시스템_로그"
+            columns={[
+              { label: "시간", value: (l) => l.time },
+              { label: "작업 유형", value: (l) => l.type },
+              { label: "대상", value: (l) => l.target },
+              { label: "결과", value: (l) => l.result },
+              { label: "수행자", value: (l) => l.who },
+            ]}
+          />
+        }
+      >
         <TableShell>
           <thead>
             <tr>

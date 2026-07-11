@@ -8,7 +8,7 @@ import {
 import { createClient } from "@/lib/supabase/client"
 import type { Tables } from "@/lib/supabase/types"
 import {
-  PageHeader, StatusBadge, TableShell, Th, Td, MiniButton, type RiskLevel,
+  PageHeader, StatusBadge, TableShell, Th, Td, MiniButton, ExportExcelButton, type RiskLevel,
 } from "@/components/portal/ui"
 import { AssetSlideover, type AssetDetail } from "@/components/portal/asset-slideover"
 import { useToast } from "@/components/portal/toast"
@@ -103,6 +103,15 @@ function formatChecked(ts: string | null) {
   if (days === 0) return "오늘"
   if (days === 1) return "어제"
   return `${days}일 전`
+}
+function excelValue(a: Asset, key: ColKey): string | number {
+  switch (key) {
+    case "vuln": return vulnLabel[a.vuln]
+    case "patch": return patchLabel[a.patch]
+    case "checked_at": return formatChecked(a.checked_at)
+    case "eos": return a.eos ?? "-"
+    default: return a[key] ?? ""
+  }
 }
 function toDetail(a: Asset): AssetDetail {
   return {
@@ -392,7 +401,17 @@ export function AssetsView() {
             총 <span className="font-mono font-semibold text-foreground">{filtered.length}</span>건
             {loading && <span className="ml-2 text-xs">불러오는 중…</span>}
           </p>
-          <ColToggle visible={visible} onChange={setVisible} />
+          <div className="flex items-center gap-2">
+            <ExportExcelButton
+              rows={filtered}
+              filename="자산_목록"
+              columns={ALL_COLS.filter((c) => show(c.key)).map((c) => ({
+                label: c.label,
+                value: (a: Asset) => excelValue(a, c.key),
+              }))}
+            />
+            <ColToggle visible={visible} onChange={setVisible} />
+          </div>
         </div>
 
         <TableShell>

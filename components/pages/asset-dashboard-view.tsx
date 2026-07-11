@@ -20,6 +20,7 @@ import {
   TableShell,
   Th,
   Td,
+  ExportExcelButton,
   type RiskLevel,
 } from "@/components/portal/ui"
 import { useRole } from "@/components/portal/role-context"
@@ -100,6 +101,21 @@ function CategorySummary({ assets }: { assets: Asset[] }) {
       title="카테고리별 자산 요약"
       subtitle="카테고리 단위 관리 현황 집계"
       icon={TableIcon}
+      action={
+        <ExportExcelButton
+          rows={rows}
+          filename="카테고리별_자산_요약"
+          columns={[
+            { label: "카테고리", value: (r: CategoryRow) => r.category },
+            { label: "자산 수", value: (r: CategoryRow) => r.count },
+            { label: "주요 제품", value: (r: CategoryRow) => r.products },
+            { label: "EOS 만료", value: (r: CategoryRow) => r.eos },
+            { label: "패치 필요", value: (r: CategoryRow) => r.patch },
+            { label: "취약점 있음", value: (r: CategoryRow) => r.vuln },
+            { label: "관리 상태", value: (r: CategoryRow) => r.status },
+          ]}
+        />
+      }
     >
       <TableShell>
         <thead>

@@ -19,6 +19,7 @@ import {
   Td,
   StatusBadge,
   MiniButton,
+  ExportExcelButton,
   type Accent,
   type RiskLevel,
 } from "@/components/portal/ui"
@@ -69,10 +70,24 @@ export function NoticeBoard() {
       subtitle="시스템 운영·점검·자산 등록 기준·패치 승인 절차 안내"
       icon={Megaphone}
       action={
-        <MiniButton accent="primary">
-          <ExternalLink className="h-3 w-3" />
-          전체보기
-        </MiniButton>
+        <div className="flex items-center gap-1.5">
+          <ExportExcelButton
+            rows={notices}
+            filename="공지사항"
+            columns={[
+              { label: "구분", value: (n: Notice) => n.category },
+              { label: "제목", value: (n: Notice) => n.title },
+              { label: "작성자", value: (n: Notice) => n.author },
+              { label: "등록일", value: (n: Notice) => new Date(n.created_at).toLocaleDateString("ko-KR") },
+              { label: "조회수", value: (n: Notice) => n.views },
+              { label: "상태", value: (n: Notice) => n.status },
+            ]}
+          />
+          <MiniButton accent="primary">
+            <ExternalLink className="h-3 w-3" />
+            전체보기
+          </MiniButton>
+        </div>
       }
     >
       <TableShell>
@@ -253,6 +268,22 @@ export function SecurityNoticeBoard({
       title="긴급 보안공지 / 취약점"
       subtitle="KNVD·KrCERT·제조사 Advisory 수집 · 자산 매핑 및 조치 관리"
       icon={ShieldAlert}
+      action={
+        <ExportExcelButton
+          rows={filtered}
+          filename="긴급_보안공지_취약점"
+          columns={[
+            { label: "위험도", value: (s) => s.severity },
+            { label: "공지 제목", value: (s) => s.title },
+            { label: "CVE", value: (s) => s.cve },
+            { label: "영향 제품", value: (s) => s.product },
+            { label: "매핑 자산", value: (s) => s.mapped },
+            { label: "수집 Source", value: (s) => s.source },
+            { label: "수집일시", value: (s) => formatCollected(s.collected_at) },
+            { label: "승인 상태", value: (s) => s.approval },
+          ]}
+        />
+      }
     >
       {/* Controls */}
       <div className="mb-4 flex flex-col gap-3">

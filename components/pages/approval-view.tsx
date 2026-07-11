@@ -23,6 +23,7 @@ import {
   Th,
   Td,
   MiniButton,
+  ExportExcelButton,
   type RiskLevel,
 } from "@/components/portal/ui"
 import { createClient } from "@/lib/supabase/client"
@@ -175,6 +176,20 @@ export function ApprovalView() {
             title="요청 목록"
             subtitle="신규 자산 등록 요청 검토"
             icon={ClipboardCheck}
+            action={
+              <ExportExcelButton
+                rows={filtered}
+                filename="신규_자산_요청_승인"
+                columns={[
+                  { label: "요청번호", value: (r: AssetRequest) => r.no },
+                  { label: "제품명", value: (r: AssetRequest) => r.name },
+                  { label: "벤더", value: (r: AssetRequest) => r.vendor },
+                  { label: "요청자", value: (r: AssetRequest) => r.requester },
+                  { label: "요청일", value: (r: AssetRequest) => formatDate(r.created_at) },
+                  { label: "상태", value: (r: AssetRequest) => r.approval },
+                ]}
+              />
+            }
           >
             <div className="mb-3 flex flex-wrap gap-2">
               {FILTERS.map((f) => (

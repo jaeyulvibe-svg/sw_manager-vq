@@ -10,6 +10,7 @@ import {
   Th,
   Td,
   MiniButton,
+  ExportExcelButton,
 } from "@/components/portal/ui"
 import {
   useNotifications,
@@ -68,14 +69,29 @@ export function NotificationsView({
         title="알림 센터"
         description="SW 자산관리, EOS, 패치, 보안공지, 승인 요청 등 전사 이벤트를 한 곳에서 확인하고 관련 메뉴로 바로 이동합니다."
         action={
-          <button
-            type="button"
-            onClick={markAllRead}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/12 px-3 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/20"
-          >
-            <CheckCheck className="h-4 w-4" />
-            전체 읽음 처리
-          </button>
+          <div className="flex items-center gap-2">
+            <ExportExcelButton
+              rows={filtered}
+              filename="알림_센터"
+              columns={[
+                { label: "발생 시간", value: (n) => n.time },
+                { label: "유형", value: (n) => CATEGORY_META[n.category].label },
+                { label: "제목", value: (n) => n.title },
+                { label: "관련 자산", value: (n) => n.asset },
+                { label: "담당자", value: (n) => n.owner },
+                { label: "중요도", value: (n) => (n.urgent ? "긴급" : "일반") },
+                { label: "상태", value: (n) => n.status },
+              ]}
+            />
+            <button
+              type="button"
+              onClick={markAllRead}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/12 px-3 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/20"
+            >
+              <CheckCheck className="h-4 w-4" />
+              전체 읽음 처리
+            </button>
+          </div>
         }
       />
 

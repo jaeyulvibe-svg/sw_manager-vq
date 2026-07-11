@@ -9,8 +9,10 @@ import {
   AlertCircle,
   Info,
   CircleCheck,
+  Download,
 } from "lucide-react"
 import { useCountUp } from "@/hooks/use-count-up"
+import { exportRowsToExcel } from "@/lib/export-excel"
 import { cn } from "@/lib/utils"
 
 /* ---------------- Page header ---------------- */
@@ -391,5 +393,33 @@ export function MiniButton({
     >
       {children}
     </button>
+  )
+}
+
+/* ---------------- Excel export button ---------------- */
+
+export function ExportExcelButton<T>({
+  rows,
+  columns,
+  filename,
+}: {
+  rows: T[]
+  columns: { label: string; value: (row: T) => string | number }[]
+  filename: string
+}) {
+  function handleExport() {
+    const data = rows.map((row) => {
+      const record: Record<string, string | number> = {}
+      for (const col of columns) record[col.label] = col.value(row)
+      return record
+    })
+    exportRowsToExcel(filename, data)
+  }
+
+  return (
+    <MiniButton accent="muted" onClick={handleExport} disabled={rows.length === 0}>
+      <Download className="h-3 w-3" />
+      엑셀 다운로드
+    </MiniButton>
   )
 }

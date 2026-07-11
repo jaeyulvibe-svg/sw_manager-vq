@@ -27,6 +27,7 @@ import {
   TableShell,
   Th,
   Td,
+  ExportExcelButton,
   type RiskLevel,
 } from "@/components/portal/ui"
 import { cn } from "@/lib/utils"
@@ -148,6 +149,23 @@ export function EosView() {
         title="EOS 위험 자산"
         subtitle="지원 종료 임박 자산 조치 현황"
         icon={AlertTriangle}
+        action={
+          <ExportExcelButton
+            rows={items}
+            filename="EOS_위험_자산"
+            columns={[
+              { label: "제품명", value: (it: EosItem) => it.name },
+              { label: "벤더", value: (it: EosItem) => it.vendor },
+              { label: "현재 버전", value: (it: EosItem) => it.version },
+              { label: "담당자", value: (it: EosItem) => it.owner },
+              { label: "EOS 날짜", value: (it: EosItem) => it.eos },
+              { label: "남은 기간", value: (it: EosItem) => it.remain },
+              { label: "잔여 수명(%)", value: (it: EosItem) => it.remainPct },
+              { label: "영향도", value: (it: EosItem) => riskLabel[it.risk] },
+              { label: "조치 상태", value: (it: EosItem) => it.action },
+            ]}
+          />
+        }
       >
         <TableShell>
           <thead>

@@ -19,6 +19,7 @@ import {
   TableShell,
   Th,
   Td,
+  ExportExcelButton,
   type Accent,
   type RiskLevel,
 } from "@/components/portal/ui"
@@ -344,7 +345,25 @@ export function RequestView() {
       </div>
 
       {/* Request list */}
-      <SectionCard title="요청 내역" subtitle="최근 신규 자산 등록 요청" icon={ClipboardList}>
+      <SectionCard
+        title="요청 내역"
+        subtitle="최근 신규 자산 등록 요청"
+        icon={ClipboardList}
+        action={
+          <ExportExcelButton
+            rows={requests}
+            filename="신규_자산_요청_내역"
+            columns={[
+              { label: "요청번호", value: (r: AssetRequest) => r.no },
+              { label: "제품명", value: (r: AssetRequest) => r.name },
+              { label: "벤더", value: (r: AssetRequest) => r.vendor },
+              { label: "요청자", value: (r: AssetRequest) => r.requester },
+              { label: "요청일", value: (r: AssetRequest) => formatDate(r.created_at) },
+              { label: "승인 상태", value: (r: AssetRequest) => r.approval },
+            ]}
+          />
+        }
+      >
         <TableShell>
           <thead>
             <tr>
