@@ -19,6 +19,8 @@ import {
   Trash2,
   Check,
   X,
+  FilePlus2,
+  CalendarClock,
 } from "lucide-react"
 import {
   PageHeader,
@@ -33,6 +35,8 @@ import {
 } from "@/components/portal/ui"
 import { useRole } from "@/components/portal/role-context"
 import { useToast } from "@/components/portal/toast"
+import { createClient } from "@/lib/supabase/client"
+import type { Tables, TablesInsert } from "@/lib/supabase/types"
 import { cn } from "@/lib/utils"
 
 /* ---- Shared input style for inline add/edit forms ---- */
@@ -317,6 +321,203 @@ function SourceFormPanel({
   )
 }
 
+/* ---- Manual registration: 패치/취약점 수동 등록 ---- */
+type VulnSeverity = Tables<"vulnerabilities">["severity"]
+type NoticeType = Tables<"vulnerabilities">["notice_type"]
+const MANUAL_VULN_SEVERITIES: VulnSeverity[] = ["Critical", "High", "Medium", "Low"]
+const MANUAL_VULN_NOTICE_TYPES: NoticeType[] = ["CVE", "Patch", "EOS"]
+
+type ManualVulnFormValues = {
+  cve: string
+  title: string
+  severity: VulnSeverity
+  product: string
+  source: string
+  source_url: string
+  notice_type: NoticeType
+}
+
+const EMPTY_MANUAL_VULN: ManualVulnFormValues = {
+  cve: "",
+  title: "",
+  severity: "Medium",
+  product: "",
+  source: "",
+  source_url: "",
+  notice_type: "CVE",
+}
+
+function ManualVulnFormPanel({
+  onSubmit,
+  submitting,
+}: {
+  onSubmit: (values: ManualVulnFormValues) => Promise<boolean>
+  submitting: boolean
+}) {
+  const [values, setValues] = useState<ManualVulnFormValues>(EMPTY_MANUAL_VULN)
+  const canSubmit =
+    values.cve.trim() && values.title.trim() && values.product.trim() && values.source.trim()
+
+  async function handleSubmit() {
+    if (!canSubmit) return
+    const ok = await onSubmit(values)
+    if (ok) setValues(EMPTY_MANUAL_VULN)
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">CVE / 식별자</span>
+        <input
+          value={values.cve}
+          onChange={(e) => setValues((v) => ({ ...v, cve: e.target.value }))}
+          placeholder="예: CVE-2026-0001"
+          className={cn(inputCls, "font-mono")}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs sm:col-span-2">
+        <span className="font-medium text-muted-foreground">제목</span>
+        <input
+          value={values.title}
+          onChange={(e) => setValues((v) => ({ ...v, title: e.target.value }))}
+          placeholder="예: OpenSSL 원격 코드 실행 취약점"
+          className={inputCls}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">심각도</span>
+        <select
+          value={values.severity}
+          onChange={(e) => setValues((v) => ({ ...v, severity: e.target.value as VulnSeverity }))}
+          className={inputCls}
+        >
+          {MANUAL_VULN_SEVERITIES.map((s) => (
+            <option key={s}>{s}</option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">공지 유형</span>
+        <select
+          value={values.notice_type}
+          onChange={(e) => setValues((v) => ({ ...v, notice_type: e.target.value as NoticeType }))}
+          className={inputCls}
+        >
+          {MANUAL_VULN_NOTICE_TYPES.map((t) => (
+            <option key={t}>{t}</option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">제품명</span>
+        <input
+          value={values.product}
+          onChange={(e) => setValues((v) => ({ ...v, product: e.target.value }))}
+          placeholder="예: Apache Tomcat 10.1.x"
+          className={inputCls}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">출처</span>
+        <input
+          value={values.source}
+          onChange={(e) => setValues((v) => ({ ...v, source: e.target.value }))}
+          placeholder="예: KISA 보안공지"
+          className={inputCls}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs sm:col-span-2 lg:col-span-1">
+        <span className="font-medium text-muted-foreground">출처 URL (선택)</span>
+        <input
+          value={values.source_url}
+          onChange={(e) => setValues((v) => ({ ...v, source_url: e.target.value }))}
+          placeholder="예: kisa.or.kr/notice/..."
+          className={cn(inputCls, "font-mono")}
+        />
+      </label>
+      <div className="sm:col-span-2 lg:col-span-3">
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={!canSubmit || submitting}
+          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {submitting ? "등록 중..." : "승인대기로 등록"}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ---- Manual registration: 자산 EOS 수동 수정 ---- */
+type ManualEosFormValues = { assetId: string; eos: string }
+
+function ManualEosFormPanel({
+  assets,
+  onSubmit,
+  submitting,
+}: {
+  assets: Tables<"assets">[]
+  onSubmit: (values: ManualEosFormValues) => Promise<boolean>
+  submitting: boolean
+}) {
+  const [assetId, setAssetId] = useState("")
+  const [eos, setEos] = useState("")
+
+  function handleSelectAsset(id: string) {
+    setAssetId(id)
+    setEos(assets.find((a) => a.id === id)?.eos ?? "")
+  }
+
+  async function handleSubmit() {
+    if (!assetId || !eos) return
+    const ok = await onSubmit({ assetId, eos })
+    if (ok) {
+      setAssetId("")
+      setEos("")
+    }
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <label className="flex flex-col gap-1 text-xs sm:col-span-2">
+        <span className="font-medium text-muted-foreground">자산 선택</span>
+        <select
+          value={assetId}
+          onChange={(e) => handleSelectAsset(e.target.value)}
+          className={inputCls}
+        >
+          <option value="">자산을 선택하세요</option>
+          {assets.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name} · {a.server} ({a.eos ?? "EOS 미등록"})
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">EOS 날짜</span>
+        <input
+          type="date"
+          value={eos}
+          onChange={(e) => setEos(e.target.value)}
+          className={inputCls}
+        />
+      </label>
+      <div className="sm:col-span-3">
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={!assetId || !eos || submitting}
+          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {submitting ? "저장 중..." : "EOS 반영"}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /* ---- Section 5: users ---- */
 const users = [
   { name: "김관리", email: "admin@corp.com", dept: "정보보안팀", role: "관리자", assets: 0, active: true },
@@ -435,7 +636,38 @@ type CollectLogEntry = { product: string; ok: boolean; newCount: number; error?:
 
 const REAL_COLLECT_PRODUCTS = ["Apache Tomcat", "JEUS", "WebtoB"] as const
 
+/* ---- Admin page tabs — groups the growing section list into 3 categories ---- */
+const ADMIN_TABS = [
+  { key: "collect", label: "수집 관리" },
+  { key: "policy", label: "승인 정책" },
+  { key: "users", label: "사용자·로그" },
+] as const
+type AdminTab = (typeof ADMIN_TABS)[number]["key"]
+
+function AdminTabBar({ active, onChange }: { active: AdminTab; onChange: (tab: AdminTab) => void }) {
+  return (
+    <div className="flex w-fit flex-wrap gap-1 rounded-full border border-border/60 bg-card p-1">
+      {ADMIN_TABS.map((tab) => (
+        <button
+          key={tab.key}
+          type="button"
+          onClick={() => onChange(tab.key)}
+          className={cn(
+            "rounded-full px-4 py-1.5 text-xs font-semibold transition-colors",
+            active === tab.key
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function AdminView() {
+  const [activeTab, setActiveTab] = useState<AdminTab>("collect")
   const [collecting, setCollecting] = useState(false)
   const [collectLog, setCollectLog] = useState<CollectLogEntry[]>([])
   const [fontScale, setFontScale] = useState(FONT_SCALE_DEFAULT)
@@ -451,6 +683,21 @@ export function AdminView() {
   const [sourcePanel, setSourcePanel] = useState<"add" | string | null>(null)
   const [sourceSelectMode, setSourceSelectMode] = useState(false)
   const [selectedSourceIds, setSelectedSourceIds] = useState<Set<string>>(new Set())
+
+  const [assets, setAssets] = useState<Tables<"assets">[]>([])
+  const [manualVulnSubmitting, setManualVulnSubmitting] = useState(false)
+  const [manualEosSubmitting, setManualEosSubmitting] = useState(false)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from("assets")
+      .select("*")
+      .order("name")
+      .then(({ data }) => {
+        if (data) setAssets(data)
+      })
+  }, [])
 
   useEffect(() => {
     const stored = Number(window.localStorage.getItem(FONT_SCALE_STORAGE_KEY))
@@ -563,6 +810,52 @@ export function AdminView() {
     cancelSourceSelection()
   }
 
+  async function submitManualVuln(values: ManualVulnFormValues): Promise<boolean> {
+    setManualVulnSubmitting(true)
+    const supabase = createClient()
+    const payload: TablesInsert<"vulnerabilities"> = {
+      cve: values.cve.trim(),
+      title: values.title.trim(),
+      severity: values.severity,
+      product: values.product.trim(),
+      source: values.source.trim(),
+      source_url: values.source_url.trim() || null,
+      notice_type: values.notice_type,
+      approval: "승인대기",
+    }
+    const { error } = await supabase.from("vulnerabilities").insert(payload)
+    setManualVulnSubmitting(false)
+    if (error) {
+      toast({ title: "등록 실패", description: error.message, tone: "danger" })
+      return false
+    }
+    toast({
+      title: "취약점/패치 공지가 등록되었습니다",
+      description: "KISA 취약점 공지 화면에서 검토·승인해주세요.",
+      tone: "success",
+    })
+    return true
+  }
+
+  async function submitManualEos(values: ManualEosFormValues): Promise<boolean> {
+    setManualEosSubmitting(true)
+    const supabase = createClient()
+    const { error } = await supabase
+      .from("assets")
+      .update({ eos: values.eos })
+      .eq("id", values.assetId)
+    setManualEosSubmitting(false)
+    if (error) {
+      toast({ title: "EOS 수정 실패", description: error.message, tone: "danger" })
+      return false
+    }
+    setAssets((prev) =>
+      prev.map((a) => (a.id === values.assetId ? { ...a, eos: values.eos } : a)),
+    )
+    toast({ title: "자산 EOS가 반영되었습니다", tone: "success" })
+    return true
+  }
+
   async function runCollection() {
     setCollecting(true)
     try {
@@ -642,10 +935,14 @@ export function AdminView() {
         action={<FontSizeControl scale={fontScale} onChange={updateFontScale} />}
       />
 
+      <AdminTabBar active={activeTab} onChange={setActiveTab} />
+
       <div
         className="flex min-w-0 flex-col gap-6"
         style={{ zoom: String(fontScale / 100) }}
       >
+      {activeTab === "collect" && (
+      <>
       {/* Section 1: SW master */}
       <SectionCard
         title="SW 마스터 관리"
@@ -879,7 +1176,7 @@ export function AdminView() {
         </TableShell>
       </SectionCard>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6">
         {/* Section 3: Auto collect */}
         <SectionCard
           title="자동수집 설정"
@@ -953,17 +1250,48 @@ export function AdminView() {
           </div>
         </SectionCard>
 
-        {/* Section 4: Approval policy */}
-        <SectionCard title="승인 정책 관리" subtitle="자동 알림 및 승인 규칙" icon={ShieldCheck}>
-          <div className="flex flex-col gap-3">
-            <Toggle label="Critical 자동 긴급 알림" desc="Critical 취약점 발견 시 즉시 알림" defaultOn />
-            <Toggle label="High 이상 관리자 승인 필수" desc="High 등급 이상 패치는 관리자 승인" defaultOn />
-            <Toggle label="EOS 180일 전 알림" desc="지원 종료 180일 전 담당자 알림" defaultOn />
-            <Toggle label="패치 공지 수집 후 승인 대기 등록" desc="수집된 공지를 자동으로 승인 대기 큐에 등록" />
-          </div>
-        </SectionCard>
       </div>
 
+      {/* Section: Manual registration */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <SectionCard
+          title="패치/취약점 수동 등록"
+          subtitle="자동수집 대상이 아닌 공지를 직접 등록"
+          icon={FilePlus2}
+        >
+          <ManualVulnFormPanel onSubmit={submitManualVuln} submitting={manualVulnSubmitting} />
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            등록된 공지는 &apos;승인대기&apos; 상태로 KISA 취약점 공지 화면에 나타납니다. 그곳에서 검토 후 승인하면 전사 패치 모니터링에 반영됩니다.
+          </p>
+        </SectionCard>
+
+        <SectionCard
+          title="자산 EOS 수동 수정"
+          subtitle="보유 자산의 지원종료일을 직접 입력"
+          icon={CalendarClock}
+        >
+          <ManualEosFormPanel assets={assets} onSubmit={submitManualEos} submitting={manualEosSubmitting} />
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            승인 절차 없이 즉시 반영되며, EOS 로드맵과 자산 목록에 바로 나타납니다.
+          </p>
+        </SectionCard>
+      </div>
+      </>
+      )}
+
+      {activeTab === "policy" && (
+      <SectionCard title="승인 정책 관리" subtitle="자동 알림 및 승인 규칙" icon={ShieldCheck}>
+        <div className="flex flex-col gap-3">
+          <Toggle label="Critical 자동 긴급 알림" desc="Critical 취약점 발견 시 즉시 알림" defaultOn />
+          <Toggle label="High 이상 관리자 승인 필수" desc="High 등급 이상 패치는 관리자 승인" defaultOn />
+          <Toggle label="EOS 180일 전 알림" desc="지원 종료 180일 전 담당자 알림" defaultOn />
+          <Toggle label="패치 공지 수집 후 승인 대기 등록" desc="수집된 공지를 자동으로 승인 대기 큐에 등록" />
+        </div>
+      </SectionCard>
+      )}
+
+      {activeTab === "users" && (
+      <>
       {/* Section 5: Users */}
       <SectionCard title="사용자 권한 관리" subtitle="관리자 · 승인자 · 담당자 · 조회 사용자" icon={UsersRound}>
         <TableShell>
@@ -1017,6 +1345,8 @@ export function AdminView() {
           </tbody>
         </TableShell>
       </SectionCard>
+      </>
+      )}
       </div>
     </div>
   )
