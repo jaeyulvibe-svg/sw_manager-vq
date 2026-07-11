@@ -38,6 +38,7 @@ import {
   RowStatusBadge,
   RowMenu,
   MasterDetailModal,
+  CATEGORY_ICONS,
 } from "@/components/pages/sw-master/cells"
 
 /* ---- 컬럼 정의 ---- */
@@ -78,14 +79,14 @@ function saveVisibleCols(cols: ColKey[]) {
 
 /* ---- 컬럼 너비 조절 ---- */
 const DEFAULT_COL_WIDTHS: Record<ColKey, number> = {
-  id: 100,
-  name: 180,
-  vendor: 140,
-  category: 110,
-  std_version: 110,
-  collect_mode: 130,
-  active: 90,
-  updated_at: 130,
+  id: 90,
+  name: 160,
+  vendor: 120,
+  category: 100,
+  std_version: 100,
+  collect_mode: 120,
+  active: 80,
+  updated_at: 120,
   manager: 110,
   updated_by: 100,
   created_at: 110,
@@ -188,8 +189,8 @@ function SortTh({
       onClick={(e) => onSort(col, e.shiftKey)}
       style={{ width, minWidth: width, maxWidth: width }}
       className={cn(
-        "relative cursor-pointer select-none overflow-hidden text-ellipsis whitespace-nowrap border-b border-border/60 bg-muted/40 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground",
-        active && "text-primary",
+        "relative cursor-pointer select-none overflow-hidden text-ellipsis whitespace-nowrap border-b border-border/60 bg-accent/15 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground",
+        active && "bg-primary/12 text-primary",
       )}
     >
       <span className="inline-flex items-center gap-1">
@@ -416,7 +417,7 @@ export function SwMasterView() {
         <X className="h-3.5 w-3.5" />
         취소
       </MiniButton>
-      <MiniButton accent="success" onClick={handleSaveClick} disabled={!draft.hasChanges || saving}>
+      <MiniButton accent="primary" onClick={handleSaveClick} disabled={!draft.hasChanges || saving}>
         <Save className="h-3.5 w-3.5" />
         저장{draft.hasChanges ? ` ${draft.summary.total}건` : ""}
       </MiniButton>
@@ -463,22 +464,26 @@ export function SwMasterView() {
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-medium text-muted-foreground">분류</span>
-          {CATEGORY_FILTERS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => {
-                setCatFilter(c)
-                setPage(1)
-              }}
-              className={cn(
-                "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                catFilter === c ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {c}
-            </button>
-          ))}
+          {CATEGORY_FILTERS.map((c) => {
+            const Icon = c === "전체" ? null : CATEGORY_ICONS[c]
+            return (
+              <button
+                key={c}
+                type="button"
+                onClick={() => {
+                  setCatFilter(c)
+                  setPage(1)
+                }}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                  catFilter === c ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {Icon ? <Icon className="h-3.5 w-3.5" aria-hidden /> : null}
+                {c}
+              </button>
+            )
+          })}
         </div>
 
         <div className="flex flex-wrap items-center gap-2 border-t border-border/50 pt-3">
@@ -572,7 +577,7 @@ export function SwMasterView() {
       </div>
 
       {/* 선택/일괄 작업 바 */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 bg-accent/8 px-3 py-2.5">
         <div className="flex flex-wrap items-center gap-2">
           {selected.size > 0 ? (
             <span className="text-xs font-semibold text-primary">{selected.size}개 선택됨</span>
@@ -589,7 +594,7 @@ export function SwMasterView() {
             추가
           </MiniButton>
           <div ref={colMenuRef} className="relative">
-            <MiniButton onClick={() => setColMenuOpen((v) => !v)}>
+            <MiniButton onClick={() => setColMenuOpen((v) => !v)} className="border-border bg-card text-foreground">
               <SlidersHorizontal className="h-3.5 w-3.5" />
               컬럼 설정
             </MiniButton>
@@ -645,7 +650,7 @@ export function SwMasterView() {
       <TableShell>
         <thead>
           <tr>
-            <Th className="w-8">
+            <Th className="w-8 bg-accent/15">
               <input
                 type="checkbox"
                 checked={sorted.length > 0 && selected.size === sorted.length}
@@ -654,7 +659,7 @@ export function SwMasterView() {
                 className="h-4 w-4 rounded border-border/60 accent-primary"
               />
             </Th>
-            <Th className="w-8">{null}</Th>
+            <Th className="w-8 bg-accent/15">{null}</Th>
             {show("id") && (
               <SortTh col="id" label="마스터 ID" sort={sort} onSort={handleSort} width={getColWidth("id")} onResize={(d) => resizeColumn("id", d)} />
             )}
@@ -680,25 +685,25 @@ export function SwMasterView() {
               <SortTh col="updated_at" label="최근 갱신일" sort={sort} onSort={handleSort} width={getColWidth("updated_at")} onResize={(d) => resizeColumn("updated_at", d)} />
             )}
             {show("manager") && (
-              <Th className="relative" style={{ width: getColWidth("manager"), minWidth: getColWidth("manager"), maxWidth: getColWidth("manager") }}>
+              <Th className="relative bg-accent/15" style={{ width: getColWidth("manager"), minWidth: getColWidth("manager"), maxWidth: getColWidth("manager") }}>
                 관리자
                 <ColumnResizeHandle onResize={(d) => resizeColumn("manager", d)} />
               </Th>
             )}
             {show("updated_by") && (
-              <Th className="relative" style={{ width: getColWidth("updated_by"), minWidth: getColWidth("updated_by"), maxWidth: getColWidth("updated_by") }}>
+              <Th className="relative bg-accent/15" style={{ width: getColWidth("updated_by"), minWidth: getColWidth("updated_by"), maxWidth: getColWidth("updated_by") }}>
                 수정자
                 <ColumnResizeHandle onResize={(d) => resizeColumn("updated_by", d)} />
               </Th>
             )}
             {show("created_at") && (
-              <Th className="relative" style={{ width: getColWidth("created_at"), minWidth: getColWidth("created_at"), maxWidth: getColWidth("created_at") }}>
+              <Th className="relative bg-accent/15" style={{ width: getColWidth("created_at"), minWidth: getColWidth("created_at"), maxWidth: getColWidth("created_at") }}>
                 등록일
                 <ColumnResizeHandle onResize={(d) => resizeColumn("created_at", d)} />
               </Th>
             )}
             {show("note") && (
-              <Th className="relative" style={{ width: getColWidth("note"), minWidth: getColWidth("note"), maxWidth: getColWidth("note") }}>
+              <Th className="relative bg-accent/15" style={{ width: getColWidth("note"), minWidth: getColWidth("note"), maxWidth: getColWidth("note") }}>
                 비고
                 <ColumnResizeHandle onResize={(d) => resizeColumn("note", d)} />
               </Th>
@@ -730,12 +735,16 @@ export function SwMasterView() {
                     else rowRefs.current.delete(row.id)
                   }}
                   className={cn(
-                    "transition-colors",
+                    "border-l-2 border-l-transparent transition-colors hover:border-l-primary",
                     row.status === "deleted"
-                      ? "bg-destructive/5 line-through opacity-70"
+                      ? "bg-destructive/8 line-through opacity-70 hover:bg-destructive/12"
                       : row.status === "added"
-                        ? "bg-primary/5 hover:bg-primary/10"
-                        : "hover:bg-accent/40",
+                        ? "bg-success/8 hover:bg-success/12"
+                        : row.status === "modified"
+                          ? "bg-warning/8 hover:bg-warning/12"
+                          : selected.has(row.id)
+                            ? "bg-primary/8 hover:bg-primary/12"
+                            : "hover:bg-accent/30",
                     highlightId === row.id && "ring-2 ring-inset ring-primary/60",
                   )}
                 >
@@ -776,6 +785,7 @@ export function SwMasterView() {
                         dirty={row.dirtyFields.has("name")}
                         error={row.fieldErrors?.name}
                         required={requiredEmpty("name")}
+                        bold
                       />
                     </Td>
                   )}
@@ -937,7 +947,7 @@ export function SwMasterView() {
                 <X className="h-3 w-3" />
                 변경사항 초기화
               </MiniButton>
-              <MiniButton accent="success" onClick={handleSaveClick} disabled={saving}>
+              <MiniButton accent="primary" onClick={handleSaveClick} disabled={saving}>
                 <Save className="h-3 w-3" />
                 저장 {draft.summary.total}건
               </MiniButton>

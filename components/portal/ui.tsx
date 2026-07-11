@@ -382,11 +382,13 @@ export function MiniButton({
   accent = "muted",
   onClick,
   disabled = false,
+  className,
 }: {
   children: React.ReactNode
   accent?: Accent
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void
   disabled?: boolean
+  className?: string
 }) {
   return (
     <button
@@ -397,6 +399,7 @@ export function MiniButton({
         "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium transition-colors hover:brightness-125",
         disabled ? "cursor-not-allowed opacity-50 hover:brightness-100" : undefined,
         accentSoft[accent],
+        className,
       )}
     >
       {children}

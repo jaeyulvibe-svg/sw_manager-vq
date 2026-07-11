@@ -1,10 +1,35 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Eye, Copy, Trash2, Undo2, RotateCcw, MoreVertical, X } from "lucide-react"
+import {
+  Eye,
+  Copy,
+  Trash2,
+  Undo2,
+  RotateCcw,
+  MoreVertical,
+  X,
+  Monitor,
+  Globe,
+  Server,
+  Database,
+  Layers,
+  ShieldCheck,
+  type LucideIcon,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { EditableFields, EffectiveRow } from "./use-master-draft"
 import { MASTER_CATEGORIES, COLLECT_MODES, FIELD_LABELS } from "./use-master-draft"
+
+/* ---- 분류(카테고리)별 아이콘 — 표시 전용, 저장/엑셀 추출 값(문자열)에는 영향 없음 ---- */
+export const CATEGORY_ICONS: Record<EditableFields["category"], LucideIcon> = {
+  OS: Monitor,
+  WEB: Globe,
+  WAS: Server,
+  DB: Database,
+  Middleware: Layers,
+  Security: ShieldCheck,
+}
 
 const inputBase =
   "w-full rounded-md border bg-transparent px-2 py-1 text-xs text-foreground focus:border-primary/60 focus:outline-none"
@@ -29,6 +54,7 @@ export function EditableText({
   error,
   required,
   placeholder,
+  bold,
 }: {
   value: string
   onChange: (next: string) => void
@@ -36,6 +62,7 @@ export function EditableText({
   error?: string
   required?: boolean
   placeholder?: string
+  bold?: boolean
 }) {
   return (
     <div className={cn("relative", dirty && "rounded-md bg-primary/8")}>
@@ -44,7 +71,7 @@ export function EditableText({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder ?? (required ? "필수" : undefined)}
-        className={cn(inputBase, requiredBorder(value, error, required))}
+        className={cn(inputBase, bold && "font-semibold", requiredBorder(value, error, required))}
       />
       {error ? <p className="mt-0.5 text-[10px] text-destructive">{error}</p> : null}
     </div>
@@ -151,8 +178,12 @@ export function EditableCategory({
   onChange: (next: EditableFields["category"]) => void
   dirty?: boolean
 }) {
+  const Icon = CATEGORY_ICONS[value]
   return (
-    <EditableSelect value={value} onChange={(v) => onChange(v as EditableFields["category"])} options={MASTER_CATEGORIES} dirty={dirty} />
+    <div className="flex items-center gap-1.5">
+      <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+      <EditableSelect value={value} onChange={(v) => onChange(v as EditableFields["category"])} options={MASTER_CATEGORIES} dirty={dirty} />
+    </div>
   )
 }
 
@@ -176,7 +207,7 @@ export function ActiveToggle({
         onClick={() => onChange(!value)}
         className={cn(
           "relative h-5 w-9 shrink-0 rounded-full transition-colors",
-          value ? "bg-primary" : "bg-muted",
+          value ? "bg-success" : "bg-muted",
         )}
       >
         <span
@@ -194,7 +225,7 @@ export function ActiveToggle({
 export function RowStatusBadge({ status }: { status: EffectiveRow["status"] }) {
   if (status === "added") {
     return (
-      <span className="inline-flex items-center rounded-md border border-primary/40 bg-primary/12 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+      <span className="inline-flex items-center rounded-md border border-success/40 bg-success/12 px-1.5 py-0.5 text-[10px] font-semibold text-success">
         신규
       </span>
     )
@@ -325,11 +356,11 @@ export function MasterDetailModal({ row, onClose }: { row: EffectiveRow | null; 
 
   if (!row) return null
 
-  const facts: { label: string; value: string }[] = [
+  const facts: { label: string; value: string; icon?: LucideIcon }[] = [
     { label: "마스터 ID", value: row.id },
     { label: FIELD_LABELS.name, value: row.values.name || "-" },
     { label: FIELD_LABELS.vendor, value: row.values.vendor || "-" },
-    { label: FIELD_LABELS.category, value: row.values.category },
+    { label: FIELD_LABELS.category, value: row.values.category, icon: CATEGORY_ICONS[row.values.category] },
     { label: FIELD_LABELS.std_version, value: row.values.std_version || "-" },
     { label: FIELD_LABELS.collect_mode, value: row.values.collect_mode },
     { label: FIELD_LABELS.active, value: row.values.active ? "사용" : "미사용" },
@@ -368,7 +399,10 @@ export function MasterDetailModal({ row, onClose }: { row: EffectiveRow | null; 
           {facts.map((f) => (
             <div key={f.label} className="rounded-xl border border-border/60 bg-background/40 p-3">
               <p className="text-[11px] text-muted-foreground">{f.label}</p>
-              <p className="mt-1 truncate text-sm font-semibold text-foreground">{f.value}</p>
+              <p className="mt-1 flex items-center gap-1.5 truncate text-sm font-semibold text-foreground">
+                {f.icon ? <f.icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden /> : null}
+                {f.value}
+              </p>
             </div>
           ))}
         </div>
