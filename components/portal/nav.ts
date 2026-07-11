@@ -9,6 +9,8 @@ import {
   Settings,
   Bell,
   KeyRound,
+  Database,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react"
 
@@ -21,7 +23,9 @@ export type ViewKey =
   | "approval"
   | "kisa"
   | "patch"
-  | "admin"
+  | "admin-collect"
+  | "admin-policy"
+  | "admin-users"
   | "notifications"
 
 /** 사이드바에는 표시하지 않지만 헤더 타이틀 등에 사용하는 뷰 메타 */
@@ -40,7 +44,23 @@ export type NavItem = {
   userOnly?: boolean
 }
 
-export const NAV_ITEMS: NavItem[] = [
+/** 사이드바에서 하위 메뉴로 묶여 펼쳐지는 그룹 (예: 관리자 페이지) */
+export type NavGroup = {
+  groupKey: string
+  label: string
+  icon: LucideIcon
+  adminOnly?: boolean
+  userOnly?: boolean
+  children: NavItem[]
+}
+
+export type NavEntry = NavItem | NavGroup
+
+export function isNavGroup(entry: NavEntry): entry is NavGroup {
+  return "children" in entry
+}
+
+export const NAV_ITEMS: NavEntry[] = [
   { key: "dashboard", label: "대시보드", icon: LayoutDashboard },
   { key: "assets", label: "자산 목록", icon: Boxes },
   { key: "eos", label: "EOS 로드맵", icon: CalendarClock },
@@ -49,20 +69,38 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "approval", label: "신규 자산 요청 승인", icon: ClipboardCheck, adminOnly: true },
   { key: "kisa", label: "KISA 취약점 공지", icon: ShieldAlert },
   { key: "patch", label: "패치&취약점 모니터링", icon: ShieldCheck },
-  { key: "admin", label: "관리자 페이지", icon: Settings, adminOnly: true },
+  {
+    groupKey: "admin",
+    label: "관리자 페이지",
+    icon: Settings,
+    adminOnly: true,
+    children: [
+      { key: "admin-collect", label: "수집 관리", icon: Database },
+      { key: "admin-policy", label: "승인 정책", icon: ShieldCheck },
+      { key: "admin-users", label: "사용자·로그", icon: UsersRound },
+    ],
+  },
 ]
 
+function matchesRole(entry: { adminOnly?: boolean; userOnly?: boolean }, isAdmin: boolean) {
+  if (entry.adminOnly && !isAdmin) return false
+  if (entry.userOnly && isAdmin) return false
+  return true
+}
+
 /** 현재 역할(관리자/사용자)에서 접근 가능한 메뉴만 반환 */
-export function visibleNavItems(isAdmin: boolean): NavItem[] {
-  return NAV_ITEMS.filter((item) => {
-    if (item.adminOnly && !isAdmin) return false
-    if (item.userOnly && isAdmin) return false
-    return true
-  })
+export function visibleNavItems(isAdmin: boolean): NavEntry[] {
+  return NAV_ITEMS.filter((entry) => matchesRole(entry, isAdmin)).map((entry) =>
+    isNavGroup(entry)
+      ? { ...entry, children: entry.children.filter((c) => matchesRole(c, isAdmin)) }
+      : entry,
+  )
 }
 
 /** 특정 뷰가 현재 역할에서 접근 가능한지 여부 */
 export function isViewAllowed(key: ViewKey, isAdmin: boolean): boolean {
   if (key in EXTRA_VIEW_META) return true
-  return visibleNavItems(isAdmin).some((item) => item.key === key)
+  return visibleNavItems(isAdmin).some((entry) =>
+    isNavGroup(entry) ? entry.children.some((c) => c.key === key) : entry.key === key,
+  )
 }

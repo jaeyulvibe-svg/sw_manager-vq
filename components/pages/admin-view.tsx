@@ -637,38 +637,11 @@ type CollectLogEntry = { product: string; ok: boolean; newCount: number; error?:
 
 const REAL_COLLECT_PRODUCTS = ["Apache Tomcat", "JEUS", "WebtoB"] as const
 
-/* ---- Admin page tabs — groups the growing section list into 3 categories ---- */
-const ADMIN_TABS = [
-  { key: "collect", label: "수집 관리" },
-  { key: "policy", label: "승인 정책" },
-  { key: "users", label: "사용자·로그" },
-] as const
-type AdminTab = (typeof ADMIN_TABS)[number]["key"]
+/* ---- Admin page tabs — navigated via the sidebar's "관리자 페이지" submenu ---- */
+export type AdminTab = "collect" | "policy" | "users"
 
-function AdminTabBar({ active, onChange }: { active: AdminTab; onChange: (tab: AdminTab) => void }) {
-  return (
-    <div className="flex w-fit flex-wrap gap-1 rounded-full border border-border/60 bg-card p-1">
-      {ADMIN_TABS.map((tab) => (
-        <button
-          key={tab.key}
-          type="button"
-          onClick={() => onChange(tab.key)}
-          className={cn(
-            "rounded-full px-4 py-1.5 text-xs font-semibold transition-colors",
-            active === tab.key
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          {tab.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-export function AdminView() {
-  const [activeTab, setActiveTab] = useState<AdminTab>("collect")
+export function AdminView({ initialTab }: { initialTab: AdminTab }) {
+  const activeTab = initialTab
   const [collecting, setCollecting] = useState(false)
   const [collectLog, setCollectLog] = useState<CollectLogEntry[]>([])
   const [fontScale, setFontScale] = useState(FONT_SCALE_DEFAULT)
@@ -935,8 +908,6 @@ export function AdminView() {
         description="관리자는 SW 마스터 데이터, Source URL, 자동수집 정책, 승인 프로세스, 사용자 권한을 통합 관리합니다."
         action={<FontSizeControl scale={fontScale} onChange={updateFontScale} />}
       />
-
-      <AdminTabBar active={activeTab} onChange={setActiveTab} />
 
       <div
         className="flex min-w-0 flex-col gap-6"

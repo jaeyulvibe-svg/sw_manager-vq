@@ -62,8 +62,12 @@ function Portal() {
         return <KisaView onNavigate={setActive} />
       case "patch":
         return <PatchView onNavigate={setActive} />
-      case "admin":
-        return <AdminView />
+      case "admin-collect":
+        return <AdminView key={active} initialTab="collect" />
+      case "admin-policy":
+        return <AdminView key={active} initialTab="policy" />
+      case "admin-users":
+        return <AdminView key={active} initialTab="users" />
       case "notifications":
         return <NotificationsView onNavigate={setActive} />
       default:

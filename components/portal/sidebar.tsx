@@ -1,7 +1,8 @@
 "use client"
 
-import { ChevronsLeft, ChevronsRight, ShieldCheck, UserCog, X } from "lucide-react"
-import { visibleNavItems, type ViewKey } from "./nav"
+import { useEffect, useState } from "react"
+import { ChevronDown, ChevronsLeft, ChevronsRight, ShieldCheck, UserCog, X } from "lucide-react"
+import { visibleNavItems, isNavGroup, type ViewKey } from "./nav"
 import { useRole, type Role } from "./role-context"
 import { cn } from "@/lib/utils"
 
@@ -28,6 +29,27 @@ export function Sidebar({
   const { role, isAdmin } = useRole()
   const items = visibleNavItems(isAdmin)
   const currentUser = CURRENT_USER[role]
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
+
+  // 활성 뷰가 속한 그룹은 항상 펼쳐진 상태를 유지
+  useEffect(() => {
+    const group = items.find((entry) => isNavGroup(entry) && entry.children.some((c) => c.key === active))
+    if (group && isNavGroup(group) && !openGroups.has(group.groupKey)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setOpenGroups((prev) => new Set(prev).add(group.groupKey))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active])
+
+  function toggleGroup(key: string) {
+    setOpenGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
   return (
     <>
       {/* Mobile backdrop */}
@@ -99,18 +121,91 @@ export function Sidebar({
 
         {/* Nav */}
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {items.map((item) => {
-            const isActive = item.key === active
+          {items.map((entry) => {
+            if (isNavGroup(entry)) {
+              const expanded = openGroups.has(entry.groupKey)
+              const groupActive = entry.children.some((c) => c.key === active)
+              return (
+                <div key={entry.groupKey}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (collapsed) {
+                        onChange(entry.children[0].key)
+                        onCloseMobile()
+                      } else {
+                        toggleGroup(entry.groupKey)
+                      }
+                    }}
+                    aria-expanded={expanded}
+                    title={collapsed ? entry.label : undefined}
+                    className={cn(
+                      "group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                      collapsed && "lg:justify-center lg:px-0",
+                      groupActive
+                        ? "text-primary"
+                        : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                    )}
+                  >
+                    <entry.icon
+                      className={cn(
+                        "h-[18px] w-[18px] shrink-0 transition-transform group-hover:scale-110",
+                        groupActive ? "text-primary" : "",
+                      )}
+                    />
+                    <span className={cn("min-w-0 flex-1 truncate text-left", collapsed && "lg:hidden")}>
+                      {entry.label}
+                    </span>
+                    <ChevronDown
+                      className={cn(
+                        "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+                        expanded && "rotate-180",
+                        collapsed && "lg:hidden",
+                      )}
+                    />
+                  </button>
+
+                  {expanded ? (
+                    <div className={cn("ml-4 mt-1 flex flex-col gap-1 border-l border-border/50 pl-3", collapsed && "lg:hidden")}>
+                      {entry.children.map((child) => {
+                        const isActive = child.key === active
+                        return (
+                          <button
+                            key={child.key}
+                            type="button"
+                            onClick={() => {
+                              onChange(child.key)
+                              onCloseMobile()
+                            }}
+                            aria-current={isActive ? "page" : undefined}
+                            className={cn(
+                              "flex w-full items-center rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors",
+                              isActive
+                                ? "bg-primary/12 text-primary"
+                                : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                            )}
+                          >
+                            {child.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              )
+            }
+
+            const isActive = entry.key === active
             return (
               <button
-                key={item.key}
+                key={entry.key}
                 type="button"
                 onClick={() => {
-                  onChange(item.key)
+                  onChange(entry.key)
                   onCloseMobile()
                 }}
                 aria-current={isActive ? "page" : undefined}
-                title={collapsed ? item.label : undefined}
+                title={collapsed ? entry.label : undefined}
                 className={cn(
                   "group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                   collapsed && "lg:justify-center lg:px-0",
@@ -122,14 +217,14 @@ export function Sidebar({
                 {isActive ? (
                   <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
                 ) : null}
-                <item.icon
+                <entry.icon
                   className={cn(
                     "h-[18px] w-[18px] shrink-0 transition-transform group-hover:scale-110",
                     isActive ? "text-primary" : "",
                   )}
                 />
                 <span className={cn("truncate text-left", collapsed && "lg:hidden")}>
-                  {item.label}
+                  {entry.label}
                 </span>
               </button>
             )

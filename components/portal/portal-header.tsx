@@ -5,7 +5,7 @@ import { LiveClock } from "./live-clock"
 import { RoleToggle } from "./role-toggle"
 import { ThemeToggle } from "./theme-toggle"
 import { NotificationBell } from "./notification-bell"
-import { NAV_ITEMS, EXTRA_VIEW_META, type ViewKey } from "./nav"
+import { NAV_ITEMS, EXTRA_VIEW_META, isNavGroup, type ViewKey } from "./nav"
 
 export function PortalHeader({
   active,
@@ -21,7 +21,9 @@ export function PortalHeader({
   onOpenNotifications: () => void
 }) {
   const current =
-    NAV_ITEMS.find((n) => n.key === active) ?? EXTRA_VIEW_META[active]
+    NAV_ITEMS.flatMap((entry) => (isNavGroup(entry) ? entry.children : [entry])).find(
+      (n) => n.key === active,
+    ) ?? EXTRA_VIEW_META[active]
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border/60 bg-background/70 px-4 py-3 backdrop-blur-xl sm:px-6">

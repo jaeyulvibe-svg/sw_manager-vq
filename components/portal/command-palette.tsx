@@ -10,7 +10,7 @@ import {
   ShieldAlert,
   type LucideIcon,
 } from "lucide-react"
-import { visibleNavItems, type ViewKey } from "./nav"
+import { visibleNavItems, isNavGroup, type ViewKey } from "./nav"
 import { useRole } from "./role-context"
 import { cn } from "@/lib/utils"
 
@@ -70,15 +70,29 @@ export function CommandPalette({
   }
 
   const items = useMemo<CommandItem[]>(() => {
-    const navItems: CommandItem[] = visibleNavItems(isAdmin).map((n) => ({
-      id: `nav-${n.key}`,
-      label: n.label,
-      hint: "페이지 이동",
-      group: "이동",
-      icon: n.icon,
-      target: n.key,
-      keywords: n.key,
-    }))
+    const navItems: CommandItem[] = visibleNavItems(isAdmin).flatMap((entry) =>
+      isNavGroup(entry)
+        ? entry.children.map((c) => ({
+            id: `nav-${c.key}`,
+            label: c.label,
+            hint: "페이지 이동",
+            group: "이동" as const,
+            icon: c.icon,
+            target: c.key,
+            keywords: c.key,
+          }))
+        : [
+            {
+              id: `nav-${entry.key}`,
+              label: entry.label,
+              hint: "페이지 이동",
+              group: "이동" as const,
+              icon: entry.icon,
+              target: entry.key,
+              keywords: entry.key,
+            },
+          ],
+    )
     const all = [...navItems, ...ASSET_ITEMS, ...CVE_ITEMS]
     const q = query.trim().toLowerCase()
     if (!q) return all
