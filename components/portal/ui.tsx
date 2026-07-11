@@ -413,7 +413,7 @@ export function ExportExcelButton<T>({
       for (const col of columns) record[col.label] = col.value(row)
       return record
     })
-    exportRowsToExcel(filename, data)
+    exportRowsToExcel(filename, data, filename.replace(/_/g, " "))
   }
 
   return (
