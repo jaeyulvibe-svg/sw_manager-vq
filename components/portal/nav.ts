@@ -10,6 +10,7 @@ import {
   Bell,
   KeyRound,
   Database,
+  RefreshCw,
   UsersRound,
   type LucideIcon,
 } from "lucide-react"
@@ -23,6 +24,7 @@ export type ViewKey =
   | "approval"
   | "kisa"
   | "patch"
+  | "admin-master"
   | "admin-collect"
   | "admin-policy"
   | "admin-users"
@@ -75,7 +77,8 @@ export const NAV_ITEMS: NavEntry[] = [
     icon: Settings,
     adminOnly: true,
     children: [
-      { key: "admin-collect", label: "수집 관리", icon: Database },
+      { key: "admin-master", label: "SW 마스터 관리", icon: Database },
+      { key: "admin-collect", label: "수집 관리", icon: RefreshCw },
       { key: "admin-policy", label: "승인 정책", icon: ShieldCheck },
       { key: "admin-users", label: "사용자·로그", icon: UsersRound },
     ],

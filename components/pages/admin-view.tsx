@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import {
   Settings,
-  Database,
   Link2,
   RefreshCw,
   ShieldCheck,
@@ -50,35 +49,19 @@ function nextId(prefix: string, rows: { id: string }[]) {
   return `${prefix}-${String(next).padStart(3, "0")}`
 }
 
-/* ---- Section 1: SW master ---- */
-type Master = {
-  id: string
-  name: string
-  vendor: string
-  cat: string
-  std: string
-  mode: string
-  active: boolean
-  updated: string
-}
-
+/* ---- Section: Source URL — SW 마스터 관리(별도 화면)의 8개 제품을 기준으로 시딩 ---- */
 // 자산 목록(supabase/migrations/002_seed_data.sql의 assets)에 등록된 8개 제품과 동일하게 유지
 // — SW 마스터 관리에 있는 솔루션만 자산 목록에 존재한다는 원칙
-const MASTER_CATEGORIES = ["OS", "WEB", "WAS", "DB", "Middleware", "Security"]
-const COLLECT_MODES = ["AUTO", "SEMI_AUTO", "MANUAL"]
-
-const initialMasters: Master[] = [
-  { id: "M-001", name: "Apache Tomcat", vendor: "Apache", cat: "WAS", std: "10.1.24", mode: "AUTO", active: true, updated: "오늘" },
-  { id: "M-002", name: "JEUS", vendor: "TmaxSoft", cat: "WAS", std: "8.5", mode: "MANUAL", active: true, updated: "2026-06-20" },
-  { id: "M-003", name: "WebtoB", vendor: "TmaxSoft", cat: "WEB", std: "6.0", mode: "SEMI_AUTO", active: true, updated: "어제" },
-  { id: "M-004", name: "Oracle Database", vendor: "Oracle", cat: "DB", std: "23c", mode: "SEMI_AUTO", active: true, updated: "어제" },
-  { id: "M-005", name: "OpenSSL", vendor: "OpenSSL Project", cat: "Security", std: "3.3.1", mode: "AUTO", active: true, updated: "오늘" },
-  { id: "M-006", name: "Nginx", vendor: "F5", cat: "WEB", std: "1.27", mode: "AUTO", active: true, updated: "오늘" },
-  { id: "M-007", name: "Red Hat Enterprise Linux", vendor: "Red Hat", cat: "OS", std: "9.4", mode: "SEMI_AUTO", active: true, updated: "어제" },
-  { id: "M-008", name: "PostgreSQL", vendor: "PostgreSQL GDG", cat: "DB", std: "16.3", mode: "AUTO", active: true, updated: "오늘" },
+const SOURCE_PRODUCT_NAMES = [
+  "Apache Tomcat",
+  "JEUS",
+  "WebtoB",
+  "Oracle Database",
+  "OpenSSL",
+  "Nginx",
+  "Red Hat Enterprise Linux",
+  "PostgreSQL",
 ]
-
-/* ---- Section 2: Source URL — SW 마스터 관리의 8개 제품을 기준으로 시딩 ---- */
 type Source = {
   id: string
   name: string
@@ -106,124 +89,18 @@ const SOURCE_SEED_META: Record<
   "PostgreSQL": { type: "Vendor Security Advisory", url: "postgresql.org/support/security", cycle: "일 1회", last: "오늘 07:20" },
 }
 
-const initialSources: Source[] = initialMasters.map((m, i) => ({
+const initialSources: Source[] = SOURCE_PRODUCT_NAMES.map((name, i) => ({
   id: `S-${String(i + 1).padStart(3, "0")}`,
-  name: m.name,
-  type: SOURCE_SEED_META[m.name]?.type ?? "Vendor Security Advisory",
-  url: SOURCE_SEED_META[m.name]?.url ?? "-",
-  cycle: SOURCE_SEED_META[m.name]?.cycle ?? "일 1회",
-  last: SOURCE_SEED_META[m.name]?.last ?? "-",
-  status: SOURCE_SEED_META[m.name]?.status ?? "정상",
+  name,
+  type: SOURCE_SEED_META[name]?.type ?? "Vendor Security Advisory",
+  url: SOURCE_SEED_META[name]?.url ?? "-",
+  cycle: SOURCE_SEED_META[name]?.cycle ?? "일 1회",
+  last: SOURCE_SEED_META[name]?.last ?? "-",
+  status: SOURCE_SEED_META[name]?.status ?? "정상",
 }))
 
 const sourceStatusRisk: Record<string, RiskLevel> = {
   정상: 1, 지연: 3, 실패: 4,
-}
-
-/* ---- Inline add/edit form for SW 마스터 관리 ---- */
-type MasterFormValues = Omit<Master, "id" | "updated">
-
-function MasterFormPanel({
-  initial,
-  onCancel,
-  onSubmit,
-}: {
-  initial?: MasterFormValues
-  onCancel: () => void
-  onSubmit: (values: MasterFormValues) => void
-}) {
-  const [values, setValues] = useState<MasterFormValues>(
-    initial ?? {
-      name: "",
-      vendor: "",
-      cat: MASTER_CATEGORIES[0],
-      std: "",
-      mode: COLLECT_MODES[0],
-      active: true,
-    },
-  )
-
-  return (
-    <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4 sm:grid-cols-2 lg:grid-cols-3">
-      <label className="flex flex-col gap-1 text-xs">
-        <span className="font-medium text-muted-foreground">제품명</span>
-        <input
-          value={values.name}
-          onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))}
-          placeholder="예: Apache Tomcat"
-          className={inputCls}
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-xs">
-        <span className="font-medium text-muted-foreground">벤더</span>
-        <input
-          value={values.vendor}
-          onChange={(e) => setValues((v) => ({ ...v, vendor: e.target.value }))}
-          placeholder="예: Apache"
-          className={inputCls}
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-xs">
-        <span className="font-medium text-muted-foreground">분류</span>
-        <select
-          value={values.cat}
-          onChange={(e) => setValues((v) => ({ ...v, cat: e.target.value }))}
-          className={inputCls}
-        >
-          {MASTER_CATEGORIES.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </select>
-      </label>
-      <label className="flex flex-col gap-1 text-xs">
-        <span className="font-medium text-muted-foreground">표준 버전</span>
-        <input
-          value={values.std}
-          onChange={(e) => setValues((v) => ({ ...v, std: e.target.value }))}
-          placeholder="예: 10.1.24"
-          className={inputCls}
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-xs">
-        <span className="font-medium text-muted-foreground">수집 모드</span>
-        <select
-          value={values.mode}
-          onChange={(e) => setValues((v) => ({ ...v, mode: e.target.value }))}
-          className={inputCls}
-        >
-          {COLLECT_MODES.map((m) => (
-            <option key={m}>{m}</option>
-          ))}
-        </select>
-      </label>
-      <label className="flex items-center gap-2 text-xs">
-        <input
-          type="checkbox"
-          checked={values.active}
-          onChange={(e) => setValues((v) => ({ ...v, active: e.target.checked }))}
-          className="h-4 w-4 rounded border-border/60 accent-primary"
-        />
-        <span className="font-medium text-muted-foreground">사용 여부</span>
-      </label>
-      <div className="flex items-center gap-2 sm:col-span-2 lg:col-span-3">
-        <button
-          type="button"
-          onClick={() => values.name.trim() && onSubmit(values)}
-          disabled={!values.name.trim()}
-          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          저장
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-        >
-          취소
-        </button>
-      </div>
-    </div>
-  )
 }
 
 /* ---- Inline add/edit form for 공식 Source URL 관리 ---- */
@@ -648,11 +525,6 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
   const { isAdmin } = useRole()
   const { toast } = useToast()
 
-  const [masters, setMasters] = useState<Master[]>(initialMasters)
-  const [masterPanel, setMasterPanel] = useState<"add" | string | null>(null)
-  const [masterSelectMode, setMasterSelectMode] = useState(false)
-  const [selectedMasterIds, setSelectedMasterIds] = useState<Set<string>>(new Set())
-
   const [sources, setSources] = useState<Source[]>(initialSources)
   const [sourcePanel, setSourcePanel] = useState<"add" | string | null>(null)
   const [sourceSelectMode, setSourceSelectMode] = useState(false)
@@ -676,7 +548,6 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
   useEffect(() => {
     const stored = Number(window.localStorage.getItem(FONT_SCALE_STORAGE_KEY))
     if (stored >= FONT_SCALE_MIN && stored <= FONT_SCALE_MAX) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFontScale(stored)
     }
   }, [])
@@ -684,55 +555,6 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
   const updateFontScale = (next: number) => {
     setFontScale(next)
     window.localStorage.setItem(FONT_SCALE_STORAGE_KEY, String(next))
-  }
-
-  function saveMaster(values: MasterFormValues) {
-    if (masterPanel === "add") {
-      setMasters((prev) => [...prev, { id: nextId("M", prev), updated: "오늘", ...values }])
-      toast({ title: "SW 마스터가 추가되었습니다", tone: "success" })
-    } else if (masterPanel) {
-      const id = masterPanel
-      setMasters((prev) => prev.map((m) => (m.id === id ? { ...m, ...values, updated: "오늘" } : m)))
-      toast({ title: "SW 마스터가 수정되었습니다", tone: "success" })
-    }
-    setMasterPanel(null)
-  }
-
-  function deleteMaster(target: Master) {
-    if (!window.confirm(`"${target.name}"을(를) 삭제하시겠습니까?`)) return
-    setMasters((prev) => prev.filter((m) => m.id !== target.id))
-    toast({ title: "SW 마스터가 삭제되었습니다", tone: "info" })
-  }
-
-  function toggleMasterSelectAll() {
-    setSelectedMasterIds((prev) =>
-      prev.size === masters.length ? new Set() : new Set(masters.map((m) => m.id)),
-    )
-  }
-
-  function toggleMasterSelected(id: string) {
-    setSelectedMasterIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  function cancelMasterSelection() {
-    setMasterSelectMode(false)
-    setSelectedMasterIds(new Set())
-  }
-
-  function saveMasterSelection() {
-    if (selectedMasterIds.size === 0) {
-      cancelMasterSelection()
-      return
-    }
-    if (!window.confirm(`선택한 SW 마스터 ${selectedMasterIds.size}건을 삭제하시겠습니까?`)) return
-    setMasters((prev) => prev.filter((m) => !selectedMasterIds.has(m.id)))
-    toast({ title: `SW 마스터 ${selectedMasterIds.size}건이 삭제되었습니다`, tone: "info" })
-    cancelMasterSelection()
   }
 
   function saveSource(values: SourceFormValues) {
@@ -915,139 +737,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
       >
       {activeTab === "collect" && (
       <>
-      {/* Section 1: SW master */}
-      <SectionCard
-        title="SW 마스터 관리"
-        subtitle="표준 소프트웨어 마스터 데이터"
-        icon={Database}
-        action={
-          masterPanel ? null : masterSelectMode ? (
-            <div className="flex items-center gap-1.5">
-              <MiniButton accent="success" onClick={saveMasterSelection}>
-                <Check className="h-3.5 w-3.5" />
-                저장
-              </MiniButton>
-              <MiniButton onClick={cancelMasterSelection}>
-                <X className="h-3.5 w-3.5" />
-                취소
-              </MiniButton>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5">
-              <ExportExcelButton
-                rows={masters}
-                filename="SW_마스터_관리"
-                columns={[
-                  { label: "마스터 ID", value: (m: Master) => m.id },
-                  { label: "제품명", value: (m: Master) => m.name },
-                  { label: "벤더", value: (m: Master) => m.vendor },
-                  { label: "분류", value: (m: Master) => m.cat },
-                  { label: "표준 버전", value: (m: Master) => m.std },
-                  { label: "수집 모드", value: (m: Master) => m.mode },
-                  { label: "사용 여부", value: (m: Master) => (m.active ? "사용" : "미사용") },
-                  { label: "최근 갱신일", value: (m: Master) => m.updated },
-                ]}
-              />
-              <MiniButton accent="primary" onClick={() => setMasterPanel("add")}>
-                <Plus className="h-3.5 w-3.5" />
-                추가
-              </MiniButton>
-              <MiniButton accent="destructive" onClick={() => setMasterSelectMode(true)}>
-                <Trash2 className="h-3.5 w-3.5" />
-                삭제
-              </MiniButton>
-            </div>
-          )
-        }
-      >
-        {masterPanel === "add" ? (
-          <MasterFormPanel onCancel={() => setMasterPanel(null)} onSubmit={saveMaster} />
-        ) : null}
-        <TableShell>
-          <thead>
-            <tr>
-              {masterSelectMode ? (
-                <Th className="w-8">
-                  <input
-                    type="checkbox"
-                    checked={masters.length > 0 && selectedMasterIds.size === masters.length}
-                    onChange={toggleMasterSelectAll}
-                    aria-label="전체 선택"
-                    className="h-4 w-4 rounded border-border/60 accent-primary"
-                  />
-                </Th>
-              ) : null}
-              <Th>마스터 ID</Th><Th>제품명</Th><Th>벤더</Th><Th>분류</Th>
-              <Th>표준 버전</Th><Th>수집 모드</Th><Th>사용 여부</Th><Th>최근 갱신일</Th>
-              {masterSelectMode ? null : <Th>관리</Th>}
-            </tr>
-          </thead>
-          <tbody>
-            {masters.map((m) =>
-              masterPanel === m.id ? (
-                <tr key={m.id}>
-                  <td colSpan={9} className="border-b border-border/40 p-0">
-                    <MasterFormPanel
-                      initial={{
-                        name: m.name,
-                        vendor: m.vendor,
-                        cat: m.cat,
-                        std: m.std,
-                        mode: m.mode,
-                        active: m.active,
-                      }}
-                      onCancel={() => setMasterPanel(null)}
-                      onSubmit={saveMaster}
-                    />
-                  </td>
-                </tr>
-              ) : (
-                <tr key={m.id} className="transition-colors hover:bg-accent/40">
-                  {masterSelectMode ? (
-                    <Td>
-                      <input
-                        type="checkbox"
-                        checked={selectedMasterIds.has(m.id)}
-                        onChange={() => toggleMasterSelected(m.id)}
-                        aria-label={`${m.name} 선택`}
-                        className="h-4 w-4 rounded border-border/60 accent-primary"
-                      />
-                    </Td>
-                  ) : null}
-                  <Td className="font-mono text-xs text-muted-foreground">{m.id}</Td>
-                  <Td className="font-semibold">{m.name}</Td>
-                  <Td className="text-muted-foreground">{m.vendor}</Td>
-                  <Td><StatusBadge accent="primary">{m.cat}</StatusBadge></Td>
-                  <Td className="font-mono text-xs">{m.std}</Td>
-                  <Td><StatusBadge accent="eos">{m.mode}</StatusBadge></Td>
-                  <Td>
-                    <StatusBadge accent={m.active ? "success" : "muted"}>
-                      {m.active ? "사용" : "미사용"}
-                    </StatusBadge>
-                  </Td>
-                  <Td className="text-xs text-muted-foreground">{m.updated}</Td>
-                  {masterSelectMode ? null : (
-                    <Td>
-                      <div className="flex items-center gap-1.5">
-                        <MiniButton onClick={() => setMasterPanel(m.id)}>
-                          <Pencil className="h-3 w-3" />
-                          수정
-                        </MiniButton>
-                        <MiniButton accent="destructive" onClick={() => deleteMaster(m)}>
-                          <Trash2 className="h-3 w-3" />
-                          삭제
-                        </MiniButton>
-                      </div>
-                    </Td>
-                  )}
-                </tr>
-              ),
-            )}
-          </tbody>
-        </TableShell>
-      </SectionCard>
-
-      {/* Section 2: Source URL */}
+      {/* Section: Source URL */}
       <SectionCard
         title="공식 Source URL 관리"
         subtitle="자동수집 대상 공식 출처"

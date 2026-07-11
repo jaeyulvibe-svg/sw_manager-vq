@@ -279,6 +279,55 @@ export type Database = {
         }
         Relationships: []
       }
+      sw_masters: {
+        Row: {
+          id: string
+          name: string
+          vendor: string
+          category: "OS" | "WEB" | "WAS" | "DB" | "Middleware" | "Security"
+          std_version: string
+          collect_mode: "AUTO" | "SEMI_AUTO" | "MANUAL"
+          active: boolean
+          manager: string | null
+          note: string | null
+          updated_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          vendor: string
+          category: "OS" | "WEB" | "WAS" | "DB" | "Middleware" | "Security"
+          std_version: string
+          collect_mode: "AUTO" | "SEMI_AUTO" | "MANUAL"
+          active?: boolean
+          manager?: string | null
+          note?: string | null
+          updated_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          vendor?: string
+          category?: "OS" | "WEB" | "WAS" | "DB" | "Middleware" | "Security"
+          std_version?: string
+          collect_mode?: "AUTO" | "SEMI_AUTO" | "MANUAL"
+          active?: boolean
+          manager?: string | null
+          note?: string | null
+          updated_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>

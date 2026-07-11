@@ -8,6 +8,7 @@ import { RoleProvider, useRole } from "@/components/portal/role-context"
 import { ThemeProvider } from "@/components/portal/theme-context"
 import { ToastProvider } from "@/components/portal/toast"
 import { NotificationsProvider } from "@/components/portal/notifications-context"
+import { UnsavedGuardProvider, useUnsavedGuard } from "@/components/portal/unsaved-guard"
 import { AmbientBackground } from "@/components/portal/ambient-background"
 import { CommandPalette } from "@/components/portal/command-palette"
 import { isViewAllowed, type ViewKey } from "@/components/portal/nav"
@@ -20,17 +21,26 @@ import { ApprovalView } from "@/components/pages/approval-view"
 import { KisaView } from "@/components/pages/kisa-view"
 import { PatchView } from "@/components/pages/patch-view"
 import { AdminView } from "@/components/pages/admin-view"
+import { SwMasterView } from "@/components/pages/sw-master-view"
 import { NotificationsView } from "@/components/pages/notifications-view"
 
 function Portal() {
   const { isAdmin } = useRole()
-  const [requestedView, setActive] = useState<ViewKey>("dashboard")
+  const { confirmLeave } = useUnsavedGuard()
+  const [requestedView, setActiveRaw] = useState<ViewKey>("dashboard")
   const [mobileOpen, setMobileOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
 
   // Fall back to dashboard when the requested view isn't allowed for the active role
   const active = isViewAllowed(requestedView, isAdmin) ? requestedView : "dashboard"
+
+  // 저장하지 않은 변경사항이 있는 화면에서 벗어날 때 확인을 거친다
+  function setActive(next: ViewKey) {
+    if (next === active) return
+    if (!confirmLeave()) return
+    setActiveRaw(next)
+  }
 
   // Global ⌘K / Ctrl+K shortcut for the command palette
   useEffect(() => {
@@ -62,6 +72,8 @@ function Portal() {
         return <KisaView onNavigate={setActive} />
       case "patch":
         return <PatchView onNavigate={setActive} />
+      case "admin-master":
+        return <SwMasterView key={active} />
       case "admin-collect":
         return <AdminView key={active} initialTab="collect" />
       case "admin-policy":
@@ -123,7 +135,9 @@ export default function Home() {
       <RoleProvider>
         <ToastProvider>
           <NotificationsProvider>
-            <Portal />
+            <UnsavedGuardProvider>
+              <Portal />
+            </UnsavedGuardProvider>
           </NotificationsProvider>
         </ToastProvider>
       </RoleProvider>
