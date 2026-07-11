@@ -204,10 +204,7 @@ export function KisaView({ onNavigate }: { onNavigate?: (view: ViewKey) => void 
                     type="button"
                     onClick={() => setSelectedId(n.id)}
                     className={cn(
-                      "group animate-rise relative rounded-2xl border bg-card p-4 text-left transition-all hover:-translate-y-0.5",
-                      n.severity === "Critical" && n.approval === "승인대기"
-                        ? "border-destructive/40 animate-soft-pulse"
-                        : "border-border/60 glow-card",
+                      "group animate-rise relative rounded-2xl border border-border/60 bg-card p-4 text-left transition-all glow-card hover:-translate-y-0.5",
                       selectedId === n.id && "bg-primary/5",
                     )}
                   >
@@ -233,7 +230,7 @@ export function KisaView({ onNavigate }: { onNavigate?: (view: ViewKey) => void 
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1"><Link2 className="h-3 w-3" />{n.source}</span>
                       <span className="flex items-center gap-1"><Server className="h-3 w-3" />영향 {n.product}</span>
-                      <span>{n.approval === "승인완료" ? `매핑 확정 ${matchedCount}대` : `매칭 후보 ${matchedCount}대`}</span>
+                      <span>{n.approval === "승인완료" ? `자산 매핑 확정 ${matchedCount}대` : `영향받는 자산 ${matchedCount}대`}</span>
                       <span className="ml-auto">{formatCollected(n.collected_at)}</span>
                     </div>
                   </button>
@@ -273,8 +270,8 @@ export function KisaView({ onNavigate }: { onNavigate?: (view: ViewKey) => void 
                     <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
                       <Server className="h-3.5 w-3.5 text-primary" />
                       {selected.approval === "승인완료"
-                        ? `매핑 확정 자산 ${selectedMatches.length}대`
-                        : `자동 매칭 후보 ${selectedMatches.length}대 (승인 전)`}
+                        ? `자산 매핑 확정 ${selectedMatches.length}대`
+                        : `영향받는 자산 ${selectedMatches.length}대 (승인 전)`}
                     </p>
                     {selectedMatches.length > 0 ? (
                       <>
