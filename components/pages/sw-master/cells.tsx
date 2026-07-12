@@ -321,7 +321,7 @@ export function RowMenu({
   }, [])
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative inline-block">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

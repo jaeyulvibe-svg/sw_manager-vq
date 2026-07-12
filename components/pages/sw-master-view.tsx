@@ -83,17 +83,21 @@ function saveVisibleCols(cols: ColKey[]) {
 /* ---- 컬럼 너비 조절 ---- */
 const DEFAULT_COL_WIDTHS: Record<ColKey, number> = {
   id: 140,
-  category: 150,
-  name: 220,
-  std_version: 120,
-  vendor: 180,
-  collect_mode: 150,
-  active: 110,
+  category: 130,
+  name: 280,
+  std_version: 140,
+  vendor: 220,
+  collect_mode: 180,
+  active: 120,
   created_at: 130,
   manager: 110,
   updated_by: 100,
   note: 160,
 }
+
+/* ---- 헤더/행 높이, 세로 중앙 정렬 — SW 마스터 그리드 전용 ---- */
+const HEADER_CELL_H = "h-[52px] py-0"
+const ROW_CELL_H = "h-16 py-0"
 const MIN_COL_WIDTH = 60
 const MAX_COL_WIDTH = 480
 const LS_COL_WIDTHS_KEY = "sw_master_col_widths"
@@ -175,6 +179,7 @@ function SortTh({
   onSort,
   width,
   onResize,
+  align = "left",
 }: {
   col: SortKey
   label: string
@@ -182,6 +187,7 @@ function SortTh({
   onSort: (key: SortKey, additive: boolean) => void
   width: number
   onResize: (deltaPx: number) => void
+  align?: "left" | "center" | "right"
 }) {
   const idx = sort.findIndex((s) => s.key === col)
   const active = idx !== -1
@@ -191,7 +197,11 @@ function SortTh({
       onClick={(e) => onSort(col, e.shiftKey)}
       style={{ width, minWidth: width, maxWidth: width }}
       className={cn(
-        "relative cursor-pointer select-none overflow-hidden text-ellipsis whitespace-nowrap border-b border-border/60 bg-accent/15 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground",
+        "relative cursor-pointer select-none overflow-hidden text-ellipsis whitespace-nowrap border-b border-border/60 bg-accent/15 px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground",
+        HEADER_CELL_H,
+        align === "center" && "text-center",
+        align === "right" && "text-right",
+        align === "left" && "text-left",
         active && "bg-primary/12 text-primary",
       )}
     >
@@ -758,7 +768,7 @@ export function SwMasterView() {
       <TableShell>
         <thead>
           <tr>
-            <Th className="w-12 bg-accent/15">
+            <Th className={cn("w-12 bg-accent/15 text-center", HEADER_CELL_H)}>
               <input
                 type="checkbox"
                 checked={sorted.length > 0 && selected.size === sorted.length}
@@ -767,45 +777,54 @@ export function SwMasterView() {
                 className="h-4 w-4 rounded border-border/60 accent-primary"
               />
             </Th>
-            <Th className="w-12 bg-accent/15">{null}</Th>
+            <Th className={cn("w-12 bg-accent/15 text-center", HEADER_CELL_H)}>{null}</Th>
             {show("id") && (
-              <SortTh col="id" label="마스터 ID" sort={sort} onSort={handleSort} width={getColWidth("id")} onResize={(d) => resizeColumn("id", d)} />
+              <SortTh col="id" label="마스터 ID" sort={sort} onSort={handleSort} width={getColWidth("id")} onResize={(d) => resizeColumn("id", d)} align="left" />
             )}
             {show("category") && (
-              <SortTh col="category" label="분류" sort={sort} onSort={handleSort} width={getColWidth("category")} onResize={(d) => resizeColumn("category", d)} />
+              <SortTh col="category" label="분류" sort={sort} onSort={handleSort} width={getColWidth("category")} onResize={(d) => resizeColumn("category", d)} align="center" />
             )}
             {show("name") && (
-              <SortTh col="name" label="제품명" sort={sort} onSort={handleSort} width={getColWidth("name")} onResize={(d) => resizeColumn("name", d)} />
+              <SortTh col="name" label="제품명" sort={sort} onSort={handleSort} width={getColWidth("name")} onResize={(d) => resizeColumn("name", d)} align="left" />
             )}
             {show("std_version") && (
-              <SortTh col="std_version" label="버전" sort={sort} onSort={handleSort} width={getColWidth("std_version")} onResize={(d) => resizeColumn("std_version", d)} />
+              <SortTh col="std_version" label="버전" sort={sort} onSort={handleSort} width={getColWidth("std_version")} onResize={(d) => resizeColumn("std_version", d)} align="left" />
             )}
             {show("vendor") && (
-              <SortTh col="vendor" label="제조사" sort={sort} onSort={handleSort} width={getColWidth("vendor")} onResize={(d) => resizeColumn("vendor", d)} />
+              <SortTh col="vendor" label="제조사" sort={sort} onSort={handleSort} width={getColWidth("vendor")} onResize={(d) => resizeColumn("vendor", d)} align="left" />
             )}
             {show("collect_mode") && (
-              <SortTh col="collect_mode" label="수집 모드" sort={sort} onSort={handleSort} width={getColWidth("collect_mode")} onResize={(d) => resizeColumn("collect_mode", d)} />
+              <SortTh col="collect_mode" label="수집 모드" sort={sort} onSort={handleSort} width={getColWidth("collect_mode")} onResize={(d) => resizeColumn("collect_mode", d)} align="center" />
             )}
             {show("active") && (
-              <SortTh col="active" label="사용 여부" sort={sort} onSort={handleSort} width={getColWidth("active")} onResize={(d) => resizeColumn("active", d)} />
+              <SortTh col="active" label="사용 여부" sort={sort} onSort={handleSort} width={getColWidth("active")} onResize={(d) => resizeColumn("active", d)} align="center" />
             )}
             {show("created_at") && (
-              <SortTh col="created_at" label="등록일" sort={sort} onSort={handleSort} width={getColWidth("created_at")} onResize={(d) => resizeColumn("created_at", d)} />
+              <SortTh col="created_at" label="등록일" sort={sort} onSort={handleSort} width={getColWidth("created_at")} onResize={(d) => resizeColumn("created_at", d)} align="left" />
             )}
             {show("manager") && (
-              <Th className="relative bg-accent/15" style={{ width: getColWidth("manager"), minWidth: getColWidth("manager"), maxWidth: getColWidth("manager") }}>
+              <Th
+                className={cn("relative bg-accent/15 text-left", HEADER_CELL_H)}
+                style={{ width: getColWidth("manager"), minWidth: getColWidth("manager"), maxWidth: getColWidth("manager") }}
+              >
                 관리자
                 <ColumnResizeHandle onResize={(d) => resizeColumn("manager", d)} />
               </Th>
             )}
             {show("updated_by") && (
-              <Th className="relative bg-accent/15" style={{ width: getColWidth("updated_by"), minWidth: getColWidth("updated_by"), maxWidth: getColWidth("updated_by") }}>
+              <Th
+                className={cn("relative bg-accent/15 text-left", HEADER_CELL_H)}
+                style={{ width: getColWidth("updated_by"), minWidth: getColWidth("updated_by"), maxWidth: getColWidth("updated_by") }}
+              >
                 수정자
                 <ColumnResizeHandle onResize={(d) => resizeColumn("updated_by", d)} />
               </Th>
             )}
             {show("note") && (
-              <Th className="relative bg-accent/15" style={{ width: getColWidth("note"), minWidth: getColWidth("note"), maxWidth: getColWidth("note") }}>
+              <Th
+                className={cn("relative bg-accent/15 text-left", HEADER_CELL_H)}
+                style={{ width: getColWidth("note"), minWidth: getColWidth("note"), maxWidth: getColWidth("note") }}
+              >
                 비고
                 <ColumnResizeHandle onResize={(d) => resizeColumn("note", d)} />
               </Th>
@@ -851,7 +870,7 @@ export function SwMasterView() {
                     highlightId === row.id && "ring-2 ring-inset ring-primary/60",
                   )}
                 >
-                  <Td>
+                  <Td className={cn("text-center", ROW_CELL_H)}>
                     <input
                       type="checkbox"
                       checked={selected.has(row.id)}
@@ -860,7 +879,7 @@ export function SwMasterView() {
                       className="h-4 w-4 rounded border-border/60 accent-primary"
                     />
                   </Td>
-                  <Td>
+                  <Td className={cn("text-center", ROW_CELL_H)}>
                     <RowMenu
                       row={row}
                       editing={editingRowId === row.id}
@@ -873,7 +892,7 @@ export function SwMasterView() {
                   </Td>
                   {show("id") && (
                     <Td
-                      className="font-mono text-xs text-muted-foreground"
+                      className={cn("text-left font-mono text-xs text-muted-foreground", ROW_CELL_H)}
                       style={{ width: getColWidth("id"), minWidth: getColWidth("id"), maxWidth: getColWidth("id") }}
                     >
                       <div className="flex items-center gap-1.5">
@@ -884,7 +903,7 @@ export function SwMasterView() {
                   )}
                   {show("category") && (
                     <Td
-                      className="text-center"
+                      className={cn("text-center", ROW_CELL_H)}
                       style={{ width: getColWidth("category"), minWidth: getColWidth("category"), maxWidth: getColWidth("category") }}
                     >
                       <div className="flex items-center justify-center">
@@ -901,7 +920,10 @@ export function SwMasterView() {
                     </Td>
                   )}
                   {show("name") && (
-                    <Td style={{ width: getColWidth("name"), minWidth: getColWidth("name"), maxWidth: getColWidth("name") }}>
+                    <Td
+                      className={cn("text-left", ROW_CELL_H)}
+                      style={{ width: getColWidth("name"), minWidth: getColWidth("name"), maxWidth: getColWidth("name") }}
+                    >
                       <EditableText
                         value={row.values.name}
                         onChange={(v) => draft.editCell(row.id, "name", v)}
@@ -914,7 +936,7 @@ export function SwMasterView() {
                   )}
                   {show("std_version") && (
                     <Td
-                      className="text-center"
+                      className={cn("text-left", ROW_CELL_H)}
                       style={{ width: getColWidth("std_version"), minWidth: getColWidth("std_version"), maxWidth: getColWidth("std_version") }}
                     >
                       <EditableText
@@ -927,7 +949,10 @@ export function SwMasterView() {
                     </Td>
                   )}
                   {show("vendor") && (
-                    <Td style={{ width: getColWidth("vendor"), minWidth: getColWidth("vendor"), maxWidth: getColWidth("vendor") }}>
+                    <Td
+                      className={cn("text-left", ROW_CELL_H)}
+                      style={{ width: getColWidth("vendor"), minWidth: getColWidth("vendor"), maxWidth: getColWidth("vendor") }}
+                    >
                       <EditableVendor
                         rowId={row.id}
                         value={row.values.vendor}
@@ -941,7 +966,7 @@ export function SwMasterView() {
                   )}
                   {show("collect_mode") && (
                     <Td
-                      className="text-center"
+                      className={cn("text-center", ROW_CELL_H)}
                       style={{ width: getColWidth("collect_mode"), minWidth: getColWidth("collect_mode"), maxWidth: getColWidth("collect_mode") }}
                     >
                       <div className="flex items-center justify-center">
@@ -959,7 +984,7 @@ export function SwMasterView() {
                   )}
                   {show("active") && (
                     <Td
-                      className="text-center"
+                      className={cn("text-center", ROW_CELL_H)}
                       style={{ width: getColWidth("active"), minWidth: getColWidth("active"), maxWidth: getColWidth("active") }}
                     >
                       <div className="flex items-center justify-center">
@@ -977,14 +1002,17 @@ export function SwMasterView() {
                   )}
                   {show("created_at") && (
                     <Td
-                      className="text-center text-xs text-muted-foreground"
+                      className={cn("text-left text-xs text-muted-foreground", ROW_CELL_H)}
                       style={{ width: getColWidth("created_at"), minWidth: getColWidth("created_at"), maxWidth: getColWidth("created_at") }}
                     >
-                      {row.createdAt ? new Date(row.createdAt).toLocaleDateString("ko-KR") : "-"}
+                      {row.createdAt ? formatDateOnly(row.createdAt) : "-"}
                     </Td>
                   )}
                   {show("manager") && (
-                    <Td style={{ width: getColWidth("manager"), minWidth: getColWidth("manager"), maxWidth: getColWidth("manager") }}>
+                    <Td
+                      className={cn("text-left", ROW_CELL_H)}
+                      style={{ width: getColWidth("manager"), minWidth: getColWidth("manager"), maxWidth: getColWidth("manager") }}
+                    >
                       <EditableText
                         value={row.values.manager}
                         onChange={(v) => draft.editCell(row.id, "manager", v)}
@@ -994,14 +1022,17 @@ export function SwMasterView() {
                   )}
                   {show("updated_by") && (
                     <Td
-                      className="text-xs text-muted-foreground"
+                      className={cn("text-left text-xs text-muted-foreground", ROW_CELL_H)}
                       style={{ width: getColWidth("updated_by"), minWidth: getColWidth("updated_by"), maxWidth: getColWidth("updated_by") }}
                     >
                       {row.updatedBy ?? "-"}
                     </Td>
                   )}
                   {show("note") && (
-                    <Td style={{ width: getColWidth("note"), minWidth: getColWidth("note"), maxWidth: getColWidth("note") }}>
+                    <Td
+                      className={cn("text-left", ROW_CELL_H)}
+                      style={{ width: getColWidth("note"), minWidth: getColWidth("note"), maxWidth: getColWidth("note") }}
+                    >
                       <EditableText
                         value={row.values.note}
                         onChange={(v) => draft.editCell(row.id, "note", v)}
