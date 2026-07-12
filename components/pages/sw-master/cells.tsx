@@ -423,6 +423,9 @@ export function MasterDetailModal({ row, onClose }: { row: EffectiveRow | null; 
     { label: FIELD_LABELS.std_version, value: row.values.std_version || "-" },
     { label: FIELD_LABELS.collect_mode, value: row.values.collect_mode },
     { label: FIELD_LABELS.active, value: row.values.active ? "사용" : "미사용" },
+    ...(!row.values.active && row.deactivatedAt
+      ? [{ label: "미사용 전환일", value: formatDateTime(row.deactivatedAt) }]
+      : []),
     { label: FIELD_LABELS.manager, value: row.values.manager || "-" },
     { label: FIELD_LABELS.note, value: row.values.note || "-" },
     { label: "최근 갱신일", value: row.updatedAt ? formatDateTime(row.updatedAt) : "-" },

@@ -78,6 +78,7 @@ export type EffectiveRow = {
   updatedAt: string | null
   updatedBy: string | null
   createdAt: string | null
+  deactivatedAt: string | null
 }
 
 export type ChangeLogEntry = { id: string; label: string }
@@ -183,6 +184,7 @@ export function useMasterDraft() {
         updatedAt: null,
         updatedBy: null,
         createdAt: null,
+        deactivatedAt: null,
       })
     }
 
@@ -206,6 +208,7 @@ export function useMasterDraft() {
         updatedAt: row.updated_at,
         updatedBy: row.updated_by,
         createdAt: row.created_at,
+        deactivatedAt: row.deactivated_at,
       })
     }
 
@@ -367,6 +370,7 @@ export function useMasterDraft() {
           manager: row.values.manager.trim() || null,
           note: row.values.note.trim() || null,
           updated_by: ACTOR,
+          deactivated_at: row.values.active ? null : new Date().toISOString(),
         }
         const { data, error } = await supabase.from("sw_masters").insert(payload).select().single()
         if (error || !data) {
@@ -377,6 +381,12 @@ export function useMasterDraft() {
           setBaseline((prev) => new Map(prev).set(data.id, data))
         }
       } else if (row.status === "modified") {
+        const base = baseline.get(row.id)!
+        const deactivatedAt = row.values.active
+          ? null
+          : base.active
+            ? new Date().toISOString()
+            : base.deactivated_at
         const payload: TablesUpdate<"sw_masters"> = {
           name: row.values.name.trim(),
           vendor: row.values.vendor.trim(),
@@ -387,6 +397,7 @@ export function useMasterDraft() {
           manager: row.values.manager.trim() || null,
           note: row.values.note.trim() || null,
           updated_by: ACTOR,
+          deactivated_at: deactivatedAt,
         }
         const { data, error } = await supabase
           .from("sw_masters")

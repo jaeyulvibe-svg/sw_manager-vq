@@ -265,8 +265,9 @@ export function SwMasterView() {
 
   useEffect(() => {
     if (!editingRowId) return
+    const id = editingRowId
     function onClickOutside(e: MouseEvent) {
-      const el = rowRefs.current.get(editingRowId)
+      const el = rowRefs.current.get(id)
       if (el && !el.contains(e.target as Node)) setEditingRowId(null)
     }
     document.addEventListener("mousedown", onClickOutside)
