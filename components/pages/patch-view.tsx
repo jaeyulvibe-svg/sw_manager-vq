@@ -26,6 +26,11 @@ import {
   Td,
   MiniButton,
   ExportExcelButton,
+  SortTh,
+  ColumnVisibilityMenu,
+  loadColumnVisibility,
+  TABLE_HEADER_CELL_H,
+  TABLE_ROW_CELL_H,
   type RiskLevel,
 } from "@/components/portal/ui"
 import { AssetSlideover, type AssetDetail } from "@/components/portal/asset-slideover"
@@ -87,6 +92,46 @@ const CATEGORIES: Category[] = ["전체", "OS", "WEB", "WAS", "DB", "Middleware"
 const SEVERITIES: (Vuln | "전체")[] = ["전체", "Critical", "High", "Medium", "Low"]
 const REVIEW_FILTERS = ["전체", "확인 필요", "승인대기", "긴급", "처리완료"] as const
 
+type ColKey =
+  | "vuln" | "name" | "server" | "owner" | "version" | "patch" | "eos" | "approval"
+
+const ALL_COLS: { key: ColKey; label: string }[] = [
+  { key: "vuln", label: "심각도" },
+  { key: "name", label: "자산" },
+  { key: "server", label: "설치 서버" },
+  { key: "owner", label: "담당자" },
+  { key: "version", label: "현재 → 권고 버전" },
+  { key: "patch", label: "패치 상태" },
+  { key: "eos", label: "EOS" },
+  { key: "approval", label: "검토 상태" },
+]
+const FACTORY_VISIBLE: ColKey[] = ALL_COLS.map((c) => c.key)
+const LS_KEY = "patch_view_columns"
+
+type SortKey = ColKey | "none"
+type SortDir = "asc" | "desc"
+
+const patchOrder: Record<Asset["patch"], number> = {
+  "Patch Required": 0,
+  "Patch Available": 1,
+  "Up to Date": 2,
+}
+const approvalOrder: Record<Asset["approval"], number> = {
+  긴급: 0,
+  확인필요: 1,
+  승인대기: 2,
+  승인완료: 3,
+}
+
+function sortValue(a: Asset, key: SortKey): string | number {
+  if (key === "vuln") return severityRank[a.vuln]
+  if (key === "patch") return patchOrder[a.patch]
+  if (key === "eos") return a.eos ? new Date(a.eos).getTime() : 0
+  if (key === "approval") return approvalOrder[a.approval]
+  if (key === "none") return 0
+  return String(a[key])
+}
+
 function needsReview(a: Asset) {
   return a.approval === "확인필요" || a.approval === "승인대기" || a.approval === "긴급"
 }
@@ -120,6 +165,17 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
   const [severity, setSeverity] = useState<(typeof SEVERITIES)[number]>("전체")
   const [review, setReview] = useState<(typeof REVIEW_FILTERS)[number]>("전체")
   const [selected, setSelected] = useState<AssetDetail | null>(null)
+  const [sortKey, setSortKey] = useState<SortKey>("vuln")
+  const [sortDir, setSortDir] = useState<SortDir>("asc")
+  const [visible, setVisible] = useState<ColKey[]>(() => loadColumnVisibility(LS_KEY, FACTORY_VISIBLE))
+
+  function handleSort(col: SortKey) {
+    if (sortKey === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
+    else {
+      setSortKey(col)
+      setSortDir("asc")
+    }
+  }
 
   useEffect(() => {
     const supabase = createClient()
@@ -166,8 +222,15 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
           (review === "처리완료" && a.approval === "승인완료")
         return matchesQuery && matchesCat && matchesSeverity && matchesReview
       })
-      .sort((a, b) => severityRank[a.vuln] - severityRank[b.vuln])
-  }, [matched, query, cat, severity, review, vulns])
+      .sort((a, b) => {
+        const va = sortValue(a, sortKey)
+        const vb = sortValue(b, sortKey)
+        const d = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb), "ko")
+        return sortDir === "asc" ? d : -d
+      })
+  }, [matched, query, cat, severity, review, vulns, sortKey, sortDir])
+
+  const show = (key: ColKey) => visible.includes(key)
 
   return (
     <div className="flex flex-col gap-6">
@@ -196,23 +259,32 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
         subtitle="보유 자산 중 제조사 패치 권고와 매핑되는 항목입니다"
         icon={ShieldAlert}
         action={
-          <ExportExcelButton
-            rows={filtered}
-            filename="패치_취약점_모니터링"
-            columns={[
-              { label: "심각도", value: (a: Asset) => vulnLabel[a.vuln] },
-              { label: "자산", value: (a: Asset) => a.name },
-              { label: "설치 서버", value: (a: Asset) => a.server },
-              { label: "담당자", value: (a: Asset) => a.owner },
-              { label: "현재 버전", value: (a: Asset) => a.version },
-              { label: "권고 버전", value: (a: Asset) => a.latest_version ?? "-" },
-              { label: "패치 상태", value: (a: Asset) => patchLabel[a.patch] },
-              { label: "패치 요약", value: (a: Asset) => advisoryFor(a, vulns).summary },
-              { label: "CVE", value: (a: Asset) => advisoryFor(a, vulns).cve },
-              { label: "EOS", value: (a: Asset) => a.eos ?? "-" },
-              { label: "검토 상태", value: (a: Asset) => a.approval },
-            ]}
-          />
+          <div className="flex items-center gap-1.5">
+            <ExportExcelButton
+              rows={filtered}
+              filename="패치_취약점_모니터링"
+              columns={[
+                { label: "심각도", value: (a: Asset) => vulnLabel[a.vuln] },
+                { label: "자산", value: (a: Asset) => a.name },
+                { label: "설치 서버", value: (a: Asset) => a.server },
+                { label: "담당자", value: (a: Asset) => a.owner },
+                { label: "현재 버전", value: (a: Asset) => a.version },
+                { label: "권고 버전", value: (a: Asset) => a.latest_version ?? "-" },
+                { label: "패치 상태", value: (a: Asset) => patchLabel[a.patch] },
+                { label: "패치 요약", value: (a: Asset) => advisoryFor(a, vulns).summary },
+                { label: "CVE", value: (a: Asset) => advisoryFor(a, vulns).cve },
+                { label: "EOS", value: (a: Asset) => a.eos ?? "-" },
+                { label: "검토 상태", value: (a: Asset) => a.approval },
+              ]}
+            />
+            <ColumnVisibilityMenu
+              allCols={ALL_COLS}
+              visible={visible}
+              onChange={setVisible}
+              factoryDefault={FACTORY_VISIBLE}
+              storageKey={LS_KEY}
+            />
+          </div>
         }
       >
         {/* 필터 */}
@@ -284,19 +356,19 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
           {loading && <span className="ml-2 text-xs">불러오는 중…</span>}
         </p>
 
-        <TableShell>
+        <TableShell scrollHint>
           <thead>
             <tr>
-              <Th>심각도</Th>
-              <Th>자산</Th>
-              <Th>설치 서버</Th>
-              <Th>담당자</Th>
-              <Th>현재 → 권고 버전</Th>
-              <Th>패치 상태</Th>
-              <Th className="min-w-64">패치 요약 (CVE)</Th>
-              <Th>EOS</Th>
-              <Th>검토 상태</Th>
-              <Th>작업</Th>
+              {show("vuln") && <SortTh col="vuln" label="심각도" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {show("name") && <SortTh col="name" label="자산" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {show("server") && <SortTh col="server" label="설치 서버" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {show("owner") && <SortTh col="owner" label="담당자" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {show("version") && <SortTh col="version" label="현재 → 권고 버전" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {show("patch") && <SortTh col="patch" label="패치 상태" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              <Th className={cn("min-w-64", TABLE_HEADER_CELL_H)}>패치 요약 (CVE)</Th>
+              {show("eos") && <SortTh col="eos" label="EOS" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {show("approval") && <SortTh col="approval" label="검토 상태" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              <Th className={TABLE_HEADER_CELL_H}>작업</Th>
             </tr>
           </thead>
           <tbody>
@@ -304,36 +376,46 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
               const adv = advisoryFor(a, vulns)
               return (
                 <tr key={a.id} className="transition-colors hover:bg-accent/40">
-                  <Td>
-                    <StatusBadge risk={vulnRisk[a.vuln]} pulse={a.vuln === "Critical"}>
-                      {vulnLabel[a.vuln]}
-                    </StatusBadge>
-                  </Td>
-                  <Td>
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-xs font-semibold text-foreground">{a.name}</span>
-                      <span className="text-[11px] text-muted-foreground">{a.vendor} · {a.category}</span>
-                    </div>
-                  </Td>
-                  <Td className="text-xs text-muted-foreground">{a.server}</Td>
-                  <Td>{a.owner}</Td>
-                  <Td className="font-mono text-xs">
-                    {a.version} → <span className="font-semibold text-primary">{a.latest_version ?? "-"}</span>
-                  </Td>
-                  <Td>
-                    <StatusBadge risk={patchRisk[a.patch]}>{patchLabel[a.patch]}</StatusBadge>
-                  </Td>
-                  <Td className="whitespace-normal text-xs">
+                  {show("vuln") && (
+                    <Td className={TABLE_ROW_CELL_H}>
+                      <StatusBadge risk={vulnRisk[a.vuln]} pulse={a.vuln === "Critical"}>
+                        {vulnLabel[a.vuln]}
+                      </StatusBadge>
+                    </Td>
+                  )}
+                  {show("name") && (
+                    <Td className={TABLE_ROW_CELL_H}>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs font-semibold text-foreground">{a.name}</span>
+                        <span className="text-[11px] text-muted-foreground">{a.vendor} · {a.category}</span>
+                      </div>
+                    </Td>
+                  )}
+                  {show("server") && <Td className={cn("text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{a.server}</Td>}
+                  {show("owner") && <Td className={TABLE_ROW_CELL_H}>{a.owner}</Td>}
+                  {show("version") && (
+                    <Td className={cn("font-mono text-xs", TABLE_ROW_CELL_H)}>
+                      {a.version} → <span className="font-semibold text-primary">{a.latest_version ?? "-"}</span>
+                    </Td>
+                  )}
+                  {show("patch") && (
+                    <Td className={TABLE_ROW_CELL_H}>
+                      <StatusBadge risk={patchRisk[a.patch]}>{patchLabel[a.patch]}</StatusBadge>
+                    </Td>
+                  )}
+                  <Td className={cn("whitespace-normal text-xs", TABLE_ROW_CELL_H)}>
                     <p className="text-foreground">{adv.summary}</p>
                     <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">{adv.cve}</p>
                   </Td>
-                  <Td className={cn("font-mono text-xs", isEosSoon(a.eos) && "text-eos")}>{a.eos ?? "-"}</Td>
-                  <Td>
-                    <StatusBadge risk={approvalRisk[a.approval]} pulse={a.approval === "긴급"}>
-                      {a.approval}
-                    </StatusBadge>
-                  </Td>
-                  <Td>
+                  {show("eos") && <Td className={cn("font-mono text-xs", TABLE_ROW_CELL_H, isEosSoon(a.eos) && "text-eos")}>{a.eos ?? "-"}</Td>}
+                  {show("approval") && (
+                    <Td className={TABLE_ROW_CELL_H}>
+                      <StatusBadge risk={approvalRisk[a.approval]} pulse={a.approval === "긴급"}>
+                        {a.approval}
+                      </StatusBadge>
+                    </Td>
+                  )}
+                  <Td className={TABLE_ROW_CELL_H}>
                     <div className="flex items-center gap-1.5">
                       <MiniButton accent="primary" onClick={() => setSelected(toDetail(a))}>
                         <Eye className="h-3 w-3" />상세
