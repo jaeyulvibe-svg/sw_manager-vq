@@ -103,7 +103,7 @@ export function ApprovalView() {
     const supabase = createClient()
 
     if (decision === "승인완료") {
-      await supabase.from("assets").insert({
+      const { error: assetError } = await supabase.from("assets").insert({
         name: req.name,
         vendor: req.vendor,
         category: req.category as Tables<"assets">["category"],
@@ -115,6 +115,15 @@ export function ApprovalView() {
         patch: "Up to Date",
         approval: "확인필요",
       })
+      if (assetError) {
+        setBusyId(null)
+        toast({
+          tone: "danger",
+          title: "자산 등록 실패",
+          description: `${req.name} 자산을 자산 목록에 등록하지 못해 승인을 중단했습니다: ${assetError.message}`,
+        })
+        return
+      }
     }
 
     await supabase.from("asset_requests").update({ approval: decision }).eq("id", req.id)
