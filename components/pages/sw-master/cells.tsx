@@ -180,9 +180,10 @@ export function EditableCategory({
 }) {
   const Icon = CATEGORY_ICONS[value]
   return (
-    <div className="flex items-center gap-1.5">
+    <div className={cn("relative flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/40 pl-2", dirty && "bg-primary/8")}>
+      {dirty ? <DirtyDot /> : null}
       <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-      <EditableSelect value={value} onChange={(v) => onChange(v as EditableFields["category"])} options={MASTER_CATEGORIES} dirty={dirty} />
+      <EditableSelect value={value} onChange={(v) => onChange(v as EditableFields["category"])} options={MASTER_CATEGORIES} dirty={false} />
     </div>
   )
 }

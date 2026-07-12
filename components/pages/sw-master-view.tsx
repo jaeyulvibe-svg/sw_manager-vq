@@ -227,9 +227,7 @@ export function SwMasterView() {
   const [catFilter, setCatFilter] = useState<(typeof CATEGORY_FILTERS)[number]>("전체")
   const [modeFilter, setModeFilter] = useState<(typeof COLLECT_MODE_FILTERS)[number]>("전체")
   const [activeFilter, setActiveFilter] = useState<(typeof ACTIVE_FILTERS)[number]>("전체")
-  const [showMoreFilters, setShowMoreFilters] = useState(false)
-  const [vendorFilter, setVendorFilter] = useState("전체")
-  const [managerFilter, setManagerFilter] = useState("전체")
+  const [detailFiltersOpen, setDetailFiltersOpen] = useState(false)
 
   const [sort, setSort] = useState<SortSpec[]>([{ key: "id", dir: "asc" }])
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -273,13 +271,6 @@ export function SwMasterView() {
       ),
     [draft.rows],
   )
-  const managerOptions = useMemo(
-    () =>
-      Array.from(new Set(draft.rows.map((r) => r.values.manager).filter(Boolean))).sort((a, b) =>
-        a.localeCompare(b, "ko"),
-      ),
-    [draft.rows],
-  )
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -292,11 +283,15 @@ export function SwMasterView() {
       const matchesCat = catFilter === "전체" || row.values.category === catFilter
       const matchesMode = modeFilter === "전체" || row.values.collect_mode === modeFilter
       const matchesActive = activeFilter === "전체" || (activeFilter === "사용" ? row.values.active : !row.values.active)
-      const matchesVendor = vendorFilter === "전체" || row.values.vendor === vendorFilter
-      const matchesManager = managerFilter === "전체" || row.values.manager === managerFilter
-      return matchesQuery && matchesCat && matchesMode && matchesActive && matchesVendor && matchesManager
+      return matchesQuery && matchesCat && matchesMode && matchesActive
     })
-  }, [draft.rows, query, catFilter, modeFilter, activeFilter, vendorFilter, managerFilter])
+  }, [draft.rows, query, catFilter, modeFilter, activeFilter])
+
+  const detailFilterCount = [catFilter, modeFilter, activeFilter].filter((v) => v !== "전체").length
+  const filterChips: { key: string; label: string; onRemove: () => void }[] = []
+  if (catFilter !== "전체") filterChips.push({ key: "category", label: catFilter, onRemove: () => setCatFilter("전체") })
+  if (modeFilter !== "전체") filterChips.push({ key: "mode", label: modeFilter, onRemove: () => setModeFilter("전체") })
+  if (activeFilter !== "전체") filterChips.push({ key: "active", label: activeFilter, onRemove: () => setActiveFilter("전체") })
 
   const sorted = useMemo(() => {
     if (sort.length === 0) return filtered
@@ -339,9 +334,6 @@ export function SwMasterView() {
     setCatFilter("전체")
     setModeFilter("전체")
     setActiveFilter("전체")
-    setVendorFilter("전체")
-    setManagerFilter("전체")
-    setShowMoreFilters(false)
     setSort([{ key: "id", dir: "asc" }])
     setPage(1)
   }
@@ -448,132 +440,174 @@ export function SwMasterView() {
       />
 
       {/* 검색 + 필터 */}
-      <div className="glow-card animate-rise flex flex-col gap-4 rounded-2xl border border-border/60 bg-card p-5">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={query}
+      <div className="glow-card animate-rise flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4">
+        {/* 기본 검색 한 줄 */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[220px] flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value)
+                setPage(1)
+              }}
+              placeholder="마스터 ID, 제품명, 벤더, 표준 버전 검색"
+              className="w-full rounded-lg border border-border/60 bg-background/50 py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+
+          <select
+            value={catFilter}
             onChange={(e) => {
-              setQuery(e.target.value)
+              setCatFilter(e.target.value as (typeof CATEGORY_FILTERS)[number])
               setPage(1)
             }}
-            placeholder="마스터 ID, 제품명, 벤더, 표준 버전 검색"
-            className="w-full rounded-xl border border-border/60 bg-background/50 py-2.5 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20"
-          />
-        </div>
+            className="rounded-lg border border-border/60 bg-background/50 px-2.5 py-2 text-xs font-medium text-foreground focus:border-primary/60 focus:outline-none"
+          >
+            <option value="전체">분류 전체</option>
+            {MASTER_CATEGORIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">분류</span>
-          {CATEGORY_FILTERS.map((c) => {
-            const Icon = c === "전체" ? null : CATEGORY_ICONS[c]
-            return (
-              <button
-                key={c}
-                type="button"
-                onClick={() => {
-                  setCatFilter(c)
-                  setPage(1)
-                }}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                  catFilter === c ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {Icon ? <Icon className="h-3.5 w-3.5" aria-hidden /> : null}
-                {c}
-              </button>
-            )
-          })}
-        </div>
+          <select
+            value={modeFilter}
+            onChange={(e) => {
+              setModeFilter(e.target.value as (typeof COLLECT_MODE_FILTERS)[number])
+              setPage(1)
+            }}
+            className="rounded-lg border border-border/60 bg-background/50 px-2.5 py-2 text-xs font-medium text-foreground focus:border-primary/60 focus:outline-none"
+          >
+            <option value="전체">수집 모드 전체</option>
+            {COLLECT_MODES.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
 
-        <div className="flex flex-wrap items-center gap-2 border-t border-border/50 pt-3">
-          <span className="text-xs font-medium text-muted-foreground">수집 모드</span>
-          {COLLECT_MODE_FILTERS.map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => {
-                setModeFilter(m)
-                setPage(1)
-              }}
-              className={cn(
-                "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
-                modeFilter === m ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {m}
-            </button>
-          ))}
-          <span className="ml-3 text-xs font-medium text-muted-foreground">사용 여부</span>
-          {ACTIVE_FILTERS.map((a) => (
-            <button
-              key={a}
-              type="button"
-              onClick={() => {
-                setActiveFilter(a)
-                setPage(1)
-              }}
-              className={cn(
-                "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
-                activeFilter === a ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {a}
-            </button>
-          ))}
-        </div>
+          <select
+            value={activeFilter}
+            onChange={(e) => {
+              setActiveFilter(e.target.value as (typeof ACTIVE_FILTERS)[number])
+              setPage(1)
+            }}
+            className="rounded-lg border border-border/60 bg-background/50 px-2.5 py-2 text-xs font-medium text-foreground focus:border-primary/60 focus:outline-none"
+          >
+            <option value="전체">사용 여부 전체</option>
+            <option value="사용">사용</option>
+            <option value="미사용">미사용</option>
+          </select>
 
-        {showMoreFilters ? (
-          <div className="flex flex-wrap items-center gap-3 border-t border-border/50 pt-3">
-            <label className="flex items-center gap-1.5 text-xs">
-              <span className="font-medium text-muted-foreground">벤더</span>
-              <select
-                value={vendorFilter}
-                onChange={(e) => {
-                  setVendorFilter(e.target.value)
-                  setPage(1)
-                }}
-                className="rounded-md border border-border/60 bg-background/50 px-2 py-1 text-xs"
-              >
-                <option value="전체">전체</option>
-                {vendorOptions.map((v) => (
-                  <option key={v} value={v}>{v}</option>
-                ))}
-              </select>
-            </label>
-            <label className="flex items-center gap-1.5 text-xs">
-              <span className="font-medium text-muted-foreground">관리자</span>
-              <select
-                value={managerFilter}
-                onChange={(e) => {
-                  setManagerFilter(e.target.value)
-                  setPage(1)
-                }}
-                className="rounded-md border border-border/60 bg-background/50 px-2 py-1 text-xs"
-              >
-                <option value="전체">전체</option>
-                {managerOptions.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-        ) : null}
-
-        <div className="flex items-center justify-between border-t border-border/50 pt-3">
-          <button
-            type="button"
-            onClick={() => setShowMoreFilters((v) => !v)}
-            className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+          <MiniButton
+            onClick={() => setDetailFiltersOpen((v) => !v)}
+            className={cn(detailFiltersOpen && "border-primary/50 bg-primary/10 text-primary")}
           >
             <Filter className="h-3.5 w-3.5" />
-            {showMoreFilters ? "필터 접기" : "필터 추가"}
-          </button>
+            상세 필터{detailFilterCount > 0 ? ` (${detailFilterCount})` : ""}
+            {detailFiltersOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          </MiniButton>
+
           <MiniButton onClick={resetFilters}>
             <RotateCcw className="h-3 w-3" />
             초기화
           </MiniButton>
         </div>
+
+        {/* 상세 필터 아코디언 */}
+        {detailFiltersOpen ? (
+          <div className="animate-rise flex flex-col gap-3 border-t border-border/50 pt-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="w-16 shrink-0 text-xs font-medium text-muted-foreground">분류</span>
+              {CATEGORY_FILTERS.map((c) => {
+                const Icon = c === "전체" ? null : CATEGORY_ICONS[c]
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => {
+                      setCatFilter(c)
+                      setPage(1)
+                    }}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+                      catFilter === c
+                        ? "border-primary/60 bg-primary/8 text-primary"
+                        : "border-border text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {Icon ? <Icon className="h-3.5 w-3.5" aria-hidden /> : null}
+                    {c}
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="w-16 shrink-0 text-xs font-medium text-muted-foreground">수집 모드</span>
+              {COLLECT_MODE_FILTERS.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => {
+                    setModeFilter(m)
+                    setPage(1)
+                  }}
+                  className={cn(
+                    "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+                    modeFilter === m
+                      ? "border-primary/60 bg-primary/8 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="w-16 shrink-0 text-xs font-medium text-muted-foreground">사용 여부</span>
+              {ACTIVE_FILTERS.map((a) => (
+                <button
+                  key={a}
+                  type="button"
+                  onClick={() => {
+                    setActiveFilter(a)
+                    setPage(1)
+                  }}
+                  className={cn(
+                    "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+                    activeFilter === a
+                      ? "border-primary/60 bg-primary/8 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {a}
+                </button>
+              ))}
+            </div>
+
+            {filterChips.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-1.5 border-t border-border/50 pt-3">
+                <span className="text-[11px] text-muted-foreground">적용된 조건</span>
+                {filterChips.map((chip) => (
+                  <span
+                    key={chip.key}
+                    className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 py-0.5 pl-2.5 pr-1 text-xs font-medium text-primary"
+                  >
+                    {chip.label}
+                    <button
+                      type="button"
+                      onClick={chip.onRemove}
+                      aria-label={`${chip.label} 필터 해제`}
+                      className="flex h-4 w-4 items-center justify-center rounded-full transition-colors hover:bg-primary/20"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       {/* 선택/일괄 작업 바 */}
