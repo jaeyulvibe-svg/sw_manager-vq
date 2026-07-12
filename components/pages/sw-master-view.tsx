@@ -26,7 +26,6 @@ import {
   useMasterDraft,
   MASTER_CATEGORIES,
   COLLECT_MODES,
-  formatDateTime,
   type EditableFields,
   type EffectiveRow,
 } from "@/components/pages/sw-master/use-master-draft"
@@ -47,25 +46,24 @@ import {
 
 /* ---- 컬럼 정의 ---- */
 type ColKey =
-  | "id" | "name" | "vendor" | "category" | "std_version" | "collect_mode" | "active" | "updated_at"
-  | "manager" | "updated_by" | "created_at" | "note"
+  | "id" | "category" | "name" | "std_version" | "vendor" | "collect_mode" | "active" | "created_at"
+  | "manager" | "updated_by" | "note"
 
 const ALL_COLS: { key: ColKey; label: string }[] = [
   { key: "id", label: "마스터 ID" },
-  { key: "name", label: "제품명" },
-  { key: "vendor", label: "벤더" },
   { key: "category", label: "분류" },
-  { key: "std_version", label: "표준 버전" },
+  { key: "name", label: "제품명" },
+  { key: "std_version", label: "버전" },
+  { key: "vendor", label: "제조사" },
   { key: "collect_mode", label: "수집 모드" },
   { key: "active", label: "사용 여부" },
-  { key: "updated_at", label: "최근 갱신일" },
+  { key: "created_at", label: "등록일" },
   { key: "manager", label: "관리자" },
   { key: "updated_by", label: "수정자" },
-  { key: "created_at", label: "등록일" },
   { key: "note", label: "비고" },
 ]
 const FACTORY_VISIBLE: ColKey[] = [
-  "id", "name", "vendor", "category", "std_version", "collect_mode", "active", "updated_at",
+  "id", "category", "name", "std_version", "vendor", "collect_mode", "active", "created_at",
 ]
 const LS_COLUMNS_KEY = "sw_master_columns"
 
@@ -84,16 +82,15 @@ function saveVisibleCols(cols: ColKey[]) {
 /* ---- 컬럼 너비 조절 ---- */
 const DEFAULT_COL_WIDTHS: Record<ColKey, number> = {
   id: 140,
-  name: 220,
-  vendor: 180,
   category: 150,
+  name: 220,
   std_version: 120,
+  vendor: 180,
   collect_mode: 150,
   active: 110,
-  updated_at: 170,
+  created_at: 130,
   manager: 110,
   updated_by: 100,
-  created_at: 110,
   note: 160,
 }
 const MIN_COL_WIDTH = 60
@@ -143,13 +140,13 @@ function ColumnResizeHandle({ onResize }: { onResize: (deltaPx: number) => void 
 }
 
 /* ---- 정렬 ---- */
-type SortKey = "id" | keyof EditableFields | "updated_at"
+type SortKey = "id" | keyof EditableFields | "created_at"
 type SortDir = "asc" | "desc"
 type SortSpec = { key: SortKey; dir: SortDir }
 
 function sortValue(row: EffectiveRow, key: SortKey): string | number {
   if (key === "id") return row.id
-  if (key === "updated_at") return row.updatedAt ? new Date(row.updatedAt).getTime() : 0
+  if (key === "created_at") return row.createdAt ? new Date(row.createdAt).getTime() : 0
   if (key === "active") return row.values.active ? 1 : 0
   return String(row.values[key as keyof EditableFields])
 }
@@ -771,17 +768,17 @@ export function SwMasterView() {
             {show("id") && (
               <SortTh col="id" label="마스터 ID" sort={sort} onSort={handleSort} width={getColWidth("id")} onResize={(d) => resizeColumn("id", d)} />
             )}
-            {show("name") && (
-              <SortTh col="name" label="제품명" sort={sort} onSort={handleSort} width={getColWidth("name")} onResize={(d) => resizeColumn("name", d)} />
-            )}
-            {show("vendor") && (
-              <SortTh col="vendor" label="벤더" sort={sort} onSort={handleSort} width={getColWidth("vendor")} onResize={(d) => resizeColumn("vendor", d)} />
-            )}
             {show("category") && (
               <SortTh col="category" label="분류" sort={sort} onSort={handleSort} width={getColWidth("category")} onResize={(d) => resizeColumn("category", d)} />
             )}
+            {show("name") && (
+              <SortTh col="name" label="제품명" sort={sort} onSort={handleSort} width={getColWidth("name")} onResize={(d) => resizeColumn("name", d)} />
+            )}
             {show("std_version") && (
-              <SortTh col="std_version" label="표준 버전" sort={sort} onSort={handleSort} width={getColWidth("std_version")} onResize={(d) => resizeColumn("std_version", d)} />
+              <SortTh col="std_version" label="버전" sort={sort} onSort={handleSort} width={getColWidth("std_version")} onResize={(d) => resizeColumn("std_version", d)} />
+            )}
+            {show("vendor") && (
+              <SortTh col="vendor" label="제조사" sort={sort} onSort={handleSort} width={getColWidth("vendor")} onResize={(d) => resizeColumn("vendor", d)} />
             )}
             {show("collect_mode") && (
               <SortTh col="collect_mode" label="수집 모드" sort={sort} onSort={handleSort} width={getColWidth("collect_mode")} onResize={(d) => resizeColumn("collect_mode", d)} />
@@ -789,8 +786,8 @@ export function SwMasterView() {
             {show("active") && (
               <SortTh col="active" label="사용 여부" sort={sort} onSort={handleSort} width={getColWidth("active")} onResize={(d) => resizeColumn("active", d)} />
             )}
-            {show("updated_at") && (
-              <SortTh col="updated_at" label="최근 갱신일" sort={sort} onSort={handleSort} width={getColWidth("updated_at")} onResize={(d) => resizeColumn("updated_at", d)} />
+            {show("created_at") && (
+              <SortTh col="created_at" label="등록일" sort={sort} onSort={handleSort} width={getColWidth("created_at")} onResize={(d) => resizeColumn("created_at", d)} />
             )}
             {show("manager") && (
               <Th className="relative bg-accent/15" style={{ width: getColWidth("manager"), minWidth: getColWidth("manager"), maxWidth: getColWidth("manager") }}>
@@ -802,12 +799,6 @@ export function SwMasterView() {
               <Th className="relative bg-accent/15" style={{ width: getColWidth("updated_by"), minWidth: getColWidth("updated_by"), maxWidth: getColWidth("updated_by") }}>
                 수정자
                 <ColumnResizeHandle onResize={(d) => resizeColumn("updated_by", d)} />
-              </Th>
-            )}
-            {show("created_at") && (
-              <Th className="relative bg-accent/15" style={{ width: getColWidth("created_at"), minWidth: getColWidth("created_at"), maxWidth: getColWidth("created_at") }}>
-                등록일
-                <ColumnResizeHandle onResize={(d) => resizeColumn("created_at", d)} />
               </Th>
             )}
             {show("note") && (
@@ -888,31 +879,6 @@ export function SwMasterView() {
                       </div>
                     </Td>
                   )}
-                  {show("name") && (
-                    <Td style={{ width: getColWidth("name"), minWidth: getColWidth("name"), maxWidth: getColWidth("name") }}>
-                      <EditableText
-                        value={row.values.name}
-                        onChange={(v) => draft.editCell(row.id, "name", v)}
-                        dirty={row.dirtyFields.has("name")}
-                        error={row.fieldErrors?.name}
-                        required={requiredEmpty("name")}
-                        bold
-                      />
-                    </Td>
-                  )}
-                  {show("vendor") && (
-                    <Td style={{ width: getColWidth("vendor"), minWidth: getColWidth("vendor"), maxWidth: getColWidth("vendor") }}>
-                      <EditableVendor
-                        rowId={row.id}
-                        value={row.values.vendor}
-                        onChange={(v) => draft.editCell(row.id, "vendor", v)}
-                        options={vendorOptions}
-                        dirty={row.dirtyFields.has("vendor")}
-                        error={row.fieldErrors?.vendor}
-                        required={requiredEmpty("vendor")}
-                      />
-                    </Td>
-                  )}
                   {show("category") && (
                     <Td
                       className="text-center"
@@ -931,6 +897,18 @@ export function SwMasterView() {
                       </div>
                     </Td>
                   )}
+                  {show("name") && (
+                    <Td style={{ width: getColWidth("name"), minWidth: getColWidth("name"), maxWidth: getColWidth("name") }}>
+                      <EditableText
+                        value={row.values.name}
+                        onChange={(v) => draft.editCell(row.id, "name", v)}
+                        dirty={row.dirtyFields.has("name")}
+                        error={row.fieldErrors?.name}
+                        required={requiredEmpty("name")}
+                        bold
+                      />
+                    </Td>
+                  )}
                   {show("std_version") && (
                     <Td
                       className="text-center"
@@ -942,6 +920,19 @@ export function SwMasterView() {
                         dirty={row.dirtyFields.has("std_version")}
                         error={row.fieldErrors?.std_version}
                         required={requiredEmpty("std_version")}
+                      />
+                    </Td>
+                  )}
+                  {show("vendor") && (
+                    <Td style={{ width: getColWidth("vendor"), minWidth: getColWidth("vendor"), maxWidth: getColWidth("vendor") }}>
+                      <EditableVendor
+                        rowId={row.id}
+                        value={row.values.vendor}
+                        onChange={(v) => draft.editCell(row.id, "vendor", v)}
+                        options={vendorOptions}
+                        dirty={row.dirtyFields.has("vendor")}
+                        error={row.fieldErrors?.vendor}
+                        required={requiredEmpty("vendor")}
                       />
                     </Td>
                   )}
@@ -981,12 +972,12 @@ export function SwMasterView() {
                       </div>
                     </Td>
                   )}
-                  {show("updated_at") && (
+                  {show("created_at") && (
                     <Td
                       className="text-center text-xs text-muted-foreground"
-                      style={{ width: getColWidth("updated_at"), minWidth: getColWidth("updated_at"), maxWidth: getColWidth("updated_at") }}
+                      style={{ width: getColWidth("created_at"), minWidth: getColWidth("created_at"), maxWidth: getColWidth("created_at") }}
                     >
-                      {row.updatedAt ? formatDateTime(row.updatedAt) : "-"}
+                      {row.createdAt ? new Date(row.createdAt).toLocaleDateString("ko-KR") : "-"}
                     </Td>
                   )}
                   {show("manager") && (
@@ -1004,14 +995,6 @@ export function SwMasterView() {
                       style={{ width: getColWidth("updated_by"), minWidth: getColWidth("updated_by"), maxWidth: getColWidth("updated_by") }}
                     >
                       {row.updatedBy ?? "-"}
-                    </Td>
-                  )}
-                  {show("created_at") && (
-                    <Td
-                      className="text-xs text-muted-foreground"
-                      style={{ width: getColWidth("created_at"), minWidth: getColWidth("created_at"), maxWidth: getColWidth("created_at") }}
-                    >
-                      {row.createdAt ? new Date(row.createdAt).toLocaleDateString("ko-KR") : "-"}
                     </Td>
                   )}
                   {show("note") && (
