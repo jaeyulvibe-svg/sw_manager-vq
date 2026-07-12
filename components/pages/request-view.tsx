@@ -43,6 +43,7 @@ const approvalRisk: Record<AssetRequest["approval"], RiskLevel> = {
 
 type FormState = {
   category: MasterCategory | ""
+  productName: string
   masterId: string
   server: string
   dept: string
@@ -52,6 +53,7 @@ type FormState = {
 
 const EMPTY_FORM: FormState = {
   category: "",
+  productName: "",
   masterId: "",
   server: "",
   dept: "",
@@ -146,10 +148,16 @@ export function RequestView() {
   }, [])
 
   const mastersInCategory = form.category ? masters.filter((m) => m.category === form.category) : []
+  const productNames = Array.from(new Set(mastersInCategory.map((m) => m.name))).sort((a, b) => a.localeCompare(b, "ko"))
+  const versionOptions = form.productName ? mastersInCategory.filter((m) => m.name === form.productName) : []
   const selectedMaster = masters.find((m) => m.id === form.masterId)
 
   function handleCategoryChange(next: string) {
-    setForm((prev) => ({ ...prev, category: next as MasterCategory | "", masterId: "" }))
+    setForm((prev) => ({ ...prev, category: next as MasterCategory | "", productName: "", masterId: "" }))
+  }
+
+  function handleProductChange(next: string) {
+    setForm((prev) => ({ ...prev, productName: next, masterId: "" }))
   }
 
   const counts = {
@@ -263,8 +271,8 @@ export function RequestView() {
               <Field label="등록 제품" required>
                 <select
                   className={inputCls}
-                  value={form.masterId}
-                  onChange={(e) => update("masterId", e.target.value)}
+                  value={form.productName}
+                  onChange={(e) => handleProductChange(e.target.value)}
                   disabled={!form.category}
                 >
                   <option value="">
@@ -272,21 +280,29 @@ export function RequestView() {
                       ? "먼저 분류를 선택하세요"
                       : mastersLoading
                         ? "불러오는 중..."
-                        : mastersInCategory.length === 0
+                        : productNames.length === 0
                           ? "해당 분류에 등록된 제품이 없습니다"
                           : "SW 마스터에 등록된 제품을 선택하세요"}
                   </option>
-                  {mastersInCategory.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} ({m.vendor}) — v{m.std_version}
-                    </option>
+                  {productNames.map((name) => (
+                    <option key={name} value={name}>{name}</option>
                   ))}
                 </select>
               </Field>
-              <Field label="버전">
-                <div className="flex h-[38px] items-center rounded-lg border border-border/60 bg-background/30 px-3 text-sm text-foreground">
-                  {selectedMaster ? selectedMaster.std_version : <span className="text-muted-foreground">제품을 선택하면 표시됩니다</span>}
-                </div>
+              <Field label="버전" required>
+                <select
+                  className={inputCls}
+                  value={form.masterId}
+                  onChange={(e) => update("masterId", e.target.value)}
+                  disabled={!form.productName}
+                >
+                  <option value="">
+                    {!form.productName ? "먼저 등록 제품을 선택하세요" : "버전을 선택하세요"}
+                  </option>
+                  {versionOptions.map((m) => (
+                    <option key={m.id} value={m.id}>{m.std_version}</option>
+                  ))}
+                </select>
               </Field>
               <Field label="설치 서버" required>
                 <select
