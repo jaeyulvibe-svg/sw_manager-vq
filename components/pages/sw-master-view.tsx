@@ -26,6 +26,7 @@ import {
   useMasterDraft,
   MASTER_CATEGORIES,
   COLLECT_MODES,
+  formatDateTime,
   type EditableFields,
   type EffectiveRow,
 } from "@/components/pages/sw-master/use-master-draft"
@@ -39,6 +40,9 @@ import {
   RowMenu,
   MasterDetailModal,
   CATEGORY_ICONS,
+  CollectModeBadge,
+  UseStatusBadge,
+  CategoryCell,
 } from "@/components/pages/sw-master/cells"
 
 /* ---- 컬럼 정의 ---- */
@@ -79,14 +83,14 @@ function saveVisibleCols(cols: ColKey[]) {
 
 /* ---- 컬럼 너비 조절 ---- */
 const DEFAULT_COL_WIDTHS: Record<ColKey, number> = {
-  id: 90,
-  name: 160,
-  vendor: 120,
-  category: 100,
-  std_version: 100,
-  collect_mode: 120,
-  active: 80,
-  updated_at: 120,
+  id: 140,
+  name: 220,
+  vendor: 180,
+  category: 150,
+  std_version: 120,
+  collect_mode: 150,
+  active: 110,
+  updated_at: 170,
   manager: 110,
   updated_by: 100,
   created_at: 110,
@@ -231,6 +235,9 @@ export function SwMasterView() {
 
   const [sort, setSort] = useState<SortSpec[]>([{ key: "id", dir: "asc" }])
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkCategory, setBulkCategory] = useState<"" | EditableFields["category"]>("")
+  const [bulkMode, setBulkMode] = useState<"" | (typeof COLLECT_MODES)[number]>("")
+  const [bulkActive, setBulkActive] = useState<"" | "사용" | "미사용">("")
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(20)
   const [visibleCols, setVisibleCols] = useState<ColKey[]>(() => loadVisibleCols())
@@ -244,6 +251,7 @@ export function SwMasterView() {
 
   const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map())
   const [highlightId, setHighlightId] = useState<string | null>(null)
+  const [editingRowId, setEditingRowId] = useState<string | null>(null)
 
   useEffect(() => {
     setDirty(draft.hasChanges)
@@ -257,6 +265,16 @@ export function SwMasterView() {
     document.addEventListener("mousedown", onClickOutside)
     return () => document.removeEventListener("mousedown", onClickOutside)
   }, [])
+
+  useEffect(() => {
+    if (!editingRowId) return
+    function onClickOutside(e: MouseEvent) {
+      const el = rowRefs.current.get(editingRowId)
+      if (el && !el.contains(e.target as Node)) setEditingRowId(null)
+    }
+    document.addEventListener("mousedown", onClickOutside)
+    return () => document.removeEventListener("mousedown", onClickOutside)
+  }, [editingRowId])
 
   useEffect(() => {
     if (!highlightId) return
@@ -310,6 +328,13 @@ export function SwMasterView() {
   const pageSafe = Math.min(page, totalPages)
   const pageRows = sorted.slice((pageSafe - 1) * pageSize, pageSafe * pageSize)
 
+  useEffect(() => {
+    if (editingRowId && !pageRows.some((r) => r.id === editingRowId)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setEditingRowId(null)
+    }
+  }, [editingRowId, pageRows])
+
   function handleSort(key: SortKey, additive: boolean) {
     setSort((prev) => cycleSort(prev, key, additive))
     setPage(1)
@@ -359,6 +384,15 @@ export function SwMasterView() {
   function handleBulkDelete() {
     selected.forEach((id) => draft.markDeleted(id))
     setSelected(new Set())
+  }
+
+  function handleBulkApply() {
+    if (bulkCategory) selected.forEach((id) => draft.editCell(id, "category", bulkCategory))
+    if (bulkMode) selected.forEach((id) => draft.editCell(id, "collect_mode", bulkMode))
+    if (bulkActive) selected.forEach((id) => draft.editCell(id, "active", bulkActive === "사용"))
+    setBulkCategory("")
+    setBulkMode("")
+    setBulkActive("")
   }
 
   function handleSaveClick() {
@@ -618,6 +652,46 @@ export function SwMasterView() {
           ) : (
             <span className="text-xs text-muted-foreground">총 {sorted.length}건</span>
           )}
+          {selected.size > 0 ? (
+            <>
+              <select
+                value={bulkCategory}
+                onChange={(e) => setBulkCategory(e.target.value as typeof bulkCategory)}
+                className="rounded-lg border border-border/60 bg-background/50 px-2 py-1.5 text-xs text-foreground focus:border-primary/60 focus:outline-none"
+              >
+                <option value="">분류 변경 안 함</option>
+                {MASTER_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <select
+                value={bulkMode}
+                onChange={(e) => setBulkMode(e.target.value as typeof bulkMode)}
+                className="rounded-lg border border-border/60 bg-background/50 px-2 py-1.5 text-xs text-foreground focus:border-primary/60 focus:outline-none"
+              >
+                <option value="">수집 모드 변경 안 함</option>
+                {COLLECT_MODES.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+              <select
+                value={bulkActive}
+                onChange={(e) => setBulkActive(e.target.value as typeof bulkActive)}
+                className="rounded-lg border border-border/60 bg-background/50 px-2 py-1.5 text-xs text-foreground focus:border-primary/60 focus:outline-none"
+              >
+                <option value="">사용 여부 변경 안 함</option>
+                <option value="사용">사용</option>
+                <option value="미사용">미사용</option>
+              </select>
+              <MiniButton
+                accent="primary"
+                onClick={handleBulkApply}
+                disabled={!bulkCategory && !bulkMode && !bulkActive}
+              >
+                적용
+              </MiniButton>
+            </>
+          ) : null}
           <MiniButton accent="destructive" onClick={handleBulkDelete} disabled={selected.size === 0}>
             삭제
           </MiniButton>
@@ -684,7 +758,7 @@ export function SwMasterView() {
       <TableShell>
         <thead>
           <tr>
-            <Th className="w-8 bg-accent/15">
+            <Th className="w-12 bg-accent/15">
               <input
                 type="checkbox"
                 checked={sorted.length > 0 && selected.size === sorted.length}
@@ -693,7 +767,7 @@ export function SwMasterView() {
                 className="h-4 w-4 rounded border-border/60 accent-primary"
               />
             </Th>
-            <Th className="w-8 bg-accent/15">{null}</Th>
+            <Th className="w-12 bg-accent/15">{null}</Th>
             {show("id") && (
               <SortTh col="id" label="마스터 ID" sort={sort} onSort={handleSort} width={getColWidth("id")} onResize={(d) => resizeColumn("id", d)} />
             )}
@@ -768,6 +842,7 @@ export function SwMasterView() {
                     if (el) rowRefs.current.set(row.id, el)
                     else rowRefs.current.delete(row.id)
                   }}
+                  onDoubleClick={() => setEditingRowId((prev) => (prev === row.id ? null : row.id))}
                   className={cn(
                     "border-l-2 border-l-transparent transition-colors hover:border-l-primary",
                     row.status === "deleted"
@@ -794,6 +869,8 @@ export function SwMasterView() {
                   <Td>
                     <RowMenu
                       row={row}
+                      editing={editingRowId === row.id}
+                      onToggleEdit={() => setEditingRowId((prev) => (prev === row.id ? null : row.id))}
                       onDetail={() => setDetailRow(row)}
                       onDuplicate={() => draft.duplicateRow(row.id)}
                       onToggleDelete={() => (row.status === "deleted" ? draft.undoDelete(row.id) : draft.markDeleted(row.id))}
@@ -837,16 +914,28 @@ export function SwMasterView() {
                     </Td>
                   )}
                   {show("category") && (
-                    <Td style={{ width: getColWidth("category"), minWidth: getColWidth("category"), maxWidth: getColWidth("category") }}>
-                      <EditableCategory
-                        value={row.values.category}
-                        onChange={(v) => draft.editCell(row.id, "category", v)}
-                        dirty={row.dirtyFields.has("category")}
-                      />
+                    <Td
+                      className="text-center"
+                      style={{ width: getColWidth("category"), minWidth: getColWidth("category"), maxWidth: getColWidth("category") }}
+                    >
+                      <div className="flex items-center justify-center">
+                        {editingRowId === row.id && row.status !== "deleted" ? (
+                          <EditableCategory
+                            value={row.values.category}
+                            onChange={(v) => draft.editCell(row.id, "category", v)}
+                            dirty={row.dirtyFields.has("category")}
+                          />
+                        ) : (
+                          <CategoryCell value={row.values.category} />
+                        )}
+                      </div>
                     </Td>
                   )}
                   {show("std_version") && (
-                    <Td style={{ width: getColWidth("std_version"), minWidth: getColWidth("std_version"), maxWidth: getColWidth("std_version") }}>
+                    <Td
+                      className="text-center"
+                      style={{ width: getColWidth("std_version"), minWidth: getColWidth("std_version"), maxWidth: getColWidth("std_version") }}
+                    >
                       <EditableText
                         value={row.values.std_version}
                         onChange={(v) => draft.editCell(row.id, "std_version", v)}
@@ -857,36 +946,47 @@ export function SwMasterView() {
                     </Td>
                   )}
                   {show("collect_mode") && (
-                    <Td style={{ width: getColWidth("collect_mode"), minWidth: getColWidth("collect_mode"), maxWidth: getColWidth("collect_mode") }}>
-                      <EditableCollectMode
-                        value={row.values.collect_mode}
-                        onChange={(v) => draft.editCell(row.id, "collect_mode", v)}
-                        dirty={row.dirtyFields.has("collect_mode")}
-                      />
+                    <Td
+                      className="text-center"
+                      style={{ width: getColWidth("collect_mode"), minWidth: getColWidth("collect_mode"), maxWidth: getColWidth("collect_mode") }}
+                    >
+                      <div className="flex items-center justify-center">
+                        {editingRowId === row.id && row.status !== "deleted" ? (
+                          <EditableCollectMode
+                            value={row.values.collect_mode}
+                            onChange={(v) => draft.editCell(row.id, "collect_mode", v)}
+                            dirty={row.dirtyFields.has("collect_mode")}
+                          />
+                        ) : (
+                          <CollectModeBadge value={row.values.collect_mode} />
+                        )}
+                      </div>
                     </Td>
                   )}
                   {show("active") && (
-                    <Td style={{ width: getColWidth("active"), minWidth: getColWidth("active"), maxWidth: getColWidth("active") }}>
-                      <ActiveToggle
-                        value={row.values.active}
-                        onChange={(v) => draft.editCell(row.id, "active", v)}
-                        dirty={row.dirtyFields.has("active")}
-                      />
+                    <Td
+                      className="text-center"
+                      style={{ width: getColWidth("active"), minWidth: getColWidth("active"), maxWidth: getColWidth("active") }}
+                    >
+                      <div className="flex items-center justify-center">
+                        {editingRowId === row.id && row.status !== "deleted" ? (
+                          <ActiveToggle
+                            value={row.values.active}
+                            onChange={(v) => draft.editCell(row.id, "active", v)}
+                            dirty={row.dirtyFields.has("active")}
+                          />
+                        ) : (
+                          <UseStatusBadge value={row.values.active} />
+                        )}
+                      </div>
                     </Td>
                   )}
                   {show("updated_at") && (
                     <Td
-                      className="text-xs text-muted-foreground"
+                      className="text-center text-xs text-muted-foreground"
                       style={{ width: getColWidth("updated_at"), minWidth: getColWidth("updated_at"), maxWidth: getColWidth("updated_at") }}
                     >
-                      {row.updatedAt
-                        ? new Date(row.updatedAt).toLocaleString("ko-KR", {
-                            month: "2-digit",
-                            day: "2-digit",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "-"}
+                      {row.updatedAt ? formatDateTime(row.updatedAt) : "-"}
                     </Td>
                   )}
                   {show("manager") && (

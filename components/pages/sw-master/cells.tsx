@@ -9,6 +9,8 @@ import {
   RotateCcw,
   MoreVertical,
   X,
+  Pencil,
+  Check,
   Monitor,
   Globe,
   Server,
@@ -19,7 +21,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { EditableFields, EffectiveRow } from "./use-master-draft"
-import { MASTER_CATEGORIES, COLLECT_MODES, FIELD_LABELS } from "./use-master-draft"
+import { MASTER_CATEGORIES, COLLECT_MODES, FIELD_LABELS, formatDateTime } from "./use-master-draft"
 
 /* ---- 분류(카테고리)별 아이콘 — 표시 전용, 저장/엑셀 추출 값(문자열)에는 영향 없음 ---- */
 export const CATEGORY_ICONS: Record<EditableFields["category"], LucideIcon> = {
@@ -32,7 +34,7 @@ export const CATEGORY_ICONS: Record<EditableFields["category"], LucideIcon> = {
 }
 
 const inputBase =
-  "w-full rounded-md border bg-transparent px-2 py-1 text-xs text-foreground focus:border-primary/60 focus:outline-none"
+  "w-full overflow-hidden truncate rounded-md border bg-transparent px-2 py-1 text-xs text-foreground focus:border-primary/60 focus:outline-none"
 
 function DirtyDot() {
   return (
@@ -69,6 +71,7 @@ export function EditableText({
       {dirty ? <DirtyDot /> : null}
       <input
         value={value}
+        title={value || undefined}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder ?? (required ? "필수" : undefined)}
         className={cn(inputBase, bold && "font-semibold", requiredBorder(value, error, required))}
@@ -103,6 +106,7 @@ export function EditableVendor({
       <input
         list={listId}
         value={value}
+        title={value || undefined}
         onChange={(e) => onChange(e.target.value)}
         placeholder={required ? "필수" : "벤더 검색/입력"}
         className={cn(inputBase, requiredBorder(value, error, required))}
@@ -151,6 +155,45 @@ const COLLECT_MODE_HINT: Record<(typeof COLLECT_MODES)[number], string> = {
   AUTO: "AUTO: API 또는 RSS를 통한 자동 수집",
   SEMI_AUTO: "SEMI_AUTO: 자동 수집 후 관리자 보정 필요",
   MANUAL: "MANUAL: 관리자가 직접 입력",
+}
+
+const COLLECT_MODE_BADGE_STYLE: Record<(typeof COLLECT_MODES)[number], string> = {
+  AUTO: "text-[#7C3AED] bg-[#F5F3FF] border-[#C4B5FD] dark:text-[#D8B4FE] dark:bg-[#3B0764] dark:border-[#7C3AED]",
+  SEMI_AUTO: "text-[#2563EB] bg-[#EFF6FF] border-[#BFDBFE] dark:text-[#93C5FD] dark:bg-[#172554] dark:border-[#2563EB]",
+  MANUAL: "text-[#475569] bg-[#F8FAFC] border-[#CBD5E1] dark:text-[#CBD5E1] dark:bg-[#1E293B] dark:border-[#475569]",
+}
+
+const badgeBase = "inline-flex h-7 items-center justify-center whitespace-nowrap rounded-lg border px-2.5 text-[13px] font-bold leading-none"
+
+/* ---- 수집 모드 배지(조회 전용) ---- */
+export function CollectModeBadge({ value }: { value: EditableFields["collect_mode"] }) {
+  return (
+    <span title={COLLECT_MODE_HINT[value]} className={cn(badgeBase, COLLECT_MODE_BADGE_STYLE[value])}>
+      {value}
+    </span>
+  )
+}
+
+const USE_STATUS_BADGE_STYLE: Record<"사용" | "미사용", string> = {
+  사용: "text-[#15803D] bg-[#F0FDF4] border-[#BBF7D0] dark:text-[#86EFAC] dark:bg-[#052E16] dark:border-[#15803D]",
+  미사용: "text-[#64748B] bg-[#F8FAFC] border-[#CBD5E1] dark:text-[#CBD5E1] dark:bg-[#1E293B] dark:border-[#475569]",
+}
+
+/* ---- 사용 여부 배지(조회 전용) ---- */
+export function UseStatusBadge({ value }: { value: boolean }) {
+  const label = value ? "사용" : "미사용"
+  return <span className={cn(badgeBase, USE_STATUS_BADGE_STYLE[label])}>{label}</span>
+}
+
+/* ---- 분류 캡슐(조회 전용, 중립색) ---- */
+export function CategoryCell({ value }: { value: EditableFields["category"] }) {
+  const Icon = CATEGORY_ICONS[value]
+  return (
+    <span className="inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full border border-border/50 bg-muted/40 px-2.5 text-xs font-medium text-foreground">
+      <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+      {value}
+    </span>
+  )
 }
 
 export function EditableCollectMode({
@@ -251,12 +294,16 @@ export function RowStatusBadge({ status }: { status: EffectiveRow["status"] }) {
 /* ---- 행 더보기(⋮) 메뉴 ---- */
 export function RowMenu({
   row,
+  editing,
+  onToggleEdit,
   onDetail,
   onDuplicate,
   onToggleDelete,
   onRevert,
 }: {
   row: EffectiveRow
+  editing: boolean
+  onToggleEdit: () => void
   onDetail: () => void
   onDuplicate: () => void
   onToggleDelete: () => void
@@ -289,6 +336,17 @@ export function RowMenu({
 
       {open ? (
         <div className="absolute left-0 top-7 z-50 w-40 rounded-xl border border-border/70 bg-card py-1 shadow-2xl">
+          <button
+            type="button"
+            onClick={() => {
+              onToggleEdit()
+              setOpen(false)
+            }}
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-accent/60"
+          >
+            {editing ? <Check className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
+            {editing ? "편집 완료" : "편집"}
+          </button>
           <button
             type="button"
             onClick={() => {
@@ -367,7 +425,7 @@ export function MasterDetailModal({ row, onClose }: { row: EffectiveRow | null; 
     { label: FIELD_LABELS.active, value: row.values.active ? "사용" : "미사용" },
     { label: FIELD_LABELS.manager, value: row.values.manager || "-" },
     { label: FIELD_LABELS.note, value: row.values.note || "-" },
-    { label: "최근 갱신일", value: row.updatedAt ? new Date(row.updatedAt).toLocaleString("ko-KR") : "-" },
+    { label: "최근 갱신일", value: row.updatedAt ? formatDateTime(row.updatedAt) : "-" },
     { label: "수정자", value: row.updatedBy || "-" },
   ]
 
