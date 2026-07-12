@@ -1,14 +1,15 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   Boxes, Search, Eye, Pencil, RefreshCw,
-  ChevronUp, ChevronDown, ChevronsUpDown, SlidersHorizontal, Check,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import type { Tables } from "@/lib/supabase/types"
 import {
-  PageHeader, StatusBadge, TableShell, Th, Td, MiniButton, ExportExcelButton, type RiskLevel,
+  PageHeader, StatusBadge, TableShell, Th, Td, MiniButton, ExportExcelButton,
+  SortTh, ColumnVisibilityMenu, loadColumnVisibility, TABLE_HEADER_CELL_H, TABLE_ROW_CELL_H,
+  type RiskLevel,
 } from "@/components/portal/ui"
 import { AssetSlideover, type AssetDetail } from "@/components/portal/asset-slideover"
 import { useToast } from "@/components/portal/toast"
@@ -46,28 +47,6 @@ const FACTORY_VISIBLE: ColKey[] = [
   "server", "owner", "vuln", "patch", "eos", "approval", "checked_at",
 ]
 const LS_KEY = "sw_manager_col_visible"
-const LS_DEFAULT_KEY = "sw_manager_col_default"
-
-function loadVisible(): ColKey[] {
-  try {
-    const raw = localStorage.getItem(LS_KEY)
-    if (raw) return JSON.parse(raw) as ColKey[]
-  } catch {}
-  return loadUserDefault()
-}
-function saveVisible(cols: ColKey[]) {
-  localStorage.setItem(LS_KEY, JSON.stringify(cols))
-}
-function loadUserDefault(): ColKey[] {
-  try {
-    const raw = localStorage.getItem(LS_DEFAULT_KEY)
-    if (raw) return JSON.parse(raw) as ColKey[]
-  } catch {}
-  return FACTORY_VISIBLE
-}
-function saveUserDefault(cols: ColKey[]) {
-  localStorage.setItem(LS_DEFAULT_KEY, JSON.stringify(cols))
-}
 
 /* ── 필터 옵션 ──────────────────────────────────────────── */
 const CATEGORIES: (Category | "전체")[] = ["전체", "OS", "WEB", "WAS", "DB", "Middleware", "Security"]
@@ -125,163 +104,6 @@ function toDetail(a: Asset): AssetDetail {
   }
 }
 
-/* ── 정렬 헤더 ──────────────────────────────────────────── */
-function SortTh({ col, label, sortKey, sortDir, onSort }: {
-  col: SortKey; label: string; sortKey: SortKey; sortDir: SortDir; onSort: (k: SortKey) => void
-}) {
-  const active = sortKey === col
-  return (
-    <th
-      onClick={() => onSort(col)}
-      className={cn(
-        "cursor-pointer select-none whitespace-nowrap border-b border-border/60 bg-muted/40 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground",
-        active && "text-primary",
-      )}
-    >
-      <span className="inline-flex items-center gap-1">
-        {label}
-        {active
-          ? sortDir === "asc"
-            ? <ChevronUp className="h-3 w-3 text-primary" />
-            : <ChevronDown className="h-3 w-3 text-primary" />
-          : <ChevronsUpDown className="h-3 w-3 opacity-30" />}
-      </span>
-    </th>
-  )
-}
-
-/* ── 컬럼 토글 드롭다운 ─────────────────────────────────── */
-function ColToggle({
-  visible, onChange,
-}: {
-  visible: ColKey[]
-  onChange: (cols: ColKey[]) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener("mousedown", onClickOutside)
-    return () => document.removeEventListener("mousedown", onClickOutside)
-  }, [])
-
-  function toggle(key: ColKey) {
-    const next = visible.includes(key) ? visible.filter((k) => k !== key) : [...visible, key]
-    onChange(next)
-    saveVisible(next)
-  }
-
-  function handleSaveDefault() {
-    saveUserDefault(visible)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
-  }
-
-  function handleResetDefault() {
-    const def = loadUserDefault()
-    onChange(def)
-    saveVisible(def)
-  }
-
-  function handleSelectAll() {
-    const all = ALL_COLS.map((c) => c.key)
-    onChange(all)
-    saveVisible(all)
-  }
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={cn(
-          "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
-          open
-            ? "border-primary/50 bg-primary/15 text-primary"
-            : "border-border/60 text-muted-foreground hover:text-foreground",
-        )}
-      >
-        <SlidersHorizontal className="h-3.5 w-3.5" />
-        컬럼 설정
-        <span className="rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
-          {visible.length}/{ALL_COLS.length}
-        </span>
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-9 z-50 w-52 rounded-xl border border-border/70 bg-card shadow-2xl">
-          <div className="border-b border-border/50 px-3 py-2">
-            <p className="text-[11px] font-semibold text-muted-foreground">표시할 컬럼 선택</p>
-          </div>
-
-          <ul className="py-1.5">
-            {ALL_COLS.map(({ key, label }) => {
-              const checked = visible.includes(key)
-              return (
-                <li key={key}>
-                  <button
-                    type="button"
-                    onClick={() => toggle(key)}
-                    className="flex w-full items-center gap-2.5 px-3 py-1.5 text-xs transition-colors hover:bg-accent/60"
-                  >
-                    <span className={cn(
-                      "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
-                      checked
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border/60 bg-transparent",
-                    )}>
-                      {checked && <Check className="h-2.5 w-2.5" />}
-                    </span>
-                    <span className={checked ? "text-foreground" : "text-muted-foreground"}>{label}</span>
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-
-          <div className="border-t border-border/50 px-3 py-2.5 flex flex-col gap-2">
-            {/* 현재 설정을 기본값으로 저장 */}
-            <button
-              type="button"
-              onClick={handleSaveDefault}
-              className={cn(
-                "flex w-full items-center justify-center gap-1.5 rounded-lg border py-1.5 text-[11px] font-semibold transition-colors",
-                saved
-                  ? "border-success/50 bg-success/10 text-success"
-                  : "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20",
-              )}
-            >
-              {saved ? <><Check className="h-3 w-3" />저장 완료!</> : "현재 설정을 기본값으로 저장"}
-            </button>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleSelectAll}
-                className="flex-1 text-[11px] text-primary hover:underline"
-              >
-                전체 선택
-              </button>
-              <span className="text-muted-foreground/40">|</span>
-              <button
-                type="button"
-                onClick={handleResetDefault}
-                className="flex-1 text-[11px] text-muted-foreground hover:text-foreground hover:underline"
-              >
-                기본값으로 리셋
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 /* ── 메인 컴포넌트 ──────────────────────────────────────── */
 export function AssetsView() {
   const { toast } = useToast()
@@ -293,10 +115,7 @@ export function AssetsView() {
   const [status,  setStatus]  = useState<(typeof STATUS_FILTERS)[number]>("전체")
   const [sortKey, setSortKey] = useState<SortKey>("id")
   const [sortDir, setSortDir] = useState<SortDir>("asc")
-  const [visible, setVisible] = useState<ColKey[]>(() => {
-    if (typeof window === "undefined") return FACTORY_VISIBLE
-    return loadVisible()
-  })
+  const [visible, setVisible] = useState<ColKey[]>(() => loadColumnVisibility(LS_KEY, FACTORY_VISIBLE))
   const [selected, setSelected] = useState<AssetDetail | null>(null)
 
   useEffect(() => {
@@ -410,11 +229,17 @@ export function AssetsView() {
                 value: (a: Asset) => excelValue(a, c.key),
               }))}
             />
-            <ColToggle visible={visible} onChange={setVisible} />
+            <ColumnVisibilityMenu
+              allCols={ALL_COLS}
+              visible={visible}
+              onChange={setVisible}
+              factoryDefault={FACTORY_VISIBLE}
+              storageKey={LS_KEY}
+            />
           </div>
         </div>
 
-        <TableShell>
+        <TableShell scrollHint>
           <thead>
             <tr>
               {show("id")         && <SortTh col="id"         label="자산 ID"   {...stProps} />}
@@ -429,7 +254,7 @@ export function AssetsView() {
               {show("eos")        && <SortTh col="eos"        label="EOS 날짜"  {...stProps} />}
               {show("approval")   && <SortTh col="approval"   label="승인 상태" {...stProps} />}
               {show("checked_at") && <SortTh col="checked_at" label="최근 확인일" {...stProps} />}
-              <Th>작업</Th>
+              <Th className={TABLE_HEADER_CELL_H}>작업</Th>
             </tr>
           </thead>
           <tbody>
@@ -437,13 +262,13 @@ export function AssetsView() {
               const sv = servers.find((s) => s.name === a.server)
               return (
                 <tr key={a.id} className="transition-colors hover:bg-accent/40">
-                  {show("id")       && <Td className="font-mono text-xs text-muted-foreground">{a.id}</Td>}
-                  {show("name")     && <Td className="font-semibold">{a.name}</Td>}
-                  {show("vendor")   && <Td className="text-muted-foreground">{a.vendor}</Td>}
-                  {show("category") && <Td><StatusBadge accent="primary">{a.category}</StatusBadge></Td>}
-                  {show("version")  && <Td className="font-mono text-xs">{a.version}</Td>}
+                  {show("id")       && <Td className={cn("font-mono text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{a.id}</Td>}
+                  {show("name")     && <Td className={cn("font-semibold", TABLE_ROW_CELL_H)}>{a.name}</Td>}
+                  {show("vendor")   && <Td className={cn("text-muted-foreground", TABLE_ROW_CELL_H)}>{a.vendor}</Td>}
+                  {show("category") && <Td className={TABLE_ROW_CELL_H}><StatusBadge accent="primary">{a.category}</StatusBadge></Td>}
+                  {show("version")  && <Td className={cn("font-mono text-xs", TABLE_ROW_CELL_H)}>{a.version}</Td>}
                   {show("server")   && (
-                    <Td>
+                    <Td className={TABLE_ROW_CELL_H}>
                       <div className="flex flex-col gap-0.5">
                         <span className="text-xs font-medium text-foreground">{a.server}</span>
                         {sv && (
@@ -454,22 +279,23 @@ export function AssetsView() {
                       </div>
                     </Td>
                   )}
-                  {show("owner")    && <Td>{a.owner}</Td>}
+                  {show("owner")    && <Td className={TABLE_ROW_CELL_H}>{a.owner}</Td>}
                   {show("vuln")     && (
-                    <Td>
+                    <Td className={TABLE_ROW_CELL_H}>
                       <StatusBadge risk={vulnRisk[a.vuln]} pulse={a.vuln === "Critical"}>
                         {vulnLabel[a.vuln]}
                       </StatusBadge>
                     </Td>
                   )}
                   {show("patch")    && (
-                    <Td>
+                    <Td className={TABLE_ROW_CELL_H}>
                       <StatusBadge risk={patchRisk[a.patch]}>{patchLabel[a.patch]}</StatusBadge>
                     </Td>
                   )}
                   {show("eos")      && (
                     <Td className={cn(
                       "font-mono text-xs",
+                      TABLE_ROW_CELL_H,
                       isEosExpired(a.eos) ? "text-destructive font-semibold" : isEosSoon(a.eos) ? "text-eos" : "",
                     )}>
                       {a.eos ?? "-"}
@@ -477,16 +303,16 @@ export function AssetsView() {
                     </Td>
                   )}
                   {show("approval") && (
-                    <Td>
+                    <Td className={TABLE_ROW_CELL_H}>
                       <StatusBadge risk={approvalRisk[a.approval]} pulse={a.approval === "긴급"}>
                         {a.approval}
                       </StatusBadge>
                     </Td>
                   )}
                   {show("checked_at") && (
-                    <Td className="text-xs text-muted-foreground">{formatChecked(a.checked_at)}</Td>
+                    <Td className={cn("text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{formatChecked(a.checked_at)}</Td>
                   )}
-                  <Td>
+                  <Td className={TABLE_ROW_CELL_H}>
                     <div className="flex items-center gap-1.5">
                       <MiniButton accent="primary" onClick={() => setSelected(toDetail(a))}>
                         <Eye className="h-3 w-3" />상세
