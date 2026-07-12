@@ -11,6 +11,11 @@ import {
   Info,
   CircleCheck,
   Download,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
+  Check,
+  SlidersHorizontal,
 } from "lucide-react"
 import { useCountUp } from "@/hooks/use-count-up"
 import { exportRowsToExcel } from "@/lib/export-excel"
@@ -415,6 +420,165 @@ export function Td({
     >
       {children}
     </td>
+  )
+}
+
+/* ---------------- Shared sortable/resizable table conventions ---------------- */
+
+export const TABLE_HEADER_CELL_H = "h-[52px] py-0"
+export const TABLE_ROW_CELL_H = "h-16 py-0"
+
+export function loadColumnVisibility<K extends string>(storageKey: string, factoryDefault: K[]): K[] {
+  if (typeof window === "undefined") return factoryDefault
+  try {
+    const raw = window.localStorage.getItem(storageKey)
+    if (raw) return JSON.parse(raw) as K[]
+  } catch {}
+  return factoryDefault
+}
+
+export function SortTh<K extends string>({
+  col,
+  label,
+  sortKey,
+  sortDir,
+  onSort,
+  align = "left",
+  className,
+  style,
+}: {
+  col: K
+  label: string
+  sortKey: K | "none"
+  sortDir: "asc" | "desc"
+  onSort: (key: K) => void
+  align?: "left" | "center" | "right"
+  className?: string
+  style?: React.CSSProperties
+}) {
+  const active = sortKey === col
+  return (
+    <th
+      onClick={() => onSort(col)}
+      style={style}
+      className={cn(
+        "cursor-pointer select-none whitespace-nowrap border-b border-border/60 bg-muted/40 px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground",
+        TABLE_HEADER_CELL_H,
+        align === "center" && "text-center",
+        align === "right" && "text-right",
+        align === "left" && "text-left",
+        active && "text-primary",
+        className,
+      )}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {active ? (
+          sortDir === "asc" ? (
+            <ChevronUp className="h-3 w-3 text-primary" />
+          ) : (
+            <ChevronDown className="h-3 w-3 text-primary" />
+          )
+        ) : (
+          <ChevronsUpDown className="h-3 w-3 opacity-30" />
+        )}
+      </span>
+    </th>
+  )
+}
+
+export function ColumnVisibilityMenu<K extends string>({
+  allCols,
+  visible,
+  onChange,
+  factoryDefault,
+  storageKey,
+}: {
+  allCols: { key: K; label: string }[]
+  visible: K[]
+  onChange: (cols: K[]) => void
+  factoryDefault: K[]
+  storageKey: string
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("mousedown", onClickOutside)
+    return () => document.removeEventListener("mousedown", onClickOutside)
+  }, [])
+
+  function toggle(key: K) {
+    const next = visible.includes(key) ? visible.filter((k) => k !== key) : [...visible, key]
+    onChange(next)
+    window.localStorage.setItem(storageKey, JSON.stringify(next))
+  }
+
+  function resetToDefault() {
+    onChange(factoryDefault)
+    window.localStorage.setItem(storageKey, JSON.stringify(factoryDefault))
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+          open
+            ? "border-primary/50 bg-primary/15 text-primary"
+            : "border-border/60 text-muted-foreground hover:text-foreground",
+        )}
+      >
+        <SlidersHorizontal className="h-3.5 w-3.5" />
+        컬럼 설정
+        <span className="rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+          {visible.length}/{allCols.length}
+        </span>
+      </button>
+
+      {open ? (
+        <div className="absolute right-0 top-9 z-50 w-52 rounded-xl border border-border/70 bg-card shadow-2xl">
+          <ul className="py-1.5">
+            {allCols.map(({ key, label }) => {
+              const checked = visible.includes(key)
+              return (
+                <li key={key}>
+                  <button
+                    type="button"
+                    onClick={() => toggle(key)}
+                    className="flex w-full items-center gap-2.5 px-3 py-1.5 text-xs transition-colors hover:bg-accent/60"
+                  >
+                    <span
+                      className={cn(
+                        "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+                        checked ? "border-primary bg-primary text-primary-foreground" : "border-border/60",
+                      )}
+                    >
+                      {checked && <Check className="h-2.5 w-2.5" />}
+                    </span>
+                    <span className={checked ? "text-foreground" : "text-muted-foreground"}>{label}</span>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+          <div className="border-t border-border/50 px-3 py-2">
+            <button
+              type="button"
+              onClick={resetToDefault}
+              className="w-full text-center text-[11px] text-muted-foreground transition-colors hover:text-foreground hover:underline"
+            >
+              기본값으로 복원
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
   )
 }
 
