@@ -99,16 +99,16 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
     return { total: approved.length, critical, high, unmapped }
   }, [approved, matchMap])
 
-  function sortValue(v: Vulnerability, key: SortKey): string | number {
-    if (key === "severity") return sevRisk[v.severity]
-    if (key === "mapped") return matchMap.get(v.id)?.length ?? 0
-    if (key === "sourceType") return sourceTypeLabel[v.source_type]
-    if (key === "noticeType") return v.notice_type
-    if (key === "none") return 0
-    return String(v[key as "cve" | "title" | "source" | "product"])
-  }
-
   const filteredSorted = useMemo(() => {
+    function sortValue(v: Vulnerability, key: SortKey): string | number {
+      if (key === "severity") return sevRisk[v.severity]
+      if (key === "mapped") return matchMap.get(v.id)?.length ?? 0
+      if (key === "sourceType") return sourceTypeLabel[v.source_type]
+      if (key === "noticeType") return v.notice_type
+      if (key === "none") return 0
+      return String(v[key as "cve" | "title" | "source" | "product"])
+    }
+
     return [...approved]
       .filter((v) => {
         const q = query.trim().toLowerCase()
