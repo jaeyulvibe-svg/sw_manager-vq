@@ -28,7 +28,12 @@ export function useNoticeData(filter: NoticeDataFilter = {}) {
       .select("*")
       .order("collected_at", { ascending: false })
     if (sourceType) vulnQuery = vulnQuery.eq("source_type", sourceType)
-    if (noticeTypesKey) vulnQuery = vulnQuery.in("notice_type", noticeTypesKey.split(","))
+    if (noticeTypesKey) {
+      vulnQuery = vulnQuery.in(
+        "notice_type",
+        noticeTypesKey.split(",") as Vulnerability["notice_type"][],
+      )
+    }
 
     Promise.all([vulnQuery, supabase.from("assets").select("*")]).then(([vulnRes, assetRes]) => {
       if (vulnRes.data) setVulns(vulnRes.data)
@@ -38,10 +43,10 @@ export function useNoticeData(filter: NoticeDataFilter = {}) {
     // sourceType/noticeTypesKey are primitives derived from `filter`, so this only
     // re-fires when the actual filter *value* changes, not on every re-render that
     // happens to construct a new `filter` object literal.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceType, noticeTypesKey])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
   }, [load])
 
