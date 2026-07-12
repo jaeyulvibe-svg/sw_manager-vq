@@ -45,6 +45,12 @@ export function formatDateTime(iso: string) {
   return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+export function formatDateOnly(iso: string) {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`
+}
+
 /** 실제 인증 도입 전까지 고정하는 mock 수정자명 — sidebar.tsx의 CURRENT_USER.admin과 동일 */
 const ACTOR = "김관리"
 

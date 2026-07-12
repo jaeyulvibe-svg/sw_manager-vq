@@ -21,7 +21,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { EditableFields, EffectiveRow } from "./use-master-draft"
-import { MASTER_CATEGORIES, COLLECT_MODES, FIELD_LABELS, formatDateTime } from "./use-master-draft"
+import { MASTER_CATEGORIES, COLLECT_MODES, FIELD_LABELS, formatDateOnly } from "./use-master-draft"
 
 /* ---- 분류(카테고리)별 아이콘 — 표시 전용, 저장/엑셀 추출 값(문자열)에는 영향 없음 ---- */
 export const CATEGORY_ICONS: Record<EditableFields["category"], LucideIcon> = {
@@ -424,11 +424,10 @@ export function MasterDetailModal({ row, onClose }: { row: EffectiveRow | null; 
     { label: FIELD_LABELS.collect_mode, value: row.values.collect_mode },
     { label: FIELD_LABELS.active, value: row.values.active ? "사용" : "미사용" },
     ...(!row.values.active && row.deactivatedAt
-      ? [{ label: "미사용 전환일", value: formatDateTime(row.deactivatedAt) }]
+      ? [{ label: "미사용 전환일", value: formatDateOnly(row.deactivatedAt) }]
       : []),
     { label: FIELD_LABELS.manager, value: row.values.manager || "-" },
     { label: FIELD_LABELS.note, value: row.values.note || "-" },
-    { label: "최근 갱신일", value: row.updatedAt ? formatDateTime(row.updatedAt) : "-" },
     { label: "수정자", value: row.updatedBy || "-" },
   ]
 

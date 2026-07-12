@@ -26,6 +26,7 @@ import {
   useMasterDraft,
   MASTER_CATEGORIES,
   COLLECT_MODES,
+  formatDateOnly,
   type EditableFields,
   type EffectiveRow,
 } from "@/components/pages/sw-master/use-master-draft"
@@ -450,13 +451,14 @@ export function SwMasterView() {
         filename="SW_마스터_관리"
         columns={[
           { label: "마스터 ID", value: (r: EffectiveRow) => r.id },
-          { label: "제품명", value: (r: EffectiveRow) => r.values.name },
-          { label: "벤더", value: (r: EffectiveRow) => r.values.vendor },
           { label: "분류", value: (r: EffectiveRow) => r.values.category },
-          { label: "표준 버전", value: (r: EffectiveRow) => r.values.std_version },
+          { label: "제품명", value: (r: EffectiveRow) => r.values.name },
+          { label: "버전", value: (r: EffectiveRow) => r.values.std_version },
+          { label: "제조사", value: (r: EffectiveRow) => r.values.vendor },
           { label: "수집 모드", value: (r: EffectiveRow) => r.values.collect_mode },
           { label: "사용 여부", value: (r: EffectiveRow) => (r.values.active ? "사용" : "미사용") },
-          { label: "최근 갱신일", value: (r: EffectiveRow) => r.updatedAt ?? "-" },
+          { label: "미사용 전환일", value: (r: EffectiveRow) => (r.deactivatedAt ? formatDateOnly(r.deactivatedAt) : "-") },
+          { label: "등록일", value: (r: EffectiveRow) => (r.createdAt ? formatDateOnly(r.createdAt) : "-") },
         ]}
       />
     </div>
