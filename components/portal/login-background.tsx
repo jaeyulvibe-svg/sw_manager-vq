@@ -1,18 +1,9 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import Image from "next/image"
 import { cn } from "@/lib/utils"
 
-function VideoWithPlaceholder({
-  src,
-  className,
-  placeholder,
-}: {
-  src: string
-  className?: string
-  placeholder?: string
-}) {
+function Video({ src, className }: { src: string; className?: string }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [videoLoaded, setVideoLoaded] = useState(false)
 
@@ -39,41 +30,22 @@ function VideoWithPlaceholder({
   }, [videoLoaded])
 
   return (
-    <>
-      {placeholder ? (
-        <Image
-          src={placeholder}
-          loading="eager"
-          priority
-          sizes="100vw"
-          alt="배경"
-          className={cn(className, videoLoaded && "invisible")}
-          quality={100}
-          fill
-        />
-      ) : null}
-      <video
-        ref={videoRef}
-        src={src}
-        muted
-        playsInline
-        controls={false}
-        preload="auto"
-        className={cn(className, !videoLoaded && "invisible")}
-      />
-    </>
+    <video
+      ref={videoRef}
+      src={src}
+      muted
+      playsInline
+      controls={false}
+      preload="auto"
+      // 영상이 준비되기 전에는 배경색만 보여주고, 로드되면 부드럽게 페이드인한다
+      className={cn(className, "opacity-0 transition-opacity duration-700 ease-out", videoLoaded && "opacity-100")}
+    />
   )
 }
 
-export function LoginBackground({
-  src,
-  placeholder,
-}: {
-  src: string
-  placeholder?: string
-}) {
+export function LoginBackground({ src }: { src: string }) {
   const classNames =
     "absolute left-0 top-0 h-full w-full rounded-[42px] object-cover bg-background md:rounded-[72px]"
 
-  return <VideoWithPlaceholder src={src} className={classNames} placeholder={placeholder} />
+  return <Video src={src} className={classNames} />
 }

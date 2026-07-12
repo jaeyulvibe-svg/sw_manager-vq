@@ -11,7 +11,7 @@ export function LoginView({ onLogin }: { onLogin: (remember: boolean) => void })
   return (
     <main className="relative h-[100dvh] w-full p-[var(--inset)]">
       <div className="relative h-full w-full overflow-hidden rounded-[42px] md:rounded-[72px]">
-        <LoginBackground src="/alt.mp4" placeholder="/alt-placeholder.png" />
+        <LoginBackground src="/alt.mp4" />
         {/* 텍스트가 있는 오른쪽을 더 어둡게 눌러 영상 위에서도 가독성을 확보 */}
         <div className="absolute inset-0 bg-gradient-to-l from-background/80 via-background/45 to-transparent" />
         {/* 전체적으로 살짝 더 어둡게 */}
