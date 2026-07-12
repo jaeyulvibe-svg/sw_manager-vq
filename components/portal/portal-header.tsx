@@ -1,6 +1,6 @@
 "use client"
 
-import { Menu, Search } from "lucide-react"
+import { LogOut, Menu, Search } from "lucide-react"
 import { LiveClock } from "./live-clock"
 import { RoleToggle } from "./role-toggle"
 import { ThemeToggle } from "./theme-toggle"
@@ -13,12 +13,14 @@ export function PortalHeader({
   onOpenPalette,
   onNavigate,
   onOpenNotifications,
+  onLogout,
 }: {
   active: ViewKey
   onOpenMobile: () => void
   onOpenPalette: () => void
   onNavigate: (view: ViewKey) => void
   onOpenNotifications: () => void
+  onLogout: () => void
 }) {
   const current =
     NAV_ITEMS.flatMap((entry) => (isNavGroup(entry) ? entry.children : [entry])).find(
@@ -67,6 +69,15 @@ export function PortalHeader({
           onOpenCenter={onOpenNotifications}
         />
         <LiveClock />
+        <button
+          type="button"
+          onClick={onLogout}
+          aria-label="로그아웃"
+          title="로그아웃"
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
+        >
+          <LogOut className="h-4 w-4" />
+        </button>
       </div>
     </header>
   )

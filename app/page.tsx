@@ -11,6 +11,7 @@ import { NotificationsProvider } from "@/components/portal/notifications-context
 import { UnsavedGuardProvider, useUnsavedGuard } from "@/components/portal/unsaved-guard"
 import { AmbientBackground } from "@/components/portal/ambient-background"
 import { CommandPalette } from "@/components/portal/command-palette"
+import { LoginView } from "@/components/portal/login-view"
 import { isViewAllowed, type ViewKey } from "@/components/portal/nav"
 import { DashboardView } from "@/components/pages/dashboard-view"
 import { AssetsView } from "@/components/pages/assets-view"
@@ -24,7 +25,7 @@ import { AdminView } from "@/components/pages/admin-view"
 import { SwMasterView } from "@/components/pages/sw-master-view"
 import { NotificationsView } from "@/components/pages/notifications-view"
 
-function Portal() {
+function Portal({ onLogout }: { onLogout: () => void }) {
   const { isAdmin } = useRole()
   const { confirmLeave } = useUnsavedGuard()
   const [requestedView, setActiveRaw] = useState<ViewKey>("dashboard")
@@ -112,6 +113,7 @@ function Portal() {
           onOpenPalette={() => setPaletteOpen(true)}
           onNavigate={setActive}
           onOpenNotifications={() => setActive("notifications")}
+          onLogout={onLogout}
         />
         <main className="mx-auto w-full max-w-[104rem] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <div key={active} className="animate-view">
@@ -129,18 +131,53 @@ function Portal() {
   )
 }
 
+const AUTH_STORAGE_KEY = "sw-manager-auth"
+
+function AuthGate() {
+  const [authed, setAuthed] = useState(false)
+  const [checked, setChecked] = useState(false)
+
+  useEffect(() => {
+    // 새로고침 시에도 로그인 상태를 유지하기 위해 마운트 후 저장소를 확인한다
+    const stored =
+      window.localStorage.getItem(AUTH_STORAGE_KEY) ?? window.sessionStorage.getItem(AUTH_STORAGE_KEY)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAuthed(stored === "1")
+    setChecked(true)
+  }, [])
+
+  function handleLogin(remember: boolean) {
+    if (remember) window.localStorage.setItem(AUTH_STORAGE_KEY, "1")
+    else window.sessionStorage.setItem(AUTH_STORAGE_KEY, "1")
+    setAuthed(true)
+  }
+
+  function handleLogout() {
+    window.localStorage.removeItem(AUTH_STORAGE_KEY)
+    window.sessionStorage.removeItem(AUTH_STORAGE_KEY)
+    setAuthed(false)
+  }
+
+  if (!checked) return null
+  if (!authed) return <LoginView onLogin={handleLogin} />
+
+  return (
+    <RoleProvider>
+      <ToastProvider>
+        <NotificationsProvider>
+          <UnsavedGuardProvider>
+            <Portal onLogout={handleLogout} />
+          </UnsavedGuardProvider>
+        </NotificationsProvider>
+      </ToastProvider>
+    </RoleProvider>
+  )
+}
+
 export default function Home() {
   return (
     <ThemeProvider>
-      <RoleProvider>
-        <ToastProvider>
-          <NotificationsProvider>
-            <UnsavedGuardProvider>
-              <Portal />
-            </UnsavedGuardProvider>
-          </NotificationsProvider>
-        </ToastProvider>
-      </RoleProvider>
+      <AuthGate />
     </ThemeProvider>
   )
 }
