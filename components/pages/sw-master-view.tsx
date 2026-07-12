@@ -39,6 +39,9 @@ import {
   RowMenu,
   MasterDetailModal,
   CATEGORY_ICONS,
+  CollectModeBadge,
+  UseStatusBadge,
+  CategoryCell,
 } from "@/components/pages/sw-master/cells"
 
 /* ---- 컬럼 정의 ---- */
@@ -244,6 +247,7 @@ export function SwMasterView() {
 
   const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map())
   const [highlightId, setHighlightId] = useState<string | null>(null)
+  const [editingRowId, setEditingRowId] = useState<string | null>(null)
 
   useEffect(() => {
     setDirty(draft.hasChanges)
@@ -257,6 +261,16 @@ export function SwMasterView() {
     document.addEventListener("mousedown", onClickOutside)
     return () => document.removeEventListener("mousedown", onClickOutside)
   }, [])
+
+  useEffect(() => {
+    if (!editingRowId) return
+    function onClickOutside(e: MouseEvent) {
+      const el = rowRefs.current.get(editingRowId)
+      if (el && !el.contains(e.target as Node)) setEditingRowId(null)
+    }
+    document.addEventListener("mousedown", onClickOutside)
+    return () => document.removeEventListener("mousedown", onClickOutside)
+  }, [editingRowId])
 
   useEffect(() => {
     if (!highlightId) return
@@ -768,6 +782,7 @@ export function SwMasterView() {
                     if (el) rowRefs.current.set(row.id, el)
                     else rowRefs.current.delete(row.id)
                   }}
+                  onDoubleClick={() => setEditingRowId((prev) => (prev === row.id ? null : row.id))}
                   className={cn(
                     "border-l-2 border-l-transparent transition-colors hover:border-l-primary",
                     row.status === "deleted"
@@ -794,6 +809,8 @@ export function SwMasterView() {
                   <Td>
                     <RowMenu
                       row={row}
+                      editing={editingRowId === row.id}
+                      onToggleEdit={() => setEditingRowId((prev) => (prev === row.id ? null : row.id))}
                       onDetail={() => setDetailRow(row)}
                       onDuplicate={() => draft.duplicateRow(row.id)}
                       onToggleDelete={() => (row.status === "deleted" ? draft.undoDelete(row.id) : draft.markDeleted(row.id))}
@@ -837,12 +854,21 @@ export function SwMasterView() {
                     </Td>
                   )}
                   {show("category") && (
-                    <Td style={{ width: getColWidth("category"), minWidth: getColWidth("category"), maxWidth: getColWidth("category") }}>
-                      <EditableCategory
-                        value={row.values.category}
-                        onChange={(v) => draft.editCell(row.id, "category", v)}
-                        dirty={row.dirtyFields.has("category")}
-                      />
+                    <Td
+                      className="text-center"
+                      style={{ width: getColWidth("category"), minWidth: getColWidth("category"), maxWidth: getColWidth("category") }}
+                    >
+                      <div className="flex items-center justify-center">
+                        {editingRowId === row.id ? (
+                          <EditableCategory
+                            value={row.values.category}
+                            onChange={(v) => draft.editCell(row.id, "category", v)}
+                            dirty={row.dirtyFields.has("category")}
+                          />
+                        ) : (
+                          <CategoryCell value={row.values.category} />
+                        )}
+                      </div>
                     </Td>
                   )}
                   {show("std_version") && (
@@ -857,21 +883,39 @@ export function SwMasterView() {
                     </Td>
                   )}
                   {show("collect_mode") && (
-                    <Td style={{ width: getColWidth("collect_mode"), minWidth: getColWidth("collect_mode"), maxWidth: getColWidth("collect_mode") }}>
-                      <EditableCollectMode
-                        value={row.values.collect_mode}
-                        onChange={(v) => draft.editCell(row.id, "collect_mode", v)}
-                        dirty={row.dirtyFields.has("collect_mode")}
-                      />
+                    <Td
+                      className="text-center"
+                      style={{ width: getColWidth("collect_mode"), minWidth: getColWidth("collect_mode"), maxWidth: getColWidth("collect_mode") }}
+                    >
+                      <div className="flex items-center justify-center">
+                        {editingRowId === row.id ? (
+                          <EditableCollectMode
+                            value={row.values.collect_mode}
+                            onChange={(v) => draft.editCell(row.id, "collect_mode", v)}
+                            dirty={row.dirtyFields.has("collect_mode")}
+                          />
+                        ) : (
+                          <CollectModeBadge value={row.values.collect_mode} />
+                        )}
+                      </div>
                     </Td>
                   )}
                   {show("active") && (
-                    <Td style={{ width: getColWidth("active"), minWidth: getColWidth("active"), maxWidth: getColWidth("active") }}>
-                      <ActiveToggle
-                        value={row.values.active}
-                        onChange={(v) => draft.editCell(row.id, "active", v)}
-                        dirty={row.dirtyFields.has("active")}
-                      />
+                    <Td
+                      className="text-center"
+                      style={{ width: getColWidth("active"), minWidth: getColWidth("active"), maxWidth: getColWidth("active") }}
+                    >
+                      <div className="flex items-center justify-center">
+                        {editingRowId === row.id ? (
+                          <ActiveToggle
+                            value={row.values.active}
+                            onChange={(v) => draft.editCell(row.id, "active", v)}
+                            dirty={row.dirtyFields.has("active")}
+                          />
+                        ) : (
+                          <UseStatusBadge value={row.values.active} />
+                        )}
+                      </div>
                     </Td>
                   )}
                   {show("updated_at") && (

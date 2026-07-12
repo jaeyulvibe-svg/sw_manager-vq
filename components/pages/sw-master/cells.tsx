@@ -9,6 +9,8 @@ import {
   RotateCcw,
   MoreVertical,
   X,
+  Pencil,
+  Check,
   Monitor,
   Globe,
   Server,
@@ -290,12 +292,16 @@ export function RowStatusBadge({ status }: { status: EffectiveRow["status"] }) {
 /* ---- 행 더보기(⋮) 메뉴 ---- */
 export function RowMenu({
   row,
+  editing,
+  onToggleEdit,
   onDetail,
   onDuplicate,
   onToggleDelete,
   onRevert,
 }: {
   row: EffectiveRow
+  editing: boolean
+  onToggleEdit: () => void
   onDetail: () => void
   onDuplicate: () => void
   onToggleDelete: () => void
@@ -328,6 +334,17 @@ export function RowMenu({
 
       {open ? (
         <div className="absolute left-0 top-7 z-50 w-40 rounded-xl border border-border/70 bg-card py-1 shadow-2xl">
+          <button
+            type="button"
+            onClick={() => {
+              onToggleEdit()
+              setOpen(false)
+            }}
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-accent/60"
+          >
+            {editing ? <Check className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
+            {editing ? "편집 완료" : "편집"}
+          </button>
           <button
             type="button"
             onClick={() => {
