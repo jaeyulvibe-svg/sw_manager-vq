@@ -13,6 +13,11 @@ import {
   AlertTriangle,
   ClipboardList,
   ArrowRight,
+  Filter,
+  ChevronUp,
+  ChevronDown,
+  RotateCcw,
+  X,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import type { Tables } from "@/lib/supabase/types"
@@ -168,6 +173,7 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
   const [sortKey, setSortKey] = useState<SortKey>("vuln")
   const [sortDir, setSortDir] = useState<SortDir>("asc")
   const [visible, setVisible] = useState<ColKey[]>(() => loadColumnVisibility(LS_KEY, FACTORY_VISIBLE))
+  const [detailFiltersOpen, setDetailFiltersOpen] = useState(false)
 
   function handleSort(col: SortKey) {
     if (sortKey === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
@@ -232,6 +238,19 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
 
   const show = (key: ColKey) => visible.includes(key)
 
+  const detailFilterCount = [cat, severity, review].filter((v) => v !== "전체").length
+  const filterChips: { key: string; label: string; onRemove: () => void }[] = []
+  if (cat !== "전체") filterChips.push({ key: "cat", label: cat, onRemove: () => setCat("전체") })
+  if (severity !== "전체") filterChips.push({ key: "severity", label: vulnLabel[severity], onRemove: () => setSeverity("전체") })
+  if (review !== "전체") filterChips.push({ key: "review", label: review, onRemove: () => setReview("전체") })
+
+  function resetFilters() {
+    setQuery("")
+    setCat("전체")
+    setSeverity("전체")
+    setReview("전체")
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -287,68 +306,112 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
           </div>
         }
       >
-        {/* 필터 */}
+        {/* 검색 + 필터 */}
         <div className="mb-4 flex flex-col gap-3 border-b border-border/50 pb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="제품명, 벤더, 담당자, 서버, CVE 검색"
-              className="w-full rounded-xl border border-border/60 bg-background/50 py-2.5 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
+          {/* 기본 검색 한 줄 */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative min-w-[220px] flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="제품명, 벤더, 담당자, 서버, CVE 검색"
+                className="w-full rounded-lg border border-border/60 bg-background/50 py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+
+            <MiniButton
+              onClick={() => setDetailFiltersOpen((v) => !v)}
+              className={cn(detailFiltersOpen && "border-primary/50 bg-primary/10 text-primary")}
+            >
+              <Filter className="h-3.5 w-3.5" />
+              상세 필터{detailFilterCount > 0 ? ` (${detailFilterCount})` : ""}
+              {detailFiltersOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </MiniButton>
+
+            <MiniButton onClick={resetFilters}>
+              <RotateCcw className="h-3 w-3" />
+              초기화
+            </MiniButton>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">분류</span>
-            {CATEGORIES.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setCat(c)}
-                className={cn(
-                  "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                  cat === c ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
+          {/* 상세 필터 아코디언 */}
+          {detailFiltersOpen ? (
+            <div className="animate-rise flex flex-col gap-3 border-t border-border/50 pt-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="w-16 shrink-0 text-xs font-medium text-muted-foreground">분류</span>
+                {CATEGORIES.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setCat(c)}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                      cat === c ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">심각도</span>
-            {SEVERITIES.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setSeverity(s)}
-                className={cn(
-                  "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
-                  severity === s ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {s === "전체" ? s : vulnLabel[s]}
-              </button>
-            ))}
-          </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="w-16 shrink-0 text-xs font-medium text-muted-foreground">심각도</span>
+                {SEVERITIES.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setSeverity(s)}
+                    className={cn(
+                      "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
+                      severity === s ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {s === "전체" ? s : vulnLabel[s]}
+                  </button>
+                ))}
+              </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">검토 상태</span>
-            {REVIEW_FILTERS.map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => setReview(r)}
-                className={cn(
-                  "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
-                  review === r ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {r}
-              </button>
-            ))}
-          </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="w-16 shrink-0 text-xs font-medium text-muted-foreground">검토 상태</span>
+                {REVIEW_FILTERS.map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setReview(r)}
+                    className={cn(
+                      "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
+                      review === r ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+
+              {filterChips.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-1.5 border-t border-border/50 pt-3">
+                  <span className="text-[11px] text-muted-foreground">적용된 조건</span>
+                  {filterChips.map((chip) => (
+                    <span
+                      key={chip.key}
+                      className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 py-0.5 pl-2.5 pr-1 text-xs font-medium text-primary"
+                    >
+                      {chip.label}
+                      <button
+                        type="button"
+                        onClick={chip.onRemove}
+                        aria-label={`${chip.label} 필터 해제`}
+                        className="flex h-4 w-4 items-center justify-center rounded-full transition-colors hover:bg-primary/20"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <p className="mb-3 text-sm text-muted-foreground">
