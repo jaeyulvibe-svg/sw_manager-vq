@@ -22,6 +22,7 @@ import { KisaView } from "@/components/pages/kisa-view"
 import { PatchView } from "@/components/pages/patch-view"
 import { AdminView } from "@/components/pages/admin-view"
 import { SwMasterView } from "@/components/pages/sw-master-view"
+import { ServersView } from "@/components/pages/servers-view"
 import { NotificationsView } from "@/components/pages/notifications-view"
 
 function Portal({ onLogout }: { onLogout: () => void }) {
@@ -72,6 +73,8 @@ function Portal({ onLogout }: { onLogout: () => void }) {
         return <PatchView onNavigate={setActive} />
       case "admin-master":
         return <SwMasterView key={active} />
+      case "admin-servers":
+        return <ServersView />
       case "admin-collect":
         return <AdminView key={active} initialTab="collect" />
       case "admin-policy":

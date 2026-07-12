@@ -11,6 +11,7 @@ import {
   Database,
   RefreshCw,
   UsersRound,
+  Server,
   type LucideIcon,
 } from "lucide-react"
 
@@ -23,6 +24,7 @@ export type ViewKey =
   | "kisa"
   | "patch"
   | "admin-master"
+  | "admin-servers"
   | "admin-collect"
   | "admin-policy"
   | "admin-users"
@@ -75,6 +77,7 @@ export const NAV_ITEMS: NavEntry[] = [
     adminOnly: true,
     children: [
       { key: "admin-master", label: "SW 마스터 관리", icon: Database },
+      { key: "admin-servers", label: "서버 관리", icon: Server },
       { key: "admin-collect", label: "수집 관리", icon: RefreshCw },
       { key: "admin-policy", label: "승인 정책", icon: ShieldCheck },
       { key: "admin-users", label: "사용자·로그", icon: UsersRound },
