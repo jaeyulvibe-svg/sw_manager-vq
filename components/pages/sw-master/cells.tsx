@@ -34,7 +34,7 @@ export const CATEGORY_ICONS: Record<EditableFields["category"], LucideIcon> = {
 }
 
 const inputBase =
-  "w-full rounded-md border bg-transparent px-2 py-1 text-xs text-foreground focus:border-primary/60 focus:outline-none"
+  "w-full overflow-hidden truncate rounded-md border bg-transparent px-2 py-1 text-xs text-foreground focus:border-primary/60 focus:outline-none"
 
 function DirtyDot() {
   return (
@@ -71,6 +71,7 @@ export function EditableText({
       {dirty ? <DirtyDot /> : null}
       <input
         value={value}
+        title={value || undefined}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder ?? (required ? "필수" : undefined)}
         className={cn(inputBase, bold && "font-semibold", requiredBorder(value, error, required))}
@@ -105,6 +106,7 @@ export function EditableVendor({
       <input
         list={listId}
         value={value}
+        title={value || undefined}
         onChange={(e) => onChange(e.target.value)}
         placeholder={required ? "필수" : "벤더 검색/입력"}
         className={cn(inputBase, requiredBorder(value, error, required))}
