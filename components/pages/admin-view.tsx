@@ -20,6 +20,7 @@ import {
   X,
   FilePlus2,
   CalendarClock,
+  Search,
 } from "lucide-react"
 import {
   PageHeader,
@@ -30,6 +31,11 @@ import {
   Td,
   MiniButton,
   ExportExcelButton,
+  SortTh,
+  ColumnVisibilityMenu,
+  loadColumnVisibility,
+  TABLE_HEADER_CELL_H,
+  TABLE_ROW_CELL_H,
   type Accent,
   type RiskLevel,
 } from "@/components/portal/ui"
@@ -101,6 +107,27 @@ const initialSources: Source[] = SOURCE_PRODUCT_NAMES.map((name, i) => ({
 
 const sourceStatusRisk: Record<string, RiskLevel> = {
   정상: 1, 지연: 3, 실패: 4,
+}
+
+type SourceColKey = "name" | "type" | "url" | "cycle" | "last" | "status"
+const SOURCE_ALL_COLS: { key: SourceColKey; label: string }[] = [
+  { key: "name", label: "제품명" },
+  { key: "type", label: "Source 유형" },
+  { key: "url", label: "공식 URL" },
+  { key: "cycle", label: "수집 주기" },
+  { key: "last", label: "마지막 수집" },
+  { key: "status", label: "상태" },
+]
+const SOURCE_FACTORY_VISIBLE: SourceColKey[] = SOURCE_ALL_COLS.map((c) => c.key)
+const SOURCE_LS_KEY = "admin_source_columns"
+
+type SourceSortKey = SourceColKey | "none"
+const sourceStatusOrder: Record<string, number> = { 실패: 0, 지연: 1, 정상: 2 }
+
+function sourceSortValue(s: Source, key: SourceSortKey): string | number {
+  if (key === "status") return sourceStatusOrder[s.status] ?? 99
+  if (key === "none") return 0
+  return s[key]
 }
 
 /* ---- Inline add/edit form for 공식 Source URL 관리 ---- */
@@ -529,6 +556,34 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
   const [sourcePanel, setSourcePanel] = useState<"add" | string | null>(null)
   const [sourceSelectMode, setSourceSelectMode] = useState(false)
   const [selectedSourceIds, setSelectedSourceIds] = useState<Set<string>>(new Set())
+  const [sourceQuery, setSourceQuery] = useState("")
+  const [sourceSortKey, setSourceSortKey] = useState<SourceSortKey>("name")
+  const [sourceSortDir, setSourceSortDir] = useState<"asc" | "desc">("asc")
+  const [sourceVisible, setSourceVisible] = useState<SourceColKey[]>(() =>
+    loadColumnVisibility(SOURCE_LS_KEY, SOURCE_FACTORY_VISIBLE),
+  )
+
+  function handleSourceSort(col: SourceSortKey) {
+    if (sourceSortKey === col) setSourceSortDir((d) => (d === "asc" ? "desc" : "asc"))
+    else {
+      setSourceSortKey(col)
+      setSourceSortDir("asc")
+    }
+  }
+
+  const filteredSources = sources
+    .filter((s) => {
+      const q = sourceQuery.trim().toLowerCase()
+      return !q || [s.name, s.url].some((f) => f.toLowerCase().includes(q))
+    })
+    .sort((a, b) => {
+      const va = sourceSortValue(a, sourceSortKey)
+      const vb = sourceSortValue(b, sourceSortKey)
+      const d = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb), "ko")
+      return sourceSortDir === "asc" ? d : -d
+    })
+
+  const showSourceCol = (key: SourceColKey) => sourceVisible.includes(key)
 
   const [assets, setAssets] = useState<Tables<"assets">[]>([])
   const [manualVulnSubmitting, setManualVulnSubmitting] = useState(false)
@@ -577,7 +632,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
 
   function toggleSourceSelectAll() {
     setSelectedSourceIds((prev) =>
-      prev.size === sources.length ? new Set() : new Set(sources.map((s) => s.id)),
+      prev.size === filteredSources.length ? new Set() : new Set(filteredSources.map((s) => s.id)),
     )
   }
 
@@ -756,8 +811,17 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
             </div>
           ) : (
             <div className="flex items-center gap-1.5">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={sourceQuery}
+                  onChange={(e) => setSourceQuery(e.target.value)}
+                  placeholder="제품명, URL 검색"
+                  className="w-48 rounded-lg border border-border/60 bg-background/50 py-1.5 pl-8 pr-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none"
+                />
+              </div>
               <ExportExcelButton
-                rows={sources}
+                rows={filteredSources}
                 filename="공식_Source_URL_관리"
                 columns={[
                   { label: "제품명", value: (s: Source) => s.name },
@@ -767,6 +831,13 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
                   { label: "마지막 수집", value: (s: Source) => s.last },
                   { label: "상태", value: (s: Source) => s.status },
                 ]}
+              />
+              <ColumnVisibilityMenu
+                allCols={SOURCE_ALL_COLS}
+                visible={sourceVisible}
+                onChange={setSourceVisible}
+                factoryDefault={SOURCE_FACTORY_VISIBLE}
+                storageKey={SOURCE_LS_KEY}
               />
               <MiniButton accent="primary" onClick={() => setSourcePanel("add")}>
                 <Plus className="h-3.5 w-3.5" />
@@ -783,27 +854,31 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
         {sourcePanel === "add" ? (
           <SourceFormPanel onCancel={() => setSourcePanel(null)} onSubmit={saveSource} />
         ) : null}
-        <TableShell>
+        <TableShell scrollHint>
           <thead>
             <tr>
               {sourceSelectMode ? (
-                <Th className="w-8">
+                <Th className={cn("w-8", TABLE_HEADER_CELL_H)}>
                   <input
                     type="checkbox"
-                    checked={sources.length > 0 && selectedSourceIds.size === sources.length}
+                    checked={filteredSources.length > 0 && selectedSourceIds.size === filteredSources.length}
                     onChange={toggleSourceSelectAll}
                     aria-label="전체 선택"
                     className="h-4 w-4 rounded border-border/60 accent-primary"
                   />
                 </Th>
               ) : null}
-              <Th>제품명</Th><Th>Source 유형</Th><Th>공식 URL</Th>
-              <Th>수집 주기</Th><Th>마지막 수집</Th><Th>상태</Th>
-              {sourceSelectMode ? null : <Th>관리</Th>}
+              {showSourceCol("name") && <SortTh col="name" label="제품명" sortKey={sourceSortKey} sortDir={sourceSortDir} onSort={handleSourceSort} />}
+              {showSourceCol("type") && <SortTh col="type" label="Source 유형" sortKey={sourceSortKey} sortDir={sourceSortDir} onSort={handleSourceSort} />}
+              {showSourceCol("url") && <SortTh col="url" label="공식 URL" sortKey={sourceSortKey} sortDir={sourceSortDir} onSort={handleSourceSort} />}
+              {showSourceCol("cycle") && <SortTh col="cycle" label="수집 주기" sortKey={sourceSortKey} sortDir={sourceSortDir} onSort={handleSourceSort} />}
+              {showSourceCol("last") && <SortTh col="last" label="마지막 수집" sortKey={sourceSortKey} sortDir={sourceSortDir} onSort={handleSourceSort} />}
+              {showSourceCol("status") && <SortTh col="status" label="상태" sortKey={sourceSortKey} sortDir={sourceSortDir} onSort={handleSourceSort} />}
+              {sourceSelectMode ? null : <Th className={TABLE_HEADER_CELL_H}>관리</Th>}
             </tr>
           </thead>
           <tbody>
-            {sources.map((s) =>
+            {filteredSources.map((s) =>
               sourcePanel === s.id ? (
                 <tr key={s.id}>
                   <td colSpan={7} className="border-b border-border/40 p-0">
@@ -823,7 +898,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
               ) : (
                 <tr key={s.id} className="transition-colors hover:bg-accent/40">
                   {sourceSelectMode ? (
-                    <Td>
+                    <Td className={TABLE_ROW_CELL_H}>
                       <input
                         type="checkbox"
                         checked={selectedSourceIds.has(s.id)}
@@ -833,18 +908,20 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
                       />
                     </Td>
                   ) : null}
-                  <Td className="font-semibold">{s.name}</Td>
-                  <Td className="text-muted-foreground">{s.type}</Td>
-                  <Td className="font-mono text-xs text-primary">{s.url}</Td>
-                  <Td className="text-xs">{s.cycle}</Td>
-                  <Td className="text-xs text-muted-foreground">{s.last}</Td>
-                  <Td>
-                    <StatusBadge risk={sourceStatusRisk[s.status]} pulse={s.status === "실패"}>
-                      {s.status}
-                    </StatusBadge>
-                  </Td>
+                  {showSourceCol("name") && <Td className={cn("font-semibold", TABLE_ROW_CELL_H)}>{s.name}</Td>}
+                  {showSourceCol("type") && <Td className={cn("text-muted-foreground", TABLE_ROW_CELL_H)}>{s.type}</Td>}
+                  {showSourceCol("url") && <Td className={cn("font-mono text-xs text-primary", TABLE_ROW_CELL_H)}>{s.url}</Td>}
+                  {showSourceCol("cycle") && <Td className={cn("text-xs", TABLE_ROW_CELL_H)}>{s.cycle}</Td>}
+                  {showSourceCol("last") && <Td className={cn("text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{s.last}</Td>}
+                  {showSourceCol("status") && (
+                    <Td className={TABLE_ROW_CELL_H}>
+                      <StatusBadge risk={sourceStatusRisk[s.status]} pulse={s.status === "실패"}>
+                        {s.status}
+                      </StatusBadge>
+                    </Td>
+                  )}
                   {sourceSelectMode ? null : (
-                    <Td>
+                    <Td className={TABLE_ROW_CELL_H}>
                       <div className="flex items-center gap-1.5">
                         <MiniButton onClick={() => setSourcePanel(s.id)}>
                           <Pencil className="h-3 w-3" />
