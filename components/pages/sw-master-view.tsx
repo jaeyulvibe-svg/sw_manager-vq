@@ -234,6 +234,9 @@ export function SwMasterView() {
 
   const [sort, setSort] = useState<SortSpec[]>([{ key: "id", dir: "asc" }])
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkCategory, setBulkCategory] = useState<"" | EditableFields["category"]>("")
+  const [bulkMode, setBulkMode] = useState<"" | (typeof COLLECT_MODES)[number]>("")
+  const [bulkActive, setBulkActive] = useState<"" | "사용" | "미사용">("")
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(20)
   const [visibleCols, setVisibleCols] = useState<ColKey[]>(() => loadVisibleCols())
@@ -373,6 +376,15 @@ export function SwMasterView() {
   function handleBulkDelete() {
     selected.forEach((id) => draft.markDeleted(id))
     setSelected(new Set())
+  }
+
+  function handleBulkApply() {
+    if (bulkCategory) selected.forEach((id) => draft.editCell(id, "category", bulkCategory))
+    if (bulkMode) selected.forEach((id) => draft.editCell(id, "collect_mode", bulkMode))
+    if (bulkActive) selected.forEach((id) => draft.editCell(id, "active", bulkActive === "사용"))
+    setBulkCategory("")
+    setBulkMode("")
+    setBulkActive("")
   }
 
   function handleSaveClick() {
@@ -632,6 +644,46 @@ export function SwMasterView() {
           ) : (
             <span className="text-xs text-muted-foreground">총 {sorted.length}건</span>
           )}
+          {selected.size > 0 ? (
+            <>
+              <select
+                value={bulkCategory}
+                onChange={(e) => setBulkCategory(e.target.value as typeof bulkCategory)}
+                className="rounded-lg border border-border/60 bg-background/50 px-2 py-1.5 text-xs text-foreground focus:border-primary/60 focus:outline-none"
+              >
+                <option value="">분류 변경 안 함</option>
+                {MASTER_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <select
+                value={bulkMode}
+                onChange={(e) => setBulkMode(e.target.value as typeof bulkMode)}
+                className="rounded-lg border border-border/60 bg-background/50 px-2 py-1.5 text-xs text-foreground focus:border-primary/60 focus:outline-none"
+              >
+                <option value="">수집 모드 변경 안 함</option>
+                {COLLECT_MODES.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+              <select
+                value={bulkActive}
+                onChange={(e) => setBulkActive(e.target.value as typeof bulkActive)}
+                className="rounded-lg border border-border/60 bg-background/50 px-2 py-1.5 text-xs text-foreground focus:border-primary/60 focus:outline-none"
+              >
+                <option value="">사용 여부 변경 안 함</option>
+                <option value="사용">사용</option>
+                <option value="미사용">미사용</option>
+              </select>
+              <MiniButton
+                accent="primary"
+                onClick={handleBulkApply}
+                disabled={!bulkCategory && !bulkMode && !bulkActive}
+              >
+                적용
+              </MiniButton>
+            </>
+          ) : null}
           <MiniButton accent="destructive" onClick={handleBulkDelete} disabled={selected.size === 0}>
             삭제
           </MiniButton>
