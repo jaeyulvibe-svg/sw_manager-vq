@@ -16,7 +16,6 @@ import { isViewAllowed, type ViewKey } from "@/components/portal/nav"
 import { DashboardView } from "@/components/pages/dashboard-view"
 import { AssetsView } from "@/components/pages/assets-view"
 import { EosView } from "@/components/pages/eos-view"
-import { LicenseView } from "@/components/pages/license-view"
 import { RequestView } from "@/components/pages/request-view"
 import { ApprovalView } from "@/components/pages/approval-view"
 import { KisaView } from "@/components/pages/kisa-view"
@@ -63,8 +62,6 @@ function Portal({ onLogout }: { onLogout: () => void }) {
         return <AssetsView />
       case "eos":
         return <EosView />
-      case "license":
-        return <LicenseView />
       case "request":
         return <RequestView />
       case "approval":

@@ -8,7 +8,6 @@ import {
   ShieldCheck,
   Settings,
   Bell,
-  KeyRound,
   Database,
   RefreshCw,
   UsersRound,
@@ -19,7 +18,6 @@ export type ViewKey =
   | "dashboard"
   | "assets"
   | "eos"
-  | "license"
   | "request"
   | "approval"
   | "kisa"
@@ -66,7 +64,6 @@ export const NAV_ITEMS: NavEntry[] = [
   { key: "dashboard", label: "대시보드", icon: LayoutDashboard },
   { key: "assets", label: "자산 목록", icon: Boxes },
   { key: "eos", label: "EOS 로드맵", icon: CalendarClock },
-  { key: "license", label: "SW 라이선스 관리", icon: KeyRound },
   { key: "request", label: "신규 자산 요청", icon: FilePlus2, userOnly: true },
   { key: "approval", label: "신규 자산 요청 승인", icon: ClipboardCheck, adminOnly: true },
   { key: "kisa", label: "KISA 취약점 공지", icon: ShieldAlert },
