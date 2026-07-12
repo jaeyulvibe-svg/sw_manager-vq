@@ -64,7 +64,7 @@ function KpiCard({ kpi }: { kpi: KpiData }) {
   return (
     <div
       className={cn(
-        "glow-card animate-rise group relative overflow-hidden rounded-2xl border border-border/60 bg-card p-5 transition-transform duration-300 hover:-translate-y-1",
+        "glow-card animate-rise group relative min-w-0 overflow-hidden rounded-2xl border border-border/60 bg-card p-5 transition-transform duration-300 hover:-translate-y-1",
       )}
       style={{ animationDelay: `${kpi.delay}ms` }}
     >
@@ -72,14 +72,14 @@ function KpiCard({ kpi }: { kpi: KpiData }) {
         className="pointer-events-none absolute -right-10 -top-10 hidden h-28 w-28 rounded-full bg-primary/10 blur-2xl transition-opacity duration-300 group-hover:opacity-100 dark:block dark:opacity-70"
         aria-hidden
       />
-      <div className="mb-4 flex items-center justify-between">
-        <span className="text-sm font-medium text-muted-foreground">{kpi.label}</span>
-        <span className={cn("flex h-9 w-9 items-center justify-center rounded-lg", accentBg[kpi.accent])}>
+      <div className="mb-4 flex min-w-0 items-center justify-between gap-2">
+        <span className="min-w-0 truncate text-sm font-medium text-muted-foreground">{kpi.label}</span>
+        <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", accentBg[kpi.accent])}>
           <kpi.icon className="h-5 w-5" />
         </span>
       </div>
 
-      <div className="font-mono text-4xl font-bold tabular-nums tracking-tight text-foreground sm:text-5xl">
+      <div className="truncate font-mono text-4xl font-bold tabular-nums tracking-tight text-foreground sm:text-5xl">
         {animated.toLocaleString("en-US", {
           minimumFractionDigits: kpi.decimals ?? 0,
           maximumFractionDigits: kpi.decimals ?? 0,
@@ -87,13 +87,13 @@ function KpiCard({ kpi }: { kpi: KpiData }) {
         <span className="text-2xl sm:text-3xl">{kpi.suffix}</span>
       </div>
 
-      <div className="mt-3 flex items-end justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-xs">
-          <span className={cn("flex items-center gap-1 font-semibold", positive ? "text-success" : "text-destructive")}>
+      <div className="mt-3 flex min-w-0 items-end justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-1.5 text-xs">
+          <span className={cn("flex shrink-0 items-center gap-1 font-semibold", positive ? "text-success" : "text-destructive")}>
             <TrendIcon className="h-3.5 w-3.5" />
             {Math.abs(kpi.trend)}%
           </span>
-          <span className="text-muted-foreground">{kpi.trendLabel}</span>
+          <span className="min-w-0 truncate text-muted-foreground">{kpi.trendLabel}</span>
         </div>
         <Sparkline data={kpi.spark} color={accentVar[kpi.accent]} width={96} height={34} className="shrink-0" />
       </div>

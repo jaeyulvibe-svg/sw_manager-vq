@@ -103,7 +103,7 @@ function Portal({ onLogout }: { onLogout: () => void }) {
 
       <div
         className={cn(
-          "relative z-10 transition-[padding] duration-300",
+          "relative z-10 min-w-0 overflow-x-hidden transition-[padding] duration-300",
           collapsed ? "lg:pl-[72px]" : "lg:pl-72",
         )}
       >
@@ -115,8 +115,8 @@ function Portal({ onLogout }: { onLogout: () => void }) {
           onOpenNotifications={() => setActive("notifications")}
           onLogout={onLogout}
         />
-        <main className="mx-auto w-full max-w-[104rem] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          <div key={active} className="animate-view">
+        <main className="mx-auto w-full min-w-0 max-w-[104rem] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          <div key={active} className="min-w-0 animate-view">
             {renderView()}
           </div>
         </main>

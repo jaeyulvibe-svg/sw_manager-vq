@@ -33,10 +33,10 @@ export function LiveClock() {
   const parts = now ? format(now) : { date: "----.--.--", time: "--:--" }
 
   return (
-    <div className="flex items-center gap-2.5 rounded-full border border-border/70 bg-card px-3.5 py-1.5 glow-card">
-      <Clock className="h-4 w-4 text-primary" />
+    <div className="flex shrink-0 items-center gap-2.5 rounded-full border border-border/70 bg-card px-3 py-1.5 glow-card xl:px-3.5">
+      <Clock className="h-4 w-4 shrink-0 text-primary" />
       <div className="flex items-baseline gap-2">
-        <span className="text-xs text-muted-foreground">{parts.date}</span>
+        <span className="hidden text-xs text-muted-foreground xl:inline">{parts.date}</span>
         <span className="font-mono text-sm font-bold tabular-nums text-foreground">
           {parts.time}
         </span>

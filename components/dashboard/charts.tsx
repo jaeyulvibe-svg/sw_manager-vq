@@ -33,7 +33,7 @@ function ChartCard({
 }) {
   return (
     <div
-      className={`glow-card animate-rise flex flex-col rounded-2xl border border-border/60 bg-card p-5 ${className}`}
+      className={`glow-card animate-rise flex min-w-0 flex-col rounded-2xl border border-border/60 bg-card p-5 ${className}`}
     >
       <div className="mb-4 flex min-w-0 flex-wrap items-center gap-2.5">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary">

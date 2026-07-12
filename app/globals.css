@@ -158,8 +158,13 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html,
   body {
     @apply bg-background text-foreground;
+    /* 내부 요소가 실수로 넘치더라도 페이지 전체가 가로로 밀리지 않도록 하는 안전장치.
+       실제 원인(넘치는 고정 너비 요소)은 각 컴포넌트에서 개별적으로 수정한다. */
+    max-width: 100%;
+    overflow-x: hidden;
   }
   html {
     @apply font-sans;

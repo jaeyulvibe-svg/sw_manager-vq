@@ -225,27 +225,27 @@ export function StatCard({
 
   return (
     <div
-      className="glow-card animate-rise group relative overflow-hidden rounded-2xl border border-border/60 bg-card p-5 transition-transform duration-300 hover:-translate-y-1"
+      className="glow-card animate-rise group relative min-w-0 overflow-hidden rounded-2xl border border-border/60 bg-card p-5 transition-transform duration-300 hover:-translate-y-1"
       style={{ animationDelay: `${delay}ms` }}
     >
       <div
         className="pointer-events-none absolute -right-10 -top-10 hidden h-24 w-24 rounded-full bg-primary/10 blur-2xl transition-opacity duration-300 group-hover:opacity-100 dark:block dark:opacity-70"
         aria-hidden
       />
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm font-medium text-muted-foreground">
+      <div className="mb-3 flex min-w-0 items-center justify-between gap-2">
+        <span className="min-w-0 truncate text-sm font-medium text-muted-foreground">
           {label}
         </span>
         <span
           className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-lg border",
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border",
             risk ? riskSoft[risk] : accentSoft[accent],
           )}
         >
           <Icon className="h-5 w-5" />
         </span>
       </div>
-      <div className="font-mono text-3xl font-bold tabular-nums tracking-tight text-foreground sm:text-4xl">
+      <div className="truncate font-mono text-3xl font-bold tabular-nums tracking-tight text-foreground sm:text-4xl">
         {animated.toLocaleString("en-US", {
           minimumFractionDigits: decimals,
           maximumFractionDigits: decimals,
@@ -253,11 +253,11 @@ export function StatCard({
         {suffix ? <span className="text-xl sm:text-2xl">{suffix}</span> : null}
       </div>
       {trend !== undefined || trendLabel ? (
-        <div className="mt-3 flex items-center gap-1.5 text-xs">
+        <div className="mt-3 flex min-w-0 items-center gap-1.5 text-xs">
           {trend !== undefined ? (
             <span
               className={cn(
-                "flex items-center gap-1 font-semibold",
+                "flex shrink-0 items-center gap-1 font-semibold",
                 positive ? "text-success" : "text-destructive",
               )}
             >
@@ -266,7 +266,7 @@ export function StatCard({
             </span>
           ) : null}
           {trendLabel ? (
-            <span className="text-muted-foreground">{trendLabel}</span>
+            <span className="min-w-0 truncate text-muted-foreground">{trendLabel}</span>
           ) : null}
         </div>
       ) : null}
