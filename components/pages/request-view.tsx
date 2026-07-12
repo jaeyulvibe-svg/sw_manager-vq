@@ -27,10 +27,12 @@ import { createClient } from "@/lib/supabase/client"
 import type { Tables } from "@/lib/supabase/types"
 import { useToast } from "@/components/portal/toast"
 import { useNotifications } from "@/components/portal/notifications-context"
+import { MASTER_CATEGORIES, type MasterCategory } from "@/components/pages/sw-master/use-master-draft"
 import { cn } from "@/lib/utils"
 
 type AssetRequest = Tables<"asset_requests">
 type MasterRow = Tables<"sw_masters">
+type Server = Tables<"servers">
 
 const approvalRisk: Record<AssetRequest["approval"], RiskLevel> = {
   반려: 5,
@@ -40,6 +42,7 @@ const approvalRisk: Record<AssetRequest["approval"], RiskLevel> = {
 }
 
 type FormState = {
+  category: MasterCategory | ""
   masterId: string
   server: string
   dept: string
@@ -48,6 +51,7 @@ type FormState = {
 }
 
 const EMPTY_FORM: FormState = {
+  category: "",
   masterId: "",
   server: "",
   dept: "",
@@ -96,6 +100,8 @@ export function RequestView() {
   const [submitting, setSubmitting] = useState(false)
   const [masters, setMasters] = useState<MasterRow[]>([])
   const [mastersLoading, setMastersLoading] = useState(true)
+  const [servers, setServers] = useState<Server[]>([])
+  const [serversLoading, setServersLoading] = useState(true)
 
   function loadRequests() {
     const supabase = createClient()
@@ -127,7 +133,24 @@ export function RequestView() {
       })
   }, [])
 
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from("servers")
+      .select("*")
+      .order("name")
+      .then(({ data }) => {
+        if (data) setServers(data)
+        setServersLoading(false)
+      })
+  }, [])
+
+  const mastersInCategory = form.category ? masters.filter((m) => m.category === form.category) : []
   const selectedMaster = masters.find((m) => m.id === form.masterId)
+
+  function handleCategoryChange(next: string) {
+    setForm((prev) => ({ ...prev, category: next as MasterCategory | "", masterId: "" }))
+  }
 
   const counts = {
     pending: requests.filter((r) => r.approval === "승인대기" || r.approval === "검토중").length,
@@ -225,62 +248,81 @@ export function RequestView() {
         <div className="lg:col-span-3">
           <SectionCard title="신규 자산 등록 요청서" subtitle="필수 항목을 입력해 주세요" icon={FilePlus2}>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="등록 제품 선택" required>
+              <Field label="분류" required>
+                <select
+                  className={inputCls}
+                  value={form.category}
+                  onChange={(e) => handleCategoryChange(e.target.value)}
+                >
+                  <option value="">분류를 선택하세요</option>
+                  {MASTER_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="등록 제품" required>
                 <select
                   className={inputCls}
                   value={form.masterId}
                   onChange={(e) => update("masterId", e.target.value)}
+                  disabled={!form.category}
                 >
                   <option value="">
-                    {mastersLoading
-                      ? "불러오는 중..."
-                      : masters.length === 0
-                        ? "등록된 SW 마스터 제품이 없습니다"
-                        : "SW 마스터에 등록된 제품을 선택하세요"}
+                    {!form.category
+                      ? "먼저 분류를 선택하세요"
+                      : mastersLoading
+                        ? "불러오는 중..."
+                        : mastersInCategory.length === 0
+                          ? "해당 분류에 등록된 제품이 없습니다"
+                          : "SW 마스터에 등록된 제품을 선택하세요"}
                   </option>
-                  {masters.map((m) => (
+                  {mastersInCategory.map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.category} · {m.name} ({m.vendor}) — v{m.std_version}
+                      {m.name} ({m.vendor})
                     </option>
                   ))}
                 </select>
               </Field>
-              <Field label="선택된 제품 정보">
-                {selectedMaster ? (
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 rounded-lg border border-border/60 bg-background/30 px-3 py-2 text-xs">
-                    <span><span className="text-muted-foreground">벤더 </span><span className="font-medium text-foreground">{selectedMaster.vendor}</span></span>
-                    <span><span className="text-muted-foreground">분류 </span><span className="font-medium text-foreground">{selectedMaster.category}</span></span>
-                    <span><span className="text-muted-foreground">버전 </span><span className="font-medium text-foreground">{selectedMaster.std_version}</span></span>
-                  </div>
-                ) : (
-                  <div className="rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-                    제품을 선택하면 벤더·분류·버전이 자동으로 채워집니다.
-                  </div>
-                )}
+              <Field label="버전">
+                <div className="flex h-[38px] items-center rounded-lg border border-border/60 bg-background/30 px-3 text-sm text-foreground">
+                  {selectedMaster ? selectedMaster.std_version : <span className="text-muted-foreground">제품을 선택하면 표시됩니다</span>}
+                </div>
               </Field>
               <Field label="설치 서버" required>
-                <input
+                <select
                   className={inputCls}
-                  placeholder="예: WAS-PRD-03"
                   value={form.server}
                   onChange={(e) => update("server", e.target.value)}
-                />
-              </Field>
-              <Field label="사용 부서" required>
-                <input
-                  className={inputCls}
-                  placeholder="예: WAS운영팀"
-                  value={form.dept}
-                  onChange={(e) => update("dept", e.target.value)}
-                />
+                >
+                  <option value="">
+                    {serversLoading
+                      ? "불러오는 중..."
+                      : servers.length === 0
+                        ? "등록된 서버가 없습니다"
+                        : "설치할 서버를 선택하세요"}
+                  </option>
+                  {servers.map((s) => (
+                    <option key={s.id} value={s.name}>
+                      {s.name} · {s.hostname} ({s.ip})
+                    </option>
+                  ))}
+                </select>
               </Field>
               <Field label="담당자" required>
-                <input
-                  className={inputCls}
-                  placeholder="예: 홍길동"
-                  value={form.owner}
-                  onChange={(e) => update("owner", e.target.value)}
-                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    className={inputCls}
+                    placeholder="부서 (예: WAS운영팀)"
+                    value={form.dept}
+                    onChange={(e) => update("dept", e.target.value)}
+                  />
+                  <input
+                    className={inputCls}
+                    placeholder="이름 (예: 홍길동)"
+                    value={form.owner}
+                    onChange={(e) => update("owner", e.target.value)}
+                  />
+                </div>
               </Field>
             </div>
 
