@@ -582,6 +582,77 @@ export function ColumnVisibilityMenu<K extends string>({
   )
 }
 
+/* ---------------- Shared pagination convention (SW 마스터 관리 방식) ---------------- */
+
+export const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+export type PageSize = (typeof PAGE_SIZE_OPTIONS)[number]
+
+export function usePagination<T>(items: T[], initialPageSize: PageSize = 20) {
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSizeState] = useState<PageSize>(initialPageSize)
+
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize))
+  const pageSafe = Math.min(page, totalPages)
+  const pageItems = items.slice((pageSafe - 1) * pageSize, pageSafe * pageSize)
+
+  function setPageSize(next: PageSize) {
+    setPageSizeState(next)
+    setPage(1)
+  }
+
+  return { page: pageSafe, pageSize, totalPages, pageItems, setPage, setPageSize }
+}
+
+export function Pagination({
+  page,
+  pageSize,
+  totalPages,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  page: number
+  pageSize: PageSize
+  totalPages: number
+  onPageChange: (page: number) => void
+  onPageSizeChange: (size: PageSize) => void
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <label className="flex items-center gap-2 text-xs text-muted-foreground">
+        표시 개수
+        <select
+          value={pageSize}
+          onChange={(e) => onPageSizeChange(Number(e.target.value) as PageSize)}
+          className="rounded-md border border-border/60 bg-background/50 px-2 py-1 text-xs"
+        >
+          {PAGE_SIZE_OPTIONS.map((n) => (
+            <option key={n} value={n}>{n}개</option>
+          ))}
+        </select>
+      </label>
+      <div className="flex items-center gap-2 text-xs">
+        <button
+          type="button"
+          onClick={() => onPageChange(Math.max(1, page - 1))}
+          disabled={page <= 1}
+          className="rounded-md border border-border/60 px-2.5 py-1 text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          이전
+        </button>
+        <span className="text-muted-foreground">{page} / {totalPages}</span>
+        <button
+          type="button"
+          onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+          disabled={page >= totalPages}
+          className="rounded-md border border-border/60 px-2.5 py-1 text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          다음
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /* ---------------- Small action button ---------------- */
 
 export function MiniButton({
