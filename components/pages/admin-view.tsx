@@ -435,6 +435,28 @@ const roleAccent: Record<string, Accent> = {
   관리자: "destructive", 승인자: "eos", 담당자: "primary", "조회 사용자": "muted",
 }
 
+type UserColKey = "name" | "email" | "dept" | "role" | "assets" | "active"
+const USER_ALL_COLS: { key: UserColKey; label: string }[] = [
+  { key: "name", label: "사용자명" },
+  { key: "email", label: "이메일" },
+  { key: "dept", label: "부서" },
+  { key: "role", label: "권한" },
+  { key: "assets", label: "담당 자산 수" },
+  { key: "active", label: "상태" },
+]
+const USER_FACTORY_VISIBLE: UserColKey[] = USER_ALL_COLS.map((c) => c.key)
+const USER_LS_KEY = "admin_users_columns"
+
+type UserSortKey = UserColKey | "none"
+type UserRow = (typeof users)[number]
+
+function userSortValue(u: UserRow, key: UserSortKey): string | number {
+  if (key === "active") return u.active ? 1 : 0
+  if (key === "assets") return u.assets
+  if (key === "none") return 0
+  return u[key]
+}
+
 /* ---- Section 6: logs ---- */
 const logs = [
   { time: "10:32:04", type: "수집", target: "OpenSSL Advisory", result: "성공", who: "스케줄러" },
@@ -584,6 +606,35 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
     })
 
   const showSourceCol = (key: SourceColKey) => sourceVisible.includes(key)
+
+  const [userQuery, setUserQuery] = useState("")
+  const [userSortKey, setUserSortKey] = useState<UserSortKey>("name")
+  const [userSortDir, setUserSortDir] = useState<"asc" | "desc">("asc")
+  const [userVisible, setUserVisible] = useState<UserColKey[]>(() =>
+    loadColumnVisibility(USER_LS_KEY, USER_FACTORY_VISIBLE),
+  )
+
+  function handleUserSort(col: UserSortKey) {
+    if (userSortKey === col) setUserSortDir((d) => (d === "asc" ? "desc" : "asc"))
+    else {
+      setUserSortKey(col)
+      setUserSortDir("asc")
+    }
+  }
+
+  const filteredUsers = users
+    .filter((u) => {
+      const q = userQuery.trim().toLowerCase()
+      return !q || [u.name, u.email, u.dept].some((f) => f.toLowerCase().includes(q))
+    })
+    .sort((a, b) => {
+      const va = userSortValue(a, userSortKey)
+      const vb = userSortValue(b, userSortKey)
+      const d = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb), "ko")
+      return userSortDir === "asc" ? d : -d
+    })
+
+  const showUserCol = (key: UserColKey) => userVisible.includes(key)
 
   const [assets, setAssets] = useState<Tables<"assets">[]>([])
   const [manualVulnSubmitting, setManualVulnSubmitting] = useState(false)
@@ -1063,42 +1114,73 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
         subtitle="관리자 · 승인자 · 담당자 · 조회 사용자"
         icon={UsersRound}
         action={
-          <ExportExcelButton
-            rows={users}
-            filename="사용자_권한_관리"
-            columns={[
-              { label: "사용자명", value: (u) => u.name },
-              { label: "이메일", value: (u) => u.email },
-              { label: "부서", value: (u) => u.dept },
-              { label: "권한", value: (u) => u.role },
-              { label: "담당 자산 수", value: (u) => u.assets },
-              { label: "상태", value: (u) => (u.active ? "활성" : "비활성") },
-            ]}
-          />
+          <div className="flex items-center gap-1.5">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={userQuery}
+                onChange={(e) => setUserQuery(e.target.value)}
+                placeholder="이름, 이메일, 부서 검색"
+                className="w-48 rounded-lg border border-border/60 bg-background/50 py-1.5 pl-8 pr-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none"
+              />
+            </div>
+            <ExportExcelButton
+              rows={filteredUsers}
+              filename="사용자_권한_관리"
+              columns={[
+                { label: "사용자명", value: (u) => u.name },
+                { label: "이메일", value: (u) => u.email },
+                { label: "부서", value: (u) => u.dept },
+                { label: "권한", value: (u) => u.role },
+                { label: "담당 자산 수", value: (u) => u.assets },
+                { label: "상태", value: (u) => (u.active ? "활성" : "비활성") },
+              ]}
+            />
+            <ColumnVisibilityMenu
+              allCols={USER_ALL_COLS}
+              visible={userVisible}
+              onChange={setUserVisible}
+              factoryDefault={USER_FACTORY_VISIBLE}
+              storageKey={USER_LS_KEY}
+            />
+          </div>
         }
       >
-        <TableShell>
+        <TableShell scrollHint>
           <thead>
             <tr>
-              <Th>사용자명</Th><Th>이메일</Th><Th>부서</Th>
-              <Th>권한</Th><Th>담당 자산 수</Th><Th>상태</Th>
+              {showUserCol("name") && <SortTh col="name" label="사용자명" sortKey={userSortKey} sortDir={userSortDir} onSort={handleUserSort} />}
+              {showUserCol("email") && <SortTh col="email" label="이메일" sortKey={userSortKey} sortDir={userSortDir} onSort={handleUserSort} />}
+              {showUserCol("dept") && <SortTh col="dept" label="부서" sortKey={userSortKey} sortDir={userSortDir} onSort={handleUserSort} />}
+              {showUserCol("role") && <SortTh col="role" label="권한" sortKey={userSortKey} sortDir={userSortDir} onSort={handleUserSort} />}
+              {showUserCol("assets") && <SortTh col="assets" label="담당 자산 수" sortKey={userSortKey} sortDir={userSortDir} onSort={handleUserSort} />}
+              {showUserCol("active") && <SortTh col="active" label="상태" sortKey={userSortKey} sortDir={userSortDir} onSort={handleUserSort} />}
             </tr>
           </thead>
           <tbody>
-            {users.map((u) => (
+            {filteredUsers.map((u) => (
               <tr key={u.email} className="transition-colors hover:bg-accent/40">
-                <Td className="font-semibold">{u.name}</Td>
-                <Td className="font-mono text-xs text-muted-foreground">{u.email}</Td>
-                <Td className="text-muted-foreground">{u.dept}</Td>
-                <Td><StatusBadge accent={roleAccent[u.role]}>{u.role}</StatusBadge></Td>
-                <Td className="font-mono">{u.assets}</Td>
-                <Td>
-                  <StatusBadge accent={u.active ? "success" : "muted"}>
-                    {u.active ? "활성" : "비활성"}
-                  </StatusBadge>
-                </Td>
+                {showUserCol("name") && <Td className={cn("font-semibold", TABLE_ROW_CELL_H)}>{u.name}</Td>}
+                {showUserCol("email") && <Td className={cn("font-mono text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{u.email}</Td>}
+                {showUserCol("dept") && <Td className={cn("text-muted-foreground", TABLE_ROW_CELL_H)}>{u.dept}</Td>}
+                {showUserCol("role") && <Td className={TABLE_ROW_CELL_H}><StatusBadge accent={roleAccent[u.role]}>{u.role}</StatusBadge></Td>}
+                {showUserCol("assets") && <Td className={cn("font-mono", TABLE_ROW_CELL_H)}>{u.assets}</Td>}
+                {showUserCol("active") && (
+                  <Td className={TABLE_ROW_CELL_H}>
+                    <StatusBadge accent={u.active ? "success" : "muted"}>
+                      {u.active ? "활성" : "비활성"}
+                    </StatusBadge>
+                  </Td>
+                )}
               </tr>
             ))}
+            {filteredUsers.length === 0 && (
+              <tr>
+                <Td className="py-8 text-center text-muted-foreground">
+                  <span className="block w-full">검색 결과가 없습니다.</span>
+                </Td>
+              </tr>
+            )}
           </tbody>
         </TableShell>
       </SectionCard>
