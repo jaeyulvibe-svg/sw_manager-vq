@@ -26,6 +26,7 @@ import {
   useMasterDraft,
   MASTER_CATEGORIES,
   COLLECT_MODES,
+  formatDateTime,
   type EditableFields,
   type EffectiveRow,
 } from "@/components/pages/sw-master/use-master-draft"
@@ -978,14 +979,7 @@ export function SwMasterView() {
                       className="text-center text-xs text-muted-foreground"
                       style={{ width: getColWidth("updated_at"), minWidth: getColWidth("updated_at"), maxWidth: getColWidth("updated_at") }}
                     >
-                      {row.updatedAt
-                        ? new Date(row.updatedAt).toLocaleString("ko-KR", {
-                            month: "2-digit",
-                            day: "2-digit",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "-"}
+                      {row.updatedAt ? formatDateTime(row.updatedAt) : "-"}
                     </Td>
                   )}
                   {show("manager") && (
