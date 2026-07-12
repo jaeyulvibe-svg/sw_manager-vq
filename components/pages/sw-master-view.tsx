@@ -328,6 +328,13 @@ export function SwMasterView() {
   const pageSafe = Math.min(page, totalPages)
   const pageRows = sorted.slice((pageSafe - 1) * pageSize, pageSafe * pageSize)
 
+  useEffect(() => {
+    if (editingRowId && !pageRows.some((r) => r.id === editingRowId)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setEditingRowId(null)
+    }
+  }, [editingRowId, pageRows])
+
   function handleSort(key: SortKey, additive: boolean) {
     setSort((prev) => cycleSort(prev, key, additive))
     setPage(1)
@@ -912,7 +919,7 @@ export function SwMasterView() {
                       style={{ width: getColWidth("category"), minWidth: getColWidth("category"), maxWidth: getColWidth("category") }}
                     >
                       <div className="flex items-center justify-center">
-                        {editingRowId === row.id ? (
+                        {editingRowId === row.id && row.status !== "deleted" ? (
                           <EditableCategory
                             value={row.values.category}
                             onChange={(v) => draft.editCell(row.id, "category", v)}
@@ -944,7 +951,7 @@ export function SwMasterView() {
                       style={{ width: getColWidth("collect_mode"), minWidth: getColWidth("collect_mode"), maxWidth: getColWidth("collect_mode") }}
                     >
                       <div className="flex items-center justify-center">
-                        {editingRowId === row.id ? (
+                        {editingRowId === row.id && row.status !== "deleted" ? (
                           <EditableCollectMode
                             value={row.values.collect_mode}
                             onChange={(v) => draft.editCell(row.id, "collect_mode", v)}
@@ -962,7 +969,7 @@ export function SwMasterView() {
                       style={{ width: getColWidth("active"), minWidth: getColWidth("active"), maxWidth: getColWidth("active") }}
                     >
                       <div className="flex items-center justify-center">
-                        {editingRowId === row.id ? (
+                        {editingRowId === row.id && row.status !== "deleted" ? (
                           <ActiveToggle
                             value={row.values.active}
                             onChange={(v) => draft.editCell(row.id, "active", v)}
