@@ -82,14 +82,14 @@ function saveVisibleCols(cols: ColKey[]) {
 
 /* ---- 컬럼 너비 조절 ---- */
 const DEFAULT_COL_WIDTHS: Record<ColKey, number> = {
-  id: 90,
-  name: 160,
-  vendor: 120,
-  category: 100,
-  std_version: 100,
-  collect_mode: 120,
-  active: 80,
-  updated_at: 120,
+  id: 140,
+  name: 220,
+  vendor: 180,
+  category: 150,
+  std_version: 120,
+  collect_mode: 150,
+  active: 110,
+  updated_at: 170,
   manager: 110,
   updated_by: 100,
   created_at: 110,
@@ -750,7 +750,7 @@ export function SwMasterView() {
       <TableShell>
         <thead>
           <tr>
-            <Th className="w-8 bg-accent/15">
+            <Th className="w-12 bg-accent/15">
               <input
                 type="checkbox"
                 checked={sorted.length > 0 && selected.size === sorted.length}
@@ -759,7 +759,7 @@ export function SwMasterView() {
                 className="h-4 w-4 rounded border-border/60 accent-primary"
               />
             </Th>
-            <Th className="w-8 bg-accent/15">{null}</Th>
+            <Th className="w-12 bg-accent/15">{null}</Th>
             {show("id") && (
               <SortTh col="id" label="마스터 ID" sort={sort} onSort={handleSort} width={getColWidth("id")} onResize={(d) => resizeColumn("id", d)} />
             )}
@@ -924,7 +924,10 @@ export function SwMasterView() {
                     </Td>
                   )}
                   {show("std_version") && (
-                    <Td style={{ width: getColWidth("std_version"), minWidth: getColWidth("std_version"), maxWidth: getColWidth("std_version") }}>
+                    <Td
+                      className="text-center"
+                      style={{ width: getColWidth("std_version"), minWidth: getColWidth("std_version"), maxWidth: getColWidth("std_version") }}
+                    >
                       <EditableText
                         value={row.values.std_version}
                         onChange={(v) => draft.editCell(row.id, "std_version", v)}
@@ -972,7 +975,7 @@ export function SwMasterView() {
                   )}
                   {show("updated_at") && (
                     <Td
-                      className="text-xs text-muted-foreground"
+                      className="text-center text-xs text-muted-foreground"
                       style={{ width: getColWidth("updated_at"), minWidth: getColWidth("updated_at"), maxWidth: getColWidth("updated_at") }}
                     >
                       {row.updatedAt
