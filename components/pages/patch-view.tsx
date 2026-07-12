@@ -36,6 +36,8 @@ import {
   loadColumnVisibility,
   TABLE_HEADER_CELL_H,
   TABLE_ROW_CELL_H,
+  usePagination,
+  Pagination,
   type RiskLevel,
 } from "@/components/portal/ui"
 import { AssetSlideover, type AssetDetail } from "@/components/portal/asset-slideover"
@@ -181,6 +183,7 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
       setSortKey(col)
       setSortDir("asc")
     }
+    pagination.setPage(1)
   }
 
   useEffect(() => {
@@ -237,6 +240,7 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
   }, [matched, query, cat, severity, review, vulns, sortKey, sortDir])
 
   const show = (key: ColKey) => visible.includes(key)
+  const pagination = usePagination(filtered)
 
   const detailFilterCount = [cat, severity, review].filter((v) => v !== "전체").length
   const filterChips: { key: string; label: string; onRemove: () => void }[] = []
@@ -249,6 +253,7 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
     setCat("전체")
     setSeverity("전체")
     setReview("전체")
+    pagination.setPage(1)
   }
 
   return (
@@ -314,7 +319,7 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => { setQuery(e.target.value); pagination.setPage(1) }}
                 placeholder="제품명, 벤더, 담당자, 서버, CVE 검색"
                 className="w-full rounded-lg border border-border/60 bg-background/50 py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
@@ -344,7 +349,7 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
                   <button
                     key={c}
                     type="button"
-                    onClick={() => setCat(c)}
+                    onClick={() => { setCat(c); pagination.setPage(1) }}
                     className={cn(
                       "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                       cat === c ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground",
@@ -361,7 +366,7 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
                   <button
                     key={s}
                     type="button"
-                    onClick={() => setSeverity(s)}
+                    onClick={() => { setSeverity(s); pagination.setPage(1) }}
                     className={cn(
                       "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
                       severity === s ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground",
@@ -378,7 +383,7 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
                   <button
                     key={r}
                     type="button"
-                    onClick={() => setReview(r)}
+                    onClick={() => { setReview(r); pagination.setPage(1) }}
                     className={cn(
                       "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
                       review === r ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground",
@@ -435,7 +440,7 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
             </tr>
           </thead>
           <tbody>
-            {filtered.map((a) => {
+            {pagination.pageItems.map((a) => {
               const adv = advisoryFor(a, vulns)
               return (
                 <tr key={a.id} className="transition-colors hover:bg-accent/40">
@@ -521,6 +526,16 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
             )}
           </tbody>
         </TableShell>
+
+        <div className="mt-3">
+          <Pagination
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
+        </div>
       </SectionCard>
 
       <AssetSlideover asset={selected} onClose={() => setSelected(null)} />

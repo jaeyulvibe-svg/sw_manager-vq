@@ -10,6 +10,7 @@ import type { Tables } from "@/lib/supabase/types"
 import {
   PageHeader, StatusBadge, TableShell, Th, Td, MiniButton, ExportExcelButton,
   SortTh, ColumnVisibilityMenu, loadColumnVisibility, TABLE_HEADER_CELL_H, TABLE_ROW_CELL_H,
+  usePagination, Pagination,
   type RiskLevel,
 } from "@/components/portal/ui"
 import { AssetSlideover, type AssetDetail } from "@/components/portal/asset-slideover"
@@ -135,6 +136,7 @@ export function AssetsView() {
   function handleSort(col: SortKey) {
     if (sortKey === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
     else { setSortKey(col); setSortDir("asc") }
+    pagination.setPage(1)
   }
 
   const filtered = useMemo(() => {
@@ -168,6 +170,7 @@ export function AssetsView() {
 
   const show = (key: ColKey) => visible.includes(key)
   const stProps = { sortKey, sortDir, onSort: handleSort }
+  const pagination = usePagination(filtered)
 
   const detailFilterCount = [cat, status].filter((v) => v !== "전체").length
   const filterChips: { key: string; label: string; onRemove: () => void }[] = []
@@ -178,6 +181,7 @@ export function AssetsView() {
     setQuery("")
     setCat("전체")
     setStatus("전체")
+    pagination.setPage(1)
   }
 
   return (
@@ -196,7 +200,7 @@ export function AssetsView() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => { setQuery(e.target.value); pagination.setPage(1) }}
               placeholder="제품명, 벤더, 버전, 담당자, 서버명 검색"
               className="w-full rounded-lg border border-border/60 bg-background/50 py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
@@ -223,7 +227,7 @@ export function AssetsView() {
             <div className="flex flex-wrap items-center gap-2">
               <span className="w-16 shrink-0 text-xs font-medium text-muted-foreground">분류</span>
               {CATEGORIES.map((c) => (
-                <button key={c} type="button" onClick={() => setCat(c)}
+                <button key={c} type="button" onClick={() => { setCat(c); pagination.setPage(1) }}
                   className={cn(
                     "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                     cat === c ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground",
@@ -236,7 +240,7 @@ export function AssetsView() {
             <div className="flex flex-wrap items-center gap-2">
               <span className="w-16 shrink-0 text-xs font-medium text-muted-foreground">상태</span>
               {STATUS_FILTERS.map((s) => (
-                <button key={s} type="button" onClick={() => setStatus(s)}
+                <button key={s} type="button" onClick={() => { setStatus(s); pagination.setPage(1) }}
                   className={cn(
                     "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
                     status === s ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground",
@@ -316,7 +320,7 @@ export function AssetsView() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((a) => {
+            {pagination.pageItems.map((a) => {
               const sv = servers.find((s) => s.name === a.server)
               return (
                 <tr key={a.id} className="transition-colors hover:bg-accent/40">
@@ -397,6 +401,16 @@ export function AssetsView() {
             )}
           </tbody>
         </TableShell>
+
+        <div className="mt-3">
+          <Pagination
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
+        </div>
       </div>
 
       <AssetSlideover asset={selected} onClose={() => setSelected(null)} />

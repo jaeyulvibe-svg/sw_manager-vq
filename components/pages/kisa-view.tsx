@@ -16,6 +16,8 @@ import {
   SectionCard,
   StatusBadge,
   MiniButton,
+  usePagination,
+  Pagination,
   type RiskLevel,
 } from "@/components/portal/ui"
 import { useRole } from "@/components/portal/role-context"
@@ -96,6 +98,8 @@ export function KisaView({ onNavigate }: { onNavigate?: (view: ViewKey) => void 
     return v.severity === filter
   })
 
+  const pagination = usePagination(filtered, 10)
+
   const selected = vulns.find((v) => v.id === selectedId) ?? vulns[0]
   const selectedMatches = selected ? matchMap.get(selected.id) ?? [] : []
 
@@ -172,7 +176,7 @@ export function KisaView({ onNavigate }: { onNavigate?: (view: ViewKey) => void 
           <button
             key={f}
             type="button"
-            onClick={() => setFilter(f)}
+            onClick={() => { setFilter(f); pagination.setPage(1) }}
             className={cn(
               "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
               filter === f
@@ -196,7 +200,7 @@ export function KisaView({ onNavigate }: { onNavigate?: (view: ViewKey) => void 
             {loading ? (
               <p className="text-sm text-muted-foreground">불러오는 중…</p>
             ) : (
-              filtered.map((n) => {
+              pagination.pageItems.map((n) => {
                 const matchedCount = matchMap.get(n.id)?.length ?? 0
                 return (
                   <button
@@ -237,6 +241,15 @@ export function KisaView({ onNavigate }: { onNavigate?: (view: ViewKey) => void 
                 )
               })
             )}
+            {!loading && filtered.length > 0 ? (
+              <Pagination
+                page={pagination.page}
+                pageSize={pagination.pageSize}
+                totalPages={pagination.totalPages}
+                onPageChange={pagination.setPage}
+                onPageSizeChange={pagination.setPageSize}
+              />
+            ) : null}
           </div>
 
           {/* Detail panel */}
