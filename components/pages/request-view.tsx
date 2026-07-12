@@ -278,7 +278,7 @@ export function RequestView() {
                   </option>
                   {mastersInCategory.map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.name} ({m.vendor})
+                      {m.name} ({m.vendor}) — v{m.std_version}
                     </option>
                   ))}
                 </select>
