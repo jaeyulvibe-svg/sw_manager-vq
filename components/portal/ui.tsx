@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useRef, useState } from "react"
 import type { LucideIcon } from "lucide-react"
 import {
   TrendingUp,
@@ -319,12 +320,54 @@ export function SectionCard({
 
 /* ---------------- Table shell ---------------- */
 
-export function TableShell({ children }: { children: React.ReactNode }) {
+export function TableShell({
+  children,
+  scrollHint = false,
+}: {
+  children: React.ReactNode
+  /** 가로 스크롤이 더 있을 때 양 끝에 은은한 그림자를 표시 (기본 꺼짐 — 기존 테이블에 영향 없음) */
+  scrollHint?: boolean
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [showLeftHint, setShowLeftHint] = useState(false)
+  const [showRightHint, setShowRightHint] = useState(false)
+
+  useEffect(() => {
+    if (!scrollHint) return
+    const el = scrollRef.current
+    if (!el) return
+    function updateHints() {
+      setShowLeftHint(el!.scrollLeft > 4)
+      setShowRightHint(el!.scrollLeft + el!.clientWidth < el!.scrollWidth - 4)
+    }
+    updateHints()
+    el.addEventListener("scroll", updateHints)
+    window.addEventListener("resize", updateHints)
+    return () => {
+      el.removeEventListener("scroll", updateHints)
+      window.removeEventListener("resize", updateHints)
+    }
+  }, [scrollHint])
+
   return (
-    <div className="overflow-x-auto rounded-xl border border-border/60">
-      <table className="w-full min-w-max border-collapse text-sm">
-        {children}
-      </table>
+    <div className="relative">
+      <div ref={scrollRef} className="overflow-x-auto rounded-xl border border-border/60">
+        <table className="w-full min-w-max border-collapse text-sm">
+          {children}
+        </table>
+      </div>
+      {scrollHint && showLeftHint ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 left-0 w-10 rounded-l-xl bg-gradient-to-r from-card to-transparent"
+        />
+      ) : null}
+      {scrollHint && showRightHint ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 right-0 w-10 rounded-r-xl bg-gradient-to-l from-card to-transparent"
+        />
+      ) : null}
     </div>
   )
 }

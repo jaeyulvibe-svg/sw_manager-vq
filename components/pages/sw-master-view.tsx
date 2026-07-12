@@ -765,7 +765,7 @@ export function SwMasterView() {
       </div>
 
       {/* 테이블 */}
-      <TableShell>
+      <TableShell scrollHint>
         <thead>
           <tr>
             <Th className={cn("w-12 bg-accent/15 text-center", HEADER_CELL_H)}>
