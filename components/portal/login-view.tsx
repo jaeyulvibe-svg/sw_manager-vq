@@ -9,7 +9,7 @@ const EASE_OUT = "easeOut"
 
 export function LoginView({ onLogin }: { onLogin: (remember: boolean) => void }) {
   return (
-    <main className="relative h-[100dvh] w-full p-[var(--inset)]">
+    <main className="dark relative h-[100dvh] w-full p-[var(--inset)]">
       <div className="relative flex h-full w-full overflow-hidden rounded-[42px] md:rounded-[72px]">
         {/* 왼쪽: 배경 영상 */}
         <div className="relative hidden h-full w-1/2 overflow-hidden md:block">

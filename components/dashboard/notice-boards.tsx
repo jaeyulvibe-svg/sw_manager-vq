@@ -6,9 +6,6 @@ import {
   ShieldAlert,
   Eye,
   Link2,
-  Check,
-  X,
-  BellRing,
   Search,
   ExternalLink,
 } from "lucide-react"
@@ -26,7 +23,6 @@ import {
   type RiskLevel,
 } from "@/components/portal/ui"
 import { useToast } from "@/components/portal/toast"
-import { useRole } from "@/components/portal/role-context"
 import { createClient } from "@/lib/supabase/client"
 import type { Tables } from "@/lib/supabase/types"
 import { matchAssets } from "@/lib/vuln-match"
@@ -211,7 +207,6 @@ function formatCollected(iso: string) {
 }
 
 type Severity = Vulnerability["severity"]
-type ApprovalStatus = Vulnerability["approval"]
 
 const severityRisk: Record<Severity, RiskLevel> = {
   Critical: 5,
@@ -220,26 +215,12 @@ const severityRisk: Record<Severity, RiskLevel> = {
   Low: 2,
 }
 
-const approvalRisk: Record<ApprovalStatus, RiskLevel> = {
-  반려: 5,
-  승인대기: 3,
-  검토중: 2,
-  승인완료: 1,
-}
-
 const SEVERITY_FILTERS: (Severity | "전체")[] = [
   "전체",
   "Critical",
   "High",
   "Medium",
   "Low",
-]
-const APPROVAL_FILTERS: (ApprovalStatus | "전체")[] = [
-  "전체",
-  "승인대기",
-  "검토중",
-  "승인완료",
-  "반려",
 ]
 
 export function SecurityNoticeBoard({
@@ -250,18 +231,20 @@ export function SecurityNoticeBoard({
   vulns: Vulnerability[]
 }) {
   const { toast } = useToast()
-  const { isAdmin } = useRole()
   const [query, setQuery] = useState("")
   const [severity, setSeverity] = useState<(typeof SEVERITY_FILTERS)[number]>(
     "전체",
   )
-  const [approval, setApproval] = useState<(typeof APPROVAL_FILTERS)[number]>(
-    "전체",
+
+  // 대시보드는 조회 전용 — 승인이 완료된 취약점만 노출한다
+  const approved = useMemo(
+    () => vulns.filter((v) => v.approval === "승인완료"),
+    [vulns],
   )
 
   const rows = useMemo(
-    () => vulns.map((v) => ({ ...v, mapped: matchAssets(v, assets).length })),
-    [vulns, assets],
+    () => approved.map((v) => ({ ...v, mapped: matchAssets(v, assets).length })),
+    [approved, assets],
   )
 
   const filtered = useMemo(() => {
@@ -273,22 +256,21 @@ export function SecurityNoticeBoard({
         s.title.toLowerCase().includes(q) ||
         s.product.toLowerCase().includes(q)
       const matchesSeverity = severity === "전체" || s.severity === severity
-      const matchesApproval = approval === "전체" || s.approval === approval
-      return matchesQuery && matchesSeverity && matchesApproval
+      return matchesQuery && matchesSeverity
     })
-  }, [rows, query, severity, approval])
+  }, [rows, query, severity])
 
   const pagination = usePagination(filtered)
 
   useEffect(() => {
     pagination.setPage(1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, severity, approval])
+  }, [query, severity])
 
   return (
     <SectionCard
       title="긴급 보안공지 / 취약점"
-      subtitle="KNVD·KrCERT·제조사 Advisory 수집 · 자산 매핑 및 조치 관리"
+      subtitle="KNVD·KrCERT·제조사 Advisory 수집 · 승인 완료된 취약점만 조회 전용으로 표시"
       icon={ShieldAlert}
       action={
         <ExportExcelButton
@@ -302,7 +284,6 @@ export function SecurityNoticeBoard({
             { label: "매핑 자산", value: (s) => s.mapped },
             { label: "수집 Source", value: (s) => s.source },
             { label: "수집일시", value: (s) => formatCollected(s.collected_at) },
-            { label: "승인 상태", value: (s) => s.approval },
           ]}
         />
       }
@@ -345,28 +326,6 @@ export function SecurityNoticeBoard({
               </button>
             ))}
           </div>
-
-          {/* 승인 상태 필터 */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="mr-1 text-xs font-medium text-muted-foreground">
-              승인
-            </span>
-            {APPROVAL_FILTERS.map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setApproval(f)}
-                className={cn(
-                  "rounded-md border px-2 py-1 text-xs font-medium transition-colors",
-                  approval === f
-                    ? "border-primary/50 bg-primary/15 text-primary"
-                    : "border-border/60 text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
@@ -380,8 +339,6 @@ export function SecurityNoticeBoard({
             <Th className="text-right">매핑 자산</Th>
             <Th>수집 Source</Th>
             <Th>수집일시</Th>
-            <Th>승인 상태</Th>
-            <Th className="text-right">조치</Th>
           </tr>
         </thead>
         <tbody>
@@ -424,104 +381,12 @@ export function SecurityNoticeBoard({
               <Td className="font-mono text-xs text-muted-foreground">
                 {formatCollected(s.collected_at)}
               </Td>
-              <Td>
-                <StatusBadge risk={approvalRisk[s.approval]}>
-                  {s.approval}
-                </StatusBadge>
-              </Td>
-              <Td className="text-right">
-                <div className="flex items-center justify-end gap-1.5">
-                  <MiniButton
-                    accent="primary"
-                    onClick={() =>
-                      toast({
-                        tone: "info",
-                        title: "취약점 상세보기",
-                        description: `${s.cve} · ${s.product} · 매핑 자산 ${s.mapped}개`,
-                      })
-                    }
-                  >
-                    <Eye className="h-3 w-3" />
-                    상세
-                  </MiniButton>
-                  {isAdmin ? (
-                    <>
-                      <MiniButton
-                        accent="eos"
-                        onClick={() =>
-                          toast({
-                            tone: "info",
-                            title: "자산 매핑",
-                            description: `${s.product} 관련 자산 ${s.mapped}개를 매핑합니다.`,
-                          })
-                        }
-                      >
-                        <Link2 className="h-3 w-3" />
-                        매핑
-                      </MiniButton>
-                      <MiniButton
-                        accent="success"
-                        onClick={() =>
-                          toast({
-                            tone: "success",
-                            title: "승인 요청 처리",
-                            description: `${s.cve} 조치 승인이 요청되었습니다.`,
-                          })
-                        }
-                      >
-                        <Check className="h-3 w-3" />
-                        승인
-                      </MiniButton>
-                      <MiniButton
-                        accent="destructive"
-                        onClick={() =>
-                          toast({
-                            tone: "danger",
-                            title: "반려 처리",
-                            description: `${s.cve} 공지가 반려되었습니다.`,
-                          })
-                        }
-                      >
-                        <X className="h-3 w-3" />
-                        반려
-                      </MiniButton>
-                      <MiniButton
-                        accent="warning"
-                        onClick={() =>
-                          toast({
-                            tone: "info",
-                            title: "담당자 알림 전파",
-                            description: `${s.product} 담당자에게 조치 알림을 발송했습니다.`,
-                          })
-                        }
-                      >
-                        <BellRing className="h-3 w-3" />
-                        알림
-                      </MiniButton>
-                    </>
-                  ) : (
-                    <MiniButton
-                      accent="warning"
-                      onClick={() =>
-                        toast({
-                          tone: "info",
-                          title: "알림 수신 확인",
-                          description: `${s.cve} 조치 알림을 확인했습니다.`,
-                        })
-                      }
-                    >
-                      <BellRing className="h-3 w-3" />
-                      알림 확인
-                    </MiniButton>
-                  )}
-                </div>
-              </Td>
             </tr>
           ))}
           {filtered.length === 0 ? (
             <tr>
               <td
-                colSpan={9}
+                colSpan={7}
                 className="border-b border-border/40 px-3 py-8 text-center text-sm text-muted-foreground"
               >
                 검색 조건에 맞는 보안공지가 없습니다.

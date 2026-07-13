@@ -165,7 +165,13 @@ function AuthGate() {
   }
 
   if (!checked) return null
-  if (!authed) return <LoginView onLogin={handleLogin} />
+  if (!authed) {
+    return (
+      <div className="dark min-h-screen bg-background">
+        <LoginView onLogin={handleLogin} />
+      </div>
+    )
+  }
 
   return (
     <RoleProvider>

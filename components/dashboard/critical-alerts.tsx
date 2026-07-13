@@ -33,6 +33,7 @@ export function CriticalAlerts({
   vulns: Vulnerability[]
 }) {
   const alerts = vulns
+    .filter((v) => v.approval === "승인완료")
     .filter((v) => v.severity === "Critical" || v.severity === "High")
     .map((v) => ({ ...v, mappedCount: matchAssets(v, assets).length }))
     .sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "Critical" ? -1 : 1))
