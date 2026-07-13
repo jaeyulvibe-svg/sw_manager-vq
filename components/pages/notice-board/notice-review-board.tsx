@@ -9,6 +9,11 @@ import {
   X,
   Server,
   ArrowRight,
+  Search,
+  Filter,
+  ChevronUp,
+  ChevronDown,
+  Trash2,
   type LucideIcon,
 } from "lucide-react"
 import {
@@ -18,14 +23,16 @@ import {
   MiniButton,
   usePagination,
   Pagination,
-  type RiskLevel,
+  ConfirmDialog,
+  SelectionActionBar,
+  type Accent,
 } from "@/components/portal/ui"
 import { useRole } from "@/components/portal/role-context"
 import { useNotifications } from "@/components/portal/notifications-context"
 import { useToast } from "@/components/portal/toast"
 import type { ViewKey } from "@/components/portal/nav"
 import { useNoticeData, sevRisk, formatCollected, type Vulnerability } from "./use-notice-data"
-import { approveNotice, rejectNotice } from "./notice-actions"
+import { approveNotice, rejectNotice, deleteNotices } from "./notice-actions"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 
@@ -34,8 +41,8 @@ type Status = Vulnerability["approval"]
 
 const FILTERS = ["전체", "Critical", "High", "Medium", "Low", "미매핑", "승인대기"] as const
 
-const statusRisk: Record<Status, RiskLevel> = {
-  반려: 5, 승인대기: 3, 검토중: 2, 승인완료: 1,
+const statusAccent: Record<Status, Accent> = {
+  반려: "destructive", 승인대기: "primary", 검토중: "review", 승인완료: "success",
 }
 
 function toUrl(sourceUrl: string) {
@@ -64,12 +71,16 @@ export function NoticeReviewBoard({
   const { isAdmin } = useRole()
   const { toast } = useToast()
   const { refresh: refreshNotifications } = useNotifications()
-  const { vulns, setVulns, matchMap, loading } = useNoticeData({ sourceType, noticeTypes })
+  const { vulns, setVulns, matchMap, loading, refresh } = useNoticeData({ sourceType, noticeTypes })
 
+  const [query, setQuery] = useState("")
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("전체")
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [criticalUrgentAlert, setCriticalUrgentAlert] = useState(true)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [deleteRequest, setDeleteRequest] = useState<{ ids: string[]; title: string; confirmLabel: string } | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -84,6 +95,8 @@ export function NoticeReviewBoard({
   }, [])
 
   const filtered = vulns.filter((v) => {
+    const q = query.trim().toLowerCase()
+    if (q && ![v.title, v.cve].some((f) => f.toLowerCase().includes(q))) return false
     const count = matchMap.get(v.id)?.length ?? 0
     if (filter === "전체") return true
     if (filter === "미매핑") return count === 0
@@ -126,27 +139,96 @@ export function NoticeReviewBoard({
     toast({ tone: "info", title: "공지 반려", description: `"${v.title}" 공지를 반려 처리했습니다.` })
   }
 
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  function clearSelection() {
+    setSelectedIds(new Set())
+  }
+  function requestDeleteOne(v: Vulnerability) {
+    setDeleteRequest({
+      ids: [v.id],
+      title: `"${v.title}" 공지를 삭제할까요?`,
+      confirmLabel: "1개 삭제",
+    })
+  }
+  function requestDeleteSelected() {
+    if (selectedIds.size === 0) return
+    setDeleteRequest({
+      ids: Array.from(selectedIds),
+      title: `선택한 공지 ${selectedIds.size}개를 삭제할까요?`,
+      confirmLabel: `${selectedIds.size}개 삭제`,
+    })
+  }
+  async function confirmDelete() {
+    if (!deleteRequest) return
+    const { error } = await deleteNotices(deleteRequest.ids)
+    if (error) {
+      toast({ title: "삭제 실패", description: error, tone: "danger" })
+      setDeleteRequest(null)
+      return
+    }
+    toast({ title: `공지 ${deleteRequest.ids.length}건이 삭제되었습니다`, tone: "info" })
+    if (deleteRequest.ids.includes(selectedId ?? "")) setSelectedId(null)
+    setSelectedIds(new Set())
+    setDeleteRequest(null)
+    refresh()
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader icon={Icon} title={title} description={description} />
 
-      <div className="flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f}
-            type="button"
-            onClick={() => { setFilter(f); pagination.setPage(1) }}
-            className={cn(
-              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-              filter === f
-                ? "border-primary/50 bg-primary/15 text-primary"
-                : "border-border/60 text-muted-foreground hover:text-foreground",
-            )}
+      <div className="glow-card animate-rise flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[220px] flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); pagination.setPage(1) }}
+              placeholder="제목, CVE 검색"
+              className="w-full rounded-lg border border-border/60 bg-background/50 py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+          <MiniButton
+            onClick={() => setFiltersOpen((v) => !v)}
+            className={cn(filtersOpen && "border-primary/50 bg-primary/10 text-primary")}
           >
-            {f}
-          </button>
-        ))}
+            <Filter className="h-3.5 w-3.5" />
+            필터{filter !== "전체" ? ` (${filter})` : ""}
+            {filtersOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          </MiniButton>
+        </div>
+
+        {filtersOpen ? (
+          <div className="animate-rise flex flex-wrap gap-2 border-t border-border/50 pt-3">
+            {FILTERS.map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => { setFilter(f); pagination.setPage(1) }}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                  filter === f
+                    ? "border-primary/50 bg-primary/15 text-primary"
+                    : "border-border/60 text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
+
+      {isAdmin ? (
+        <SelectionActionBar count={selectedIds.size} onClear={clearSelection} onDelete={requestDeleteSelected} />
+      ) : null}
 
       {!loading && vulns.length === 0 ? (
         <SectionCard title="공지 없음" icon={Icon}>
@@ -161,15 +243,30 @@ export function NoticeReviewBoard({
               pagination.pageItems.map((n) => {
                 const matchedCount = matchMap.get(n.id)?.length ?? 0
                 return (
-                  <button
-                    key={n.id}
-                    type="button"
-                    onClick={() => setSelectedId(n.id)}
-                    className={cn(
-                      "group animate-rise relative rounded-2xl border border-border/60 bg-card p-4 text-left transition-all glow-card hover:-translate-y-0.5",
-                      selectedId === n.id && "bg-primary/5",
-                    )}
-                  >
+                  <div key={n.id} className="relative">
+                    {isAdmin ? (
+                      <span
+                        className="absolute left-4 top-4 z-10"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(n.id)}
+                          onChange={() => toggleSelected(n.id)}
+                          aria-label={`${n.title} 선택`}
+                          className="h-4 w-4 rounded border-border/60 accent-primary"
+                        />
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(n.id)}
+                      className={cn(
+                        "group animate-rise relative w-full rounded-2xl border border-border/60 bg-card p-4 text-left transition-all glow-card hover:-translate-y-0.5",
+                        isAdmin && "pl-10",
+                        selectedId === n.id && "bg-primary/5",
+                      )}
+                    >
                     {selectedId === n.id ? (
                       <span
                         className="absolute left-0 top-1/2 h-10 w-1 -translate-y-1/2 rounded-r-full bg-primary"
@@ -184,7 +281,7 @@ export function NoticeReviewBoard({
                       {matchedCount === 0 ? (
                         <StatusBadge accent="muted">미매핑</StatusBadge>
                       ) : null}
-                      <StatusBadge risk={statusRisk[n.approval]} className="ml-auto">
+                      <StatusBadge accent={statusAccent[n.approval]} className="ml-auto">
                         {n.approval}
                       </StatusBadge>
                     </div>
@@ -195,7 +292,8 @@ export function NoticeReviewBoard({
                       <span>{n.approval === "승인완료" ? `자산 매핑 확정 ${matchedCount}대` : `영향받는 자산 ${matchedCount}대`}</span>
                       <span className="ml-auto">{formatCollected(n.collected_at)}</span>
                     </div>
-                  </button>
+                    </button>
+                  </div>
                 )
               })
             )}
@@ -303,6 +401,11 @@ export function NoticeReviewBoard({
                         <ArrowRight className="h-3 w-3" />승인된 취약점 공지에서 보기
                       </MiniButton>
                     ) : null}
+                    {isAdmin ? (
+                      <MiniButton accent="destructive" onClick={() => requestDeleteOne(selected)}>
+                        <Trash2 className="h-3 w-3" />삭제
+                      </MiniButton>
+                    ) : null}
                   </div>
                   {!isAdmin ? (
                     <p className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
@@ -315,6 +418,15 @@ export function NoticeReviewBoard({
           ) : null}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteRequest}
+        title={deleteRequest?.title ?? ""}
+        description="삭제 후에는 목록에서 제거됩니다. 이미 승인 완료되어 자산과 매핑된 공지가 포함되어 있다면 관련 정보에 영향을 줄 수 있습니다."
+        confirmLabel={deleteRequest?.confirmLabel ?? ""}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteRequest(null)}
+      />
     </div>
   )
 }

@@ -16,6 +16,8 @@ import {
   ChevronsUpDown,
   Check,
   SlidersHorizontal,
+  X,
+  Trash2,
 } from "lucide-react"
 import { useCountUp } from "@/hooks/use-count-up"
 import { exportRowsToExcel } from "@/lib/export-excel"
@@ -63,6 +65,7 @@ export type Accent =
   | "yellow"
   | "destructive"
   | "eos"
+  | "review"
   | "muted"
 
 const accentText: Record<Accent, string> = {
@@ -72,6 +75,7 @@ const accentText: Record<Accent, string> = {
   yellow: "text-yellow",
   destructive: "text-destructive",
   eos: "text-eos",
+  review: "text-review",
   muted: "text-muted-foreground",
 }
 
@@ -82,6 +86,7 @@ const accentSoft: Record<Accent, string> = {
   yellow: "bg-yellow/15 text-yellow border-yellow/40",
   destructive: "bg-destructive/15 text-destructive border-destructive/40",
   eos: "bg-eos/15 text-eos border-eos/40",
+  review: "bg-review/15 text-review border-review/40",
   muted: "bg-muted/60 text-muted-foreground border-border/60",
 }
 
@@ -92,6 +97,7 @@ const barColor: Record<Accent, string> = {
   yellow: "bg-yellow",
   destructive: "bg-destructive",
   eos: "bg-eos",
+  review: "bg-review",
   muted: "bg-muted-foreground",
 }
 
@@ -712,5 +718,94 @@ export function ExportExcelButton<T>({
       <Download className="h-3 w-3" />
       엑셀 다운로드
     </MiniButton>
+  )
+}
+
+/* ---------------- Confirm dialog (모든 단건/일괄 삭제가 공유) ---------------- */
+
+export function ConfirmDialog({
+  open,
+  title,
+  description,
+  confirmLabel,
+  tone = "danger",
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean
+  title: string
+  description: string
+  confirmLabel: string
+  tone?: "danger" | "default"
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  if (!open) return null
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm"
+      onClick={onCancel}
+    >
+      <div
+        className="glow-card animate-rise w-full max-w-sm rounded-2xl border border-border/60 bg-card p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-base font-bold text-foreground">{title}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
+        <div className="mt-5 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className={cn(
+              "rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-90",
+              tone === "danger"
+                ? "bg-destructive text-white"
+                : "bg-primary text-primary-foreground",
+            )}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ---------------- Selection action bar (체크박스 다중 선택 시 표시) ---------------- */
+
+export function SelectionActionBar({
+  count,
+  onClear,
+  onDelete,
+  children,
+}: {
+  count: number
+  onClear: () => void
+  onDelete: () => void
+  children?: React.ReactNode
+}) {
+  if (count === 0) return null
+  return (
+    <div className="animate-rise mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-primary/40 bg-primary/10 px-4 py-2.5">
+      <span className="text-xs font-semibold text-primary">{count}개 선택됨</span>
+      <div className="ml-auto flex flex-wrap items-center gap-1.5">
+        {children}
+        <MiniButton accent="destructive" onClick={onDelete}>
+          <Trash2 className="h-3 w-3" />
+          삭제
+        </MiniButton>
+        <MiniButton onClick={onClear}>
+          <X className="h-3 w-3" />
+          선택 해제
+        </MiniButton>
+      </div>
+    </div>
   )
 }

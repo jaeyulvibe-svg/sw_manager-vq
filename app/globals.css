@@ -47,6 +47,7 @@
   --color-yellow: var(--yellow);
   --color-success: var(--success);
   --color-eos: var(--eos);
+  --color-review: var(--review);
   --color-risk-5: var(--risk-5);
   --color-risk-4: var(--risk-4);
   --color-risk-3: var(--risk-3);
@@ -86,6 +87,7 @@
   --yellow: oklch(0.75 0.16 98);
   --success: oklch(0.58 0.15 160);
   --eos: oklch(0.54 0.19 303);
+  --review: oklch(0.52 0.19 292);
   --neon: oklch(0.52 0.18 235);
   /* Fixed 5-tier risk scale — independent of --primary/--destructive/etc, same in light & dark */
   --risk-5: #dc2626;
@@ -134,6 +136,7 @@
   --yellow: oklch(0.82 0.15 98);
   --success: oklch(0.72 0.16 160);
   --eos: oklch(0.62 0.2 303);
+  --review: oklch(0.68 0.19 292);
   --neon: oklch(0.72 0.19 235);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);

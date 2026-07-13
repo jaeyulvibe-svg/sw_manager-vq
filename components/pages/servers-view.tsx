@@ -7,8 +7,6 @@ import {
   Plus,
   Pencil,
   Trash2,
-  Check,
-  X,
 } from "lucide-react"
 import {
   PageHeader,
@@ -26,6 +24,8 @@ import {
   TABLE_ROW_CELL_H,
   usePagination,
   Pagination,
+  ConfirmDialog,
+  SelectionActionBar,
   type RiskLevel,
 } from "@/components/portal/ui"
 import { useToast } from "@/components/portal/toast"
@@ -205,8 +205,8 @@ export function ServersView() {
   const [visible, setVisible] = useState<ServerColKey[]>(() => loadColumnVisibility(SERVER_LS_KEY, SERVER_FACTORY_VISIBLE))
 
   const [panel, setPanel] = useState<"add" | string | null>(null)
-  const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [deleteRequest, setDeleteRequest] = useState<{ ids: string[]; title: string; confirmLabel: string } | null>(null)
 
   function loadServers() {
     const supabase = createClient()
@@ -269,15 +269,33 @@ export function ServersView() {
     loadServers()
   }
 
-  async function deleteServer(target: ServerRow) {
-    if (!window.confirm(`"${target.name}" 서버를 삭제하시겠습니까?`)) return
+  function requestDeleteOne(target: ServerRow) {
+    setDeleteRequest({
+      ids: [target.id],
+      title: `"${target.name}" 서버를 삭제할까요?`,
+      confirmLabel: "1개 삭제",
+    })
+  }
+  function requestDeleteSelected() {
+    if (selectedIds.size === 0) return
+    setDeleteRequest({
+      ids: Array.from(selectedIds),
+      title: `선택한 서버 ${selectedIds.size}개를 삭제할까요?`,
+      confirmLabel: `${selectedIds.size}개 삭제`,
+    })
+  }
+  async function confirmDelete() {
+    if (!deleteRequest) return
     const supabase = createClient()
-    const { error } = await supabase.from("servers").delete().eq("id", target.id)
+    const { error } = await supabase.from("servers").delete().in("id", deleteRequest.ids)
     if (error) {
       toast({ title: "삭제 실패", description: error.message, tone: "danger" })
+      setDeleteRequest(null)
       return
     }
-    toast({ title: "서버가 삭제되었습니다", tone: "info" })
+    toast({ title: `서버 ${deleteRequest.ids.length}건이 삭제되었습니다`, tone: "info" })
+    setSelectedIds(new Set())
+    setDeleteRequest(null)
     loadServers()
   }
 
@@ -294,25 +312,8 @@ export function ServersView() {
       return next
     })
   }
-  function cancelSelection() {
-    setSelectMode(false)
+  function clearSelection() {
     setSelectedIds(new Set())
-  }
-  async function saveSelection() {
-    if (selectedIds.size === 0) {
-      cancelSelection()
-      return
-    }
-    if (!window.confirm(`선택한 서버 ${selectedIds.size}건을 삭제하시겠습니까?`)) return
-    const supabase = createClient()
-    const { error } = await supabase.from("servers").delete().in("id", Array.from(selectedIds))
-    if (error) {
-      toast({ title: "삭제 실패", description: error.message, tone: "danger" })
-      return
-    }
-    toast({ title: `서버 ${selectedIds.size}건이 삭제되었습니다`, tone: "info" })
-    cancelSelection()
-    loadServers()
   }
 
   return (
@@ -328,18 +329,7 @@ export function ServersView() {
         subtitle="등록된 서버"
         icon={Server}
         action={
-          panel ? null : selectMode ? (
-            <div className="flex items-center gap-1.5">
-              <MiniButton accent="success" onClick={saveSelection}>
-                <Check className="h-3.5 w-3.5" />
-                저장
-              </MiniButton>
-              <MiniButton onClick={cancelSelection}>
-                <X className="h-3.5 w-3.5" />
-                취소
-              </MiniButton>
-            </div>
-          ) : (
+          panel ? null : (
             <div className="flex items-center gap-1.5">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -374,10 +364,6 @@ export function ServersView() {
                 <Plus className="h-3.5 w-3.5" />
                 추가
               </MiniButton>
-              <MiniButton onClick={() => setSelectMode(true)}>
-                <Pencil className="h-3.5 w-3.5" />
-                편집
-              </MiniButton>
             </div>
           )
         }
@@ -386,20 +372,20 @@ export function ServersView() {
           <ServerFormPanel onCancel={() => setPanel(null)} onSubmit={saveServer} />
         ) : null}
 
+        <SelectionActionBar count={selectedIds.size} onClear={clearSelection} onDelete={requestDeleteSelected} />
+
         <TableShell scrollHint>
           <thead>
             <tr>
-              {selectMode ? (
-                <Th className={cn("w-8", TABLE_HEADER_CELL_H)}>
-                  <input
-                    type="checkbox"
-                    checked={filtered.length > 0 && selectedIds.size === filtered.length}
-                    onChange={toggleSelectAll}
-                    aria-label="전체 선택"
-                    className="h-4 w-4 rounded border-border/60 accent-primary"
-                  />
-                </Th>
-              ) : null}
+              <Th className={cn("w-8", TABLE_HEADER_CELL_H)}>
+                <input
+                  type="checkbox"
+                  checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                  onChange={toggleSelectAll}
+                  aria-label="전체 선택"
+                  className="h-4 w-4 rounded border-border/60 accent-primary"
+                />
+              </Th>
               {show("name") && <SortTh col="name" label="서버명" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
               {show("hostname") && <SortTh col="hostname" label="호스트명" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
               {show("ip") && <SortTh col="ip" label="IP" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
@@ -407,7 +393,7 @@ export function ServersView() {
               {show("os_type") && <SortTh col="os_type" label="OS" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
               {show("location") && <SortTh col="location" label="위치" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
               {show("status") && <SortTh col="status" label="상태" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="center" />}
-              {selectMode ? null : <Th className={TABLE_HEADER_CELL_H}>관리</Th>}
+              <Th className={TABLE_HEADER_CELL_H}>관리</Th>
             </tr>
           </thead>
           <tbody>
@@ -421,7 +407,7 @@ export function ServersView() {
               pagination.pageItems.map((s) =>
                 panel === s.id ? (
                   <tr key={s.id}>
-                    <td colSpan={8} className="border-b border-border/40 p-0">
+                    <td colSpan={9} className="border-b border-border/40 p-0">
                       <ServerFormPanel
                         initial={{
                           name: s.name,
@@ -439,17 +425,15 @@ export function ServersView() {
                   </tr>
                 ) : (
                   <tr key={s.id} className="transition-colors hover:bg-accent/40">
-                    {selectMode ? (
-                      <Td className={TABLE_ROW_CELL_H}>
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(s.id)}
-                          onChange={() => toggleSelected(s.id)}
-                          aria-label={`${s.name} 선택`}
-                          className="h-4 w-4 rounded border-border/60 accent-primary"
-                        />
-                      </Td>
-                    ) : null}
+                    <Td className={TABLE_ROW_CELL_H}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(s.id)}
+                        onChange={() => toggleSelected(s.id)}
+                        aria-label={`${s.name} 선택`}
+                        className="h-4 w-4 rounded border-border/60 accent-primary"
+                      />
+                    </Td>
                     {show("name") && <Td className={cn("font-semibold", TABLE_ROW_CELL_H)}>{s.name}</Td>}
                     {show("hostname") && <Td className={cn("font-mono text-xs", TABLE_ROW_CELL_H)}>{s.hostname}</Td>}
                     {show("ip") && <Td className={cn("font-mono text-xs", TABLE_ROW_CELL_H)}>{s.ip}</Td>}
@@ -463,20 +447,18 @@ export function ServersView() {
                         </StatusBadge>
                       </Td>
                     )}
-                    {selectMode ? null : (
-                      <Td className={TABLE_ROW_CELL_H}>
-                        <div className="flex items-center gap-1.5">
-                          <MiniButton onClick={() => setPanel(s.id)}>
-                            <Pencil className="h-3 w-3" />
-                            수정
-                          </MiniButton>
-                          <MiniButton accent="destructive" onClick={() => deleteServer(s)}>
-                            <Trash2 className="h-3 w-3" />
-                            삭제
-                          </MiniButton>
-                        </div>
-                      </Td>
-                    )}
+                    <Td className={TABLE_ROW_CELL_H}>
+                      <div className="flex items-center gap-1.5">
+                        <MiniButton className="h-8 px-2.5" onClick={() => setPanel(s.id)}>
+                          <Pencil className="h-3 w-3" />
+                          수정
+                        </MiniButton>
+                        <MiniButton accent="destructive" className="h-8 px-2.5" onClick={() => requestDeleteOne(s)}>
+                          <Trash2 className="h-3 w-3" />
+                          삭제
+                        </MiniButton>
+                      </div>
+                    </Td>
                   </tr>
                 ),
               )
@@ -496,6 +478,15 @@ export function ServersView() {
           </div>
         )}
       </SectionCard>
+
+      <ConfirmDialog
+        open={!!deleteRequest}
+        title={deleteRequest?.title ?? ""}
+        description="삭제 후에는 목록에서 제거됩니다."
+        confirmLabel={deleteRequest?.confirmLabel ?? ""}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteRequest(null)}
+      />
     </div>
   )
 }

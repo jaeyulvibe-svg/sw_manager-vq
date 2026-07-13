@@ -7,8 +7,6 @@ import {
   Plus,
   Pencil,
   Trash2,
-  Check,
-  X,
   ChevronDown,
   ChevronUp,
 } from "lucide-react"
@@ -28,6 +26,8 @@ import {
   TABLE_ROW_CELL_H,
   usePagination,
   Pagination,
+  ConfirmDialog,
+  SelectionActionBar,
   type Accent,
   type RiskLevel,
 } from "@/components/portal/ui"
@@ -192,9 +192,9 @@ export function NoticeBoardView() {
   const [visible, setVisible] = useState<NoticeColKey[]>(() => loadColumnVisibility(NOTICE_LS_KEY, NOTICE_FACTORY_VISIBLE))
 
   const [panel, setPanel] = useState<"add" | string | null>(null)
-  const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [deleteRequest, setDeleteRequest] = useState<{ ids: string[]; title: string; confirmLabel: string } | null>(null)
 
   function loadNotices() {
     const supabase = createClient()
@@ -257,15 +257,33 @@ export function NoticeBoardView() {
     loadNotices()
   }
 
-  async function deleteNotice(target: Notice) {
-    if (!window.confirm(`"${target.title}" 공지를 삭제하시겠습니까?`)) return
+  function requestDeleteOne(target: Notice) {
+    setDeleteRequest({
+      ids: [target.id],
+      title: `"${target.title}" 공지를 삭제할까요?`,
+      confirmLabel: "1개 삭제",
+    })
+  }
+  function requestDeleteSelected() {
+    if (selectedIds.size === 0) return
+    setDeleteRequest({
+      ids: Array.from(selectedIds),
+      title: `선택한 공지 ${selectedIds.size}개를 삭제할까요?`,
+      confirmLabel: `${selectedIds.size}개 삭제`,
+    })
+  }
+  async function confirmDelete() {
+    if (!deleteRequest) return
     const supabase = createClient()
-    const { error } = await supabase.from("notices").delete().eq("id", target.id)
+    const { error } = await supabase.from("notices").delete().in("id", deleteRequest.ids)
     if (error) {
       toast({ title: "삭제 실패", description: error.message, tone: "danger" })
+      setDeleteRequest(null)
       return
     }
-    toast({ title: "공지사항이 삭제되었습니다", tone: "info" })
+    toast({ title: `공지 ${deleteRequest.ids.length}건이 삭제되었습니다`, tone: "info" })
+    setSelectedIds(new Set())
+    setDeleteRequest(null)
     loadNotices()
   }
 
@@ -282,28 +300,11 @@ export function NoticeBoardView() {
       return next
     })
   }
-  function cancelSelection() {
-    setSelectMode(false)
+  function clearSelection() {
     setSelectedIds(new Set())
   }
-  async function saveSelection() {
-    if (selectedIds.size === 0) {
-      cancelSelection()
-      return
-    }
-    if (!window.confirm(`선택한 공지 ${selectedIds.size}건을 삭제하시겠습니까?`)) return
-    const supabase = createClient()
-    const { error } = await supabase.from("notices").delete().in("id", Array.from(selectedIds))
-    if (error) {
-      toast({ title: "삭제 실패", description: error.message, tone: "danger" })
-      return
-    }
-    toast({ title: `공지 ${selectedIds.size}건이 삭제되었습니다`, tone: "info" })
-    cancelSelection()
-    loadNotices()
-  }
 
-  const colSpan = visible.length + 1
+  const colSpan = visible.length + 1 + (isAdmin ? 1 : 0)
 
   return (
     <div className="flex flex-col gap-6">
@@ -322,18 +323,7 @@ export function NoticeBoardView() {
         subtitle="등록된 공지사항"
         icon={Megaphone}
         action={
-          panel ? null : selectMode ? (
-            <div className="flex items-center gap-1.5">
-              <MiniButton accent="success" onClick={saveSelection}>
-                <Check className="h-3.5 w-3.5" />
-                저장
-              </MiniButton>
-              <MiniButton onClick={cancelSelection}>
-                <X className="h-3.5 w-3.5" />
-                취소
-              </MiniButton>
-            </div>
-          ) : (
+          panel ? null : (
             <div className="flex items-center gap-1.5">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -364,16 +354,10 @@ export function NoticeBoardView() {
                 storageKey={NOTICE_LS_KEY}
               />
               {isAdmin ? (
-                <>
-                  <MiniButton accent="primary" onClick={() => setPanel("add")}>
-                    <Plus className="h-3.5 w-3.5" />
-                    추가
-                  </MiniButton>
-                  <MiniButton onClick={() => setSelectMode(true)}>
-                    <Pencil className="h-3.5 w-3.5" />
-                    편집
-                  </MiniButton>
-                </>
+                <MiniButton accent="primary" onClick={() => setPanel("add")}>
+                  <Plus className="h-3.5 w-3.5" />
+                  추가
+                </MiniButton>
               ) : null}
             </div>
           )
@@ -383,10 +367,14 @@ export function NoticeBoardView() {
           <NoticeFormPanel onCancel={() => setPanel(null)} onSubmit={saveNotice} />
         ) : null}
 
+        {isAdmin ? (
+          <SelectionActionBar count={selectedIds.size} onClear={clearSelection} onDelete={requestDeleteSelected} />
+        ) : null}
+
         <TableShell scrollHint>
           <thead>
             <tr>
-              {selectMode ? (
+              {isAdmin ? (
                 <Th className={cn("w-8", TABLE_HEADER_CELL_H)}>
                   <input
                     type="checkbox"
@@ -403,7 +391,7 @@ export function NoticeBoardView() {
               {show("created_at") && <SortTh col="created_at" label="등록일" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
               {show("views") && <SortTh col="views" label="조회수" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="right" />}
               {show("status") && <SortTh col="status" label="상태" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="center" />}
-              {selectMode ? null : <Th className={TABLE_HEADER_CELL_H}>관리</Th>}
+              <Th className={TABLE_HEADER_CELL_H}>관리</Th>
             </tr>
           </thead>
           <tbody>
@@ -435,7 +423,7 @@ export function NoticeBoardView() {
                 ) : (
                   <Fragment key={n.id}>
                     <tr className="transition-colors hover:bg-accent/40">
-                      {selectMode ? (
+                      {isAdmin ? (
                         <Td className={TABLE_ROW_CELL_H}>
                           <input
                             type="checkbox"
@@ -451,7 +439,7 @@ export function NoticeBoardView() {
                           <StatusBadge accent={categoryAccent[n.category] ?? "muted"}>{n.category}</StatusBadge>
                         </Td>
                       )}
-                      {show("title") && <Td className={cn("max-w-xs truncate font-medium", TABLE_ROW_CELL_H)}>{n.title}</Td>}
+                      {show("title") && <Td className={cn("max-w-xs whitespace-normal font-medium line-clamp-2", TABLE_ROW_CELL_H)}>{n.title}</Td>}
                       {show("author") && <Td className={cn("text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{n.author}</Td>}
                       {show("created_at") && (
                         <Td className={cn("font-mono text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>
@@ -470,28 +458,26 @@ export function NoticeBoardView() {
                           </StatusBadge>
                         </Td>
                       )}
-                      {selectMode ? null : (
-                        <Td className={TABLE_ROW_CELL_H}>
-                          <div className="flex items-center gap-1.5">
-                            <MiniButton accent="primary" onClick={() => setExpandedId(expanded ? null : n.id)}>
-                              {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                              상세
-                            </MiniButton>
-                            {isAdmin ? (
-                              <>
-                                <MiniButton onClick={() => setPanel(n.id)}>
-                                  <Pencil className="h-3 w-3" />
-                                  수정
-                                </MiniButton>
-                                <MiniButton accent="destructive" onClick={() => deleteNotice(n)}>
-                                  <Trash2 className="h-3 w-3" />
-                                  삭제
-                                </MiniButton>
-                              </>
-                            ) : null}
-                          </div>
-                        </Td>
-                      )}
+                      <Td className={TABLE_ROW_CELL_H}>
+                        <div className="flex items-center gap-1.5">
+                          <MiniButton accent="primary" className="h-8 px-2.5" onClick={() => setExpandedId(expanded ? null : n.id)}>
+                            {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                            상세
+                          </MiniButton>
+                          {isAdmin ? (
+                            <>
+                              <MiniButton className="h-8 px-2.5" onClick={() => setPanel(n.id)}>
+                                <Pencil className="h-3 w-3" />
+                                수정
+                              </MiniButton>
+                              <MiniButton accent="destructive" className="h-8 px-2.5" onClick={() => requestDeleteOne(n)}>
+                                <Trash2 className="h-3 w-3" />
+                                삭제
+                              </MiniButton>
+                            </>
+                          ) : null}
+                        </div>
+                      </Td>
                     </tr>
                     {expanded ? (
                       <tr>
@@ -521,6 +507,15 @@ export function NoticeBoardView() {
           </div>
         )}
       </SectionCard>
+
+      <ConfirmDialog
+        open={!!deleteRequest}
+        title={deleteRequest?.title ?? ""}
+        description="삭제 후에는 목록에서 제거됩니다."
+        confirmLabel={deleteRequest?.confirmLabel ?? ""}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteRequest(null)}
+      />
     </div>
   )
 }

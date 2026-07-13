@@ -342,7 +342,7 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
                       </Td>
                     )}
                     {show("cve") && <Td className={cn("font-mono text-xs", TABLE_ROW_CELL_H)}>{v.cve}</Td>}
-                    {show("title") && <Td className={cn("whitespace-normal text-xs", TABLE_ROW_CELL_H)}>{v.title}</Td>}
+                    {show("title") && <Td className={cn("whitespace-normal text-xs line-clamp-2", TABLE_ROW_CELL_H)}>{v.title}</Td>}
                     {show("noticeType") && (
                       <Td className={TABLE_ROW_CELL_H}>
                         <StatusBadge accent={noticeTypeAccent[v.notice_type]}>{v.notice_type}</StatusBadge>

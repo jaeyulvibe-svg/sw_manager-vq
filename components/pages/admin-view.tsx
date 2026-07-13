@@ -15,8 +15,6 @@ import {
   Type,
   Pencil,
   Trash2,
-  Check,
-  X,
   FilePlus2,
   CalendarClock,
   Search,
@@ -37,6 +35,8 @@ import {
   TABLE_ROW_CELL_H,
   usePagination,
   Pagination,
+  ConfirmDialog,
+  SelectionActionBar,
   type Accent,
   type RiskLevel,
 } from "@/components/portal/ui"
@@ -709,8 +709,8 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
 
   const [sources, setSources] = useState<Source[]>([])
   const [sourcePanel, setSourcePanel] = useState<"add" | string | null>(null)
-  const [sourceSelectMode, setSourceSelectMode] = useState(false)
   const [selectedSourceIds, setSelectedSourceIds] = useState<Set<string>>(new Set())
+  const [sourceDeleteRequest, setSourceDeleteRequest] = useState<{ ids: string[]; title: string; confirmLabel: string } | null>(null)
   const [sourceQuery, setSourceQuery] = useState("")
   const [sourceSortKey, setSourceSortKey] = useState<SourceSortKey>("name")
   const [sourceSortDir, setSourceSortDir] = useState<"asc" | "desc">("asc")
@@ -837,8 +837,8 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
 
   const [users, setUsers] = useState<AppUser[]>([])
   const [userPanel, setUserPanel] = useState<"add" | string | null>(null)
-  const [userSelectMode, setUserSelectMode] = useState(false)
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set())
+  const [userDeleteRequest, setUserDeleteRequest] = useState<{ ids: string[]; title: string; confirmLabel: string } | null>(null)
   const [userQuery, setUserQuery] = useState("")
   const [userSortKey, setUserSortKey] = useState<UserSortKey>("name")
   const [userSortDir, setUserSortDir] = useState<"asc" | "desc">("asc")
@@ -924,15 +924,33 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
     loadSources()
   }
 
-  async function deleteSource(target: Source) {
-    if (!window.confirm(`"${target.name}" Source URL을 삭제하시겠습니까?`)) return
+  function requestDeleteOneSource(target: Source) {
+    setSourceDeleteRequest({
+      ids: [target.id],
+      title: `"${target.name}" Source URL을 삭제할까요?`,
+      confirmLabel: "1개 삭제",
+    })
+  }
+  function requestDeleteSelectedSources() {
+    if (selectedSourceIds.size === 0) return
+    setSourceDeleteRequest({
+      ids: Array.from(selectedSourceIds),
+      title: `선택한 Source URL ${selectedSourceIds.size}개를 삭제할까요?`,
+      confirmLabel: `${selectedSourceIds.size}개 삭제`,
+    })
+  }
+  async function confirmDeleteSources() {
+    if (!sourceDeleteRequest) return
     const supabase = createClient()
-    const { error } = await supabase.from("sources").delete().eq("id", target.id)
+    const { error } = await supabase.from("sources").delete().in("id", sourceDeleteRequest.ids)
     if (error) {
       toast({ title: "삭제 실패", description: error.message, tone: "danger" })
+      setSourceDeleteRequest(null)
       return
     }
-    toast({ title: "Source URL이 삭제되었습니다", tone: "info" })
+    toast({ title: `Source URL ${sourceDeleteRequest.ids.length}건이 삭제되었습니다`, tone: "info" })
+    setSelectedSourceIds(new Set())
+    setSourceDeleteRequest(null)
     loadSources()
   }
 
@@ -951,26 +969,8 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
     })
   }
 
-  function cancelSourceSelection() {
-    setSourceSelectMode(false)
+  function clearSourceSelection() {
     setSelectedSourceIds(new Set())
-  }
-
-  async function saveSourceSelection() {
-    if (selectedSourceIds.size === 0) {
-      cancelSourceSelection()
-      return
-    }
-    if (!window.confirm(`선택한 Source URL ${selectedSourceIds.size}건을 삭제하시겠습니까?`)) return
-    const supabase = createClient()
-    const { error } = await supabase.from("sources").delete().in("id", Array.from(selectedSourceIds))
-    if (error) {
-      toast({ title: "삭제 실패", description: error.message, tone: "danger" })
-      return
-    }
-    toast({ title: `Source URL ${selectedSourceIds.size}건이 삭제되었습니다`, tone: "info" })
-    cancelSourceSelection()
-    loadSources()
   }
 
   async function saveUser(values: UserFormValues) {
@@ -995,15 +995,33 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
     loadUsers()
   }
 
-  async function deleteUser(target: AppUser) {
-    if (!window.confirm(`"${target.name}" 사용자를 삭제하시겠습니까?`)) return
+  function requestDeleteOneUser(target: AppUser) {
+    setUserDeleteRequest({
+      ids: [target.id],
+      title: `"${target.name}" 사용자를 삭제할까요?`,
+      confirmLabel: "1개 삭제",
+    })
+  }
+  function requestDeleteSelectedUsers() {
+    if (selectedUserIds.size === 0) return
+    setUserDeleteRequest({
+      ids: Array.from(selectedUserIds),
+      title: `선택한 사용자 ${selectedUserIds.size}개를 삭제할까요?`,
+      confirmLabel: `${selectedUserIds.size}개 삭제`,
+    })
+  }
+  async function confirmDeleteUsers() {
+    if (!userDeleteRequest) return
     const supabase = createClient()
-    const { error } = await supabase.from("app_users").delete().eq("id", target.id)
+    const { error } = await supabase.from("app_users").delete().in("id", userDeleteRequest.ids)
     if (error) {
       toast({ title: "삭제 실패", description: error.message, tone: "danger" })
+      setUserDeleteRequest(null)
       return
     }
-    toast({ title: "사용자가 삭제되었습니다", tone: "info" })
+    toast({ title: `사용자 ${userDeleteRequest.ids.length}건이 삭제되었습니다`, tone: "info" })
+    setSelectedUserIds(new Set())
+    setUserDeleteRequest(null)
     loadUsers()
   }
 
@@ -1022,26 +1040,8 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
     })
   }
 
-  function cancelUserSelection() {
-    setUserSelectMode(false)
+  function clearUserSelection() {
     setSelectedUserIds(new Set())
-  }
-
-  async function saveUserSelection() {
-    if (selectedUserIds.size === 0) {
-      cancelUserSelection()
-      return
-    }
-    if (!window.confirm(`선택한 사용자 ${selectedUserIds.size}건을 삭제하시겠습니까?`)) return
-    const supabase = createClient()
-    const { error } = await supabase.from("app_users").delete().in("id", Array.from(selectedUserIds))
-    if (error) {
-      toast({ title: "삭제 실패", description: error.message, tone: "danger" })
-      return
-    }
-    toast({ title: `사용자 ${selectedUserIds.size}건이 삭제되었습니다`, tone: "info" })
-    cancelUserSelection()
-    loadUsers()
   }
 
   async function submitManualVuln(values: ManualVulnFormValues): Promise<boolean> {
@@ -1192,18 +1192,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
         subtitle="자동수집 대상 공식 출처"
         icon={Link2}
         action={
-          sourcePanel ? null : sourceSelectMode ? (
-            <div className="flex items-center gap-1.5">
-              <MiniButton accent="success" onClick={saveSourceSelection}>
-                <Check className="h-3.5 w-3.5" />
-                저장
-              </MiniButton>
-              <MiniButton onClick={cancelSourceSelection}>
-                <X className="h-3.5 w-3.5" />
-                취소
-              </MiniButton>
-            </div>
-          ) : (
+          sourcePanel ? null : (
             <div className="flex items-center gap-1.5">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -1237,10 +1226,6 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
                 <Plus className="h-3.5 w-3.5" />
                 추가
               </MiniButton>
-              <MiniButton onClick={() => setSourceSelectMode(true)}>
-                <Pencil className="h-3.5 w-3.5" />
-                편집
-              </MiniButton>
             </div>
           )
         }
@@ -1248,34 +1233,33 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
         {sourcePanel === "add" ? (
           <SourceFormPanel onCancel={() => setSourcePanel(null)} onSubmit={saveSource} />
         ) : null}
+        <SelectionActionBar count={selectedSourceIds.size} onClear={clearSourceSelection} onDelete={requestDeleteSelectedSources} />
         <TableShell scrollHint>
           <thead>
             <tr>
-              {sourceSelectMode ? (
-                <Th className={cn("w-8", TABLE_HEADER_CELL_H)}>
-                  <input
-                    type="checkbox"
-                    checked={filteredSources.length > 0 && selectedSourceIds.size === filteredSources.length}
-                    onChange={toggleSourceSelectAll}
-                    aria-label="전체 선택"
-                    className="h-4 w-4 rounded border-border/60 accent-primary"
-                  />
-                </Th>
-              ) : null}
+              <Th className={cn("w-8", TABLE_HEADER_CELL_H)}>
+                <input
+                  type="checkbox"
+                  checked={filteredSources.length > 0 && selectedSourceIds.size === filteredSources.length}
+                  onChange={toggleSourceSelectAll}
+                  aria-label="전체 선택"
+                  className="h-4 w-4 rounded border-border/60 accent-primary"
+                />
+              </Th>
               {showSourceCol("name") && <SortTh col="name" label="제품명" sortKey={sourceSortKey} sortDir={sourceSortDir} onSort={handleSourceSort} />}
               {showSourceCol("type") && <SortTh col="type" label="Source 유형" sortKey={sourceSortKey} sortDir={sourceSortDir} onSort={handleSourceSort} />}
               {showSourceCol("url") && <SortTh col="url" label="공식 URL" sortKey={sourceSortKey} sortDir={sourceSortDir} onSort={handleSourceSort} />}
               {showSourceCol("cycle") && <SortTh col="cycle" label="수집 주기" sortKey={sourceSortKey} sortDir={sourceSortDir} onSort={handleSourceSort} />}
               {showSourceCol("last_collected_at") && <SortTh col="last_collected_at" label="마지막 수집" sortKey={sourceSortKey} sortDir={sourceSortDir} onSort={handleSourceSort} />}
               {showSourceCol("status") && <SortTh col="status" label="상태" sortKey={sourceSortKey} sortDir={sourceSortDir} onSort={handleSourceSort} />}
-              {sourceSelectMode ? null : <Th className={TABLE_HEADER_CELL_H}>관리</Th>}
+              <Th className={TABLE_HEADER_CELL_H}>관리</Th>
             </tr>
           </thead>
           <tbody>
             {sourcePagination.pageItems.map((s) =>
               sourcePanel === s.id ? (
                 <tr key={s.id}>
-                  <td colSpan={7} className="border-b border-border/40 p-0">
+                  <td colSpan={8} className="border-b border-border/40 p-0">
                     <SourceFormPanel
                       initial={{
                         name: s.name,
@@ -1291,17 +1275,15 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
                 </tr>
               ) : (
                 <tr key={s.id} className="transition-colors hover:bg-accent/40">
-                  {sourceSelectMode ? (
-                    <Td className={TABLE_ROW_CELL_H}>
-                      <input
-                        type="checkbox"
-                        checked={selectedSourceIds.has(s.id)}
-                        onChange={() => toggleSourceSelected(s.id)}
-                        aria-label={`${s.name} 선택`}
-                        className="h-4 w-4 rounded border-border/60 accent-primary"
-                      />
-                    </Td>
-                  ) : null}
+                  <Td className={TABLE_ROW_CELL_H}>
+                    <input
+                      type="checkbox"
+                      checked={selectedSourceIds.has(s.id)}
+                      onChange={() => toggleSourceSelected(s.id)}
+                      aria-label={`${s.name} 선택`}
+                      className="h-4 w-4 rounded border-border/60 accent-primary"
+                    />
+                  </Td>
                   {showSourceCol("name") && <Td className={cn("font-semibold", TABLE_ROW_CELL_H)}>{s.name}</Td>}
                   {showSourceCol("type") && <Td className={cn("text-muted-foreground", TABLE_ROW_CELL_H)}>{s.type}</Td>}
                   {showSourceCol("url") && <Td className={cn("font-mono text-xs text-primary", TABLE_ROW_CELL_H)}>{s.url}</Td>}
@@ -1314,20 +1296,18 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
                       </StatusBadge>
                     </Td>
                   )}
-                  {sourceSelectMode ? null : (
-                    <Td className={TABLE_ROW_CELL_H}>
-                      <div className="flex items-center gap-1.5">
-                        <MiniButton onClick={() => setSourcePanel(s.id)}>
-                          <Pencil className="h-3 w-3" />
-                          수정
-                        </MiniButton>
-                        <MiniButton accent="destructive" onClick={() => deleteSource(s)}>
-                          <Trash2 className="h-3 w-3" />
-                          삭제
-                        </MiniButton>
-                      </div>
-                    </Td>
-                  )}
+                  <Td className={TABLE_ROW_CELL_H}>
+                    <div className="flex items-center gap-1.5">
+                      <MiniButton className="h-8 px-2.5" onClick={() => setSourcePanel(s.id)}>
+                        <Pencil className="h-3 w-3" />
+                        수정
+                      </MiniButton>
+                      <MiniButton accent="destructive" className="h-8 px-2.5" onClick={() => requestDeleteOneSource(s)}>
+                        <Trash2 className="h-3 w-3" />
+                        삭제
+                      </MiniButton>
+                    </div>
+                  </Td>
                 </tr>
               ),
             )}
@@ -1345,6 +1325,15 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
           </div>
         )}
       </SectionCard>
+
+      <ConfirmDialog
+        open={!!sourceDeleteRequest}
+        title={sourceDeleteRequest?.title ?? ""}
+        description="삭제 후에는 목록에서 제거됩니다."
+        confirmLabel={sourceDeleteRequest?.confirmLabel ?? ""}
+        onConfirm={confirmDeleteSources}
+        onCancel={() => setSourceDeleteRequest(null)}
+      />
 
       <div className="grid grid-cols-1 gap-6">
         {/* Section 3: Auto collect */}
@@ -1367,27 +1356,11 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
           <div className="flex flex-col gap-3">
             <Toggle
               label="자동 수집 스케줄러"
-              desc="공식 Source 주기적 자동 수집 (설정값만 저장 — 이 앱은 서버 스케줄러가 없어 실제 주기 실행은 수동 '즉시 수집'으로 대체됩니다)"
+              desc="공식 Source 주기적 자동 수집"
               checked={policy?.auto_collect_enabled ?? true}
               disabled={!policy}
               onChange={(next) => updatePolicy({ auto_collect_enabled: next })}
             />
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-background/40 px-3 py-3">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">수집 주기</p>
-                <p className="text-xs text-muted-foreground">기본 수집 인터벌 (설정값만 저장)</p>
-              </div>
-              <select
-                value={policy?.collect_interval ?? "일 1회"}
-                disabled={!policy}
-                onChange={(e) => updatePolicy({ collect_interval: e.target.value as Tables<"admin_policies">["collect_interval"] })}
-                className="shrink-0 rounded-lg border border-border/60 bg-background/50 px-3 py-1.5 text-xs text-foreground focus:border-primary/60 focus:outline-none"
-              >
-                <option value="1시간">1시간</option>
-                <option value="6시간">6시간</option>
-                <option value="일 1회">일 1회</option>
-              </select>
-            </div>
 
             {/* Collection log with shimmer while collecting */}
             <div className="rounded-xl border border-border/60 bg-background/40 p-3">
@@ -1518,18 +1491,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
         subtitle="관리자 · 승인자 · 담당자 · 조회 사용자"
         icon={UsersRound}
         action={
-          userPanel ? null : userSelectMode ? (
-            <div className="flex items-center gap-1.5">
-              <MiniButton accent="success" onClick={saveUserSelection}>
-                <Check className="h-3.5 w-3.5" />
-                저장
-              </MiniButton>
-              <MiniButton onClick={cancelUserSelection}>
-                <X className="h-3.5 w-3.5" />
-                취소
-              </MiniButton>
-            </div>
-          ) : (
+          userPanel ? null : (
             <div className="flex items-center gap-1.5">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -1563,10 +1525,6 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
                 <Plus className="h-3.5 w-3.5" />
                 추가
               </MiniButton>
-              <MiniButton onClick={() => setUserSelectMode(true)}>
-                <Pencil className="h-3.5 w-3.5" />
-                편집
-              </MiniButton>
             </div>
           )
         }
@@ -1574,34 +1532,33 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
         {userPanel === "add" ? (
           <UserFormPanel onCancel={() => setUserPanel(null)} onSubmit={saveUser} />
         ) : null}
+        <SelectionActionBar count={selectedUserIds.size} onClear={clearUserSelection} onDelete={requestDeleteSelectedUsers} />
         <TableShell scrollHint>
           <thead>
             <tr>
-              {userSelectMode ? (
-                <Th className={cn("w-8", TABLE_HEADER_CELL_H)}>
-                  <input
-                    type="checkbox"
-                    checked={filteredUsers.length > 0 && selectedUserIds.size === filteredUsers.length}
-                    onChange={toggleUserSelectAll}
-                    aria-label="전체 선택"
-                    className="h-4 w-4 rounded border-border/60 accent-primary"
-                  />
-                </Th>
-              ) : null}
+              <Th className={cn("w-8", TABLE_HEADER_CELL_H)}>
+                <input
+                  type="checkbox"
+                  checked={filteredUsers.length > 0 && selectedUserIds.size === filteredUsers.length}
+                  onChange={toggleUserSelectAll}
+                  aria-label="전체 선택"
+                  className="h-4 w-4 rounded border-border/60 accent-primary"
+                />
+              </Th>
               {showUserCol("name") && <SortTh col="name" label="사용자명" sortKey={userSortKey} sortDir={userSortDir} onSort={handleUserSort} />}
               {showUserCol("email") && <SortTh col="email" label="이메일" sortKey={userSortKey} sortDir={userSortDir} onSort={handleUserSort} />}
               {showUserCol("dept") && <SortTh col="dept" label="부서" sortKey={userSortKey} sortDir={userSortDir} onSort={handleUserSort} />}
               {showUserCol("role") && <SortTh col="role" label="권한" sortKey={userSortKey} sortDir={userSortDir} onSort={handleUserSort} />}
               {showUserCol("assetsCount") && <SortTh col="assetsCount" label="담당 자산 수" sortKey={userSortKey} sortDir={userSortDir} onSort={handleUserSort} />}
               {showUserCol("active") && <SortTh col="active" label="상태" sortKey={userSortKey} sortDir={userSortDir} onSort={handleUserSort} />}
-              {userSelectMode ? null : <Th className={TABLE_HEADER_CELL_H}>관리</Th>}
+              <Th className={TABLE_HEADER_CELL_H}>관리</Th>
             </tr>
           </thead>
           <tbody>
             {userPagination.pageItems.map((u) =>
               userPanel === u.id ? (
                 <tr key={u.id}>
-                  <td colSpan={7} className="border-b border-border/40 p-0">
+                  <td colSpan={8} className="border-b border-border/40 p-0">
                     <UserFormPanel
                       initial={{
                         name: u.name,
@@ -1617,17 +1574,15 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
                 </tr>
               ) : (
                 <tr key={u.id} className="transition-colors hover:bg-accent/40">
-                  {userSelectMode ? (
-                    <Td className={TABLE_ROW_CELL_H}>
-                      <input
-                        type="checkbox"
-                        checked={selectedUserIds.has(u.id)}
-                        onChange={() => toggleUserSelected(u.id)}
-                        aria-label={`${u.name} 선택`}
-                        className="h-4 w-4 rounded border-border/60 accent-primary"
-                      />
-                    </Td>
-                  ) : null}
+                  <Td className={TABLE_ROW_CELL_H}>
+                    <input
+                      type="checkbox"
+                      checked={selectedUserIds.has(u.id)}
+                      onChange={() => toggleUserSelected(u.id)}
+                      aria-label={`${u.name} 선택`}
+                      className="h-4 w-4 rounded border-border/60 accent-primary"
+                    />
+                  </Td>
                   {showUserCol("name") && <Td className={cn("font-semibold", TABLE_ROW_CELL_H)}>{u.name}</Td>}
                   {showUserCol("email") && <Td className={cn("font-mono text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{u.email}</Td>}
                   {showUserCol("dept") && <Td className={cn("text-muted-foreground", TABLE_ROW_CELL_H)}>{u.dept}</Td>}
@@ -1640,20 +1595,18 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
                       </StatusBadge>
                     </Td>
                   )}
-                  {userSelectMode ? null : (
-                    <Td className={TABLE_ROW_CELL_H}>
-                      <div className="flex items-center gap-1.5">
-                        <MiniButton onClick={() => setUserPanel(u.id)}>
-                          <Pencil className="h-3 w-3" />
-                          수정
-                        </MiniButton>
-                        <MiniButton accent="destructive" onClick={() => deleteUser(u)}>
-                          <Trash2 className="h-3 w-3" />
-                          삭제
-                        </MiniButton>
-                      </div>
-                    </Td>
-                  )}
+                  <Td className={TABLE_ROW_CELL_H}>
+                    <div className="flex items-center gap-1.5">
+                      <MiniButton className="h-8 px-2.5" onClick={() => setUserPanel(u.id)}>
+                        <Pencil className="h-3 w-3" />
+                        수정
+                      </MiniButton>
+                      <MiniButton accent="destructive" className="h-8 px-2.5" onClick={() => requestDeleteOneUser(u)}>
+                        <Trash2 className="h-3 w-3" />
+                        삭제
+                      </MiniButton>
+                    </div>
+                  </Td>
                 </tr>
               ),
             )}
@@ -1678,6 +1631,15 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
           </div>
         )}
       </SectionCard>
+
+      <ConfirmDialog
+        open={!!userDeleteRequest}
+        title={userDeleteRequest?.title ?? ""}
+        description="삭제 후에는 목록에서 제거됩니다."
+        confirmLabel={userDeleteRequest?.confirmLabel ?? ""}
+        onConfirm={confirmDeleteUsers}
+        onCancel={() => setUserDeleteRequest(null)}
+      />
       </>
       )}
       </div>
