@@ -112,6 +112,60 @@ async function collectApacheTomcat(): Promise<FoundNotice[]> {
   return notices
 }
 
+const NGINX_SEVERITY_MAP: Record<string, FoundNotice["severity"]> = {
+  critical: "Critical",
+  high: "High",
+  major: "High",
+  medium: "Medium",
+  low: "Low",
+  minor: "Low",
+}
+
+function stripHtmlTags(html: string): string {
+  return html.replace(/<[^>]+>/g, "").trim()
+}
+
+// nginx.org/en/security_advisories.html: 각 공지가
+// <li><p>제목<br>Severity: <b>등급</b><br><a>Advisory</a><br><a href="...cve.org...">CVE-ID</a><br>
+// Not vulnerable: ...<br>Vulnerable: 버전범위</p></li> 형태로 나열된다.
+// <br> 태그로 줄이 나뉘므로 raw HTML을 <br> 기준으로 쪼갠 뒤 각 줄의 태그를 벗겨 파싱한다.
+async function collectNginx(): Promise<FoundNotice[]> {
+  const url = "https://nginx.org/en/security_advisories.html"
+  const html = await fetchHtml(url)
+  const $ = cheerio.load(html)
+  const notices: FoundNotice[] = []
+
+  $("#content li > p").each((_, pEl) => {
+    const $p = $(pEl)
+    const rawHtml = $p.html() ?? ""
+    const lines = rawHtml.split(/<br\s*\/?>/i).map(stripHtmlTags).filter(Boolean)
+    if (lines.length === 0) return
+
+    const title = lines[0]
+    const severityLine = lines.find((l) => l.startsWith("Severity:"))
+    const severityWord = severityLine?.replace("Severity:", "").trim().toLowerCase() ?? ""
+    const cveLine = lines.find((l) => /^CVE-\d{4}-\d+$/.test(l))
+    const vulnerableLine = lines.find((l) => l.startsWith("Vulnerable:"))
+    if (!cveLine) return
+
+    const versionRange = vulnerableLine?.replace("Vulnerable:", "").trim() ?? ""
+    notices.push({
+      cve: cveLine,
+      title: versionRange ? `${title} (Vulnerable: ${versionRange})` : title,
+      severity: NGINX_SEVERITY_MAP[severityWord] ?? "Medium",
+      product: "Nginx",
+      source: "Nginx 공식 보안 권고",
+      source_url: url,
+      source_type: "vendor",
+      notice_type: "CVE",
+      mapped_assets: 0,
+      collected_at: new Date().toISOString(),
+    })
+  })
+
+  return notices
+}
+
 // www.tmaxsoft.com/kr/developer/notice/list: 공식 기술공지 게시판.
 // <tr onclick="fnView('./view','SEQ')"> 행마다 제목/등록일이 들어있다.
 async function collectTmaxSoft(product: "JEUS" | "WebtoB"): Promise<FoundNotice[]> {
