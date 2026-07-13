@@ -71,7 +71,7 @@ export function Sidebar({
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-border/60 bg-sidebar transition-[transform,width] duration-300 lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-white/10 bg-[radial-gradient(circle_at_50%_35%,rgba(0,82,180,0.28),transparent_42%),linear-gradient(180deg,#061B3A_0%,#04142C_48%,#031128_100%)] transition-[transform,width] duration-300 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
           collapsed ? "w-72 lg:w-[72px]" : "w-72",
         )}
@@ -79,19 +79,19 @@ export function Sidebar({
         {/* Brand */}
         <div
           className={cn(
-            "flex items-center gap-3 border-b border-border/60 px-5 py-5",
+            "flex items-center gap-3 border-b border-white/10 bg-black/10 px-5 py-5",
             collapsed ? "lg:justify-center lg:px-0" : "justify-between",
           )}
         >
           <div className="flex items-center gap-3">
-            <div className="glow-card flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
+            <div className="glow-card flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-500/15 text-blue-200">
               <ShieldCheck className="h-6 w-6" />
             </div>
             <div className={collapsed ? "lg:hidden" : undefined}>
-              <h1 className="text-base font-bold leading-tight tracking-tight text-foreground">
+              <h1 className="text-base font-bold leading-tight tracking-tight text-white">
                 AI SW Asset Master
               </h1>
-              <p className="text-[11px] leading-tight text-muted-foreground">
+              <p className="text-[11px] leading-tight text-slate-300/80">
                 자산 기반 취약점·패치·EOS 통합관리
               </p>
             </div>
@@ -99,7 +99,7 @@ export function Sidebar({
           <button
             type="button"
             onClick={onCloseMobile}
-            className="text-muted-foreground hover:text-foreground lg:hidden"
+            className="text-slate-300 hover:text-white lg:hidden"
             aria-label="메뉴 닫기"
           >
             <X className="h-5 w-5" />
@@ -113,7 +113,7 @@ export function Sidebar({
           title={collapsed ? "메뉴 펼치기" : "메뉴 접기"}
           aria-label={collapsed ? "메뉴 펼치기" : "메뉴 접기"}
           className={cn(
-            "hidden items-center gap-2 border-b border-border/60 px-5 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground lg:flex",
+            "hidden items-center gap-2 border-b border-white/10 px-5 py-2.5 text-xs font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white lg:flex",
             collapsed && "lg:justify-center lg:px-0",
           )}
         >
@@ -157,14 +157,14 @@ export function Sidebar({
                       "group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                       collapsed && "lg:justify-center lg:px-0",
                       groupActive
-                        ? "text-primary"
-                        : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                        ? "bg-blue-600 text-white"
+                        : "text-slate-300 hover:bg-white/10 hover:text-white",
                     )}
                   >
                     <entry.icon
                       className={cn(
                         "h-[18px] w-[18px] shrink-0 transition-transform group-hover:scale-110",
-                        groupActive ? "text-primary" : "",
+                        groupActive ? "text-white" : "",
                       )}
                     />
                     <span className={cn("min-w-0 flex-1 truncate text-left", collapsed && "lg:hidden")}>
@@ -172,7 +172,7 @@ export function Sidebar({
                     </span>
                     <ChevronDown
                       className={cn(
-                        "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+                        "h-4 w-4 shrink-0 text-slate-300 transition-transform",
                         expanded && "rotate-180",
                         collapsed && "lg:hidden",
                       )}
@@ -180,7 +180,7 @@ export function Sidebar({
                   </button>
 
                   {expanded ? (
-                    <div className={cn("ml-4 mt-1 flex flex-col gap-1 border-l border-border/50 pl-3", collapsed && "lg:hidden")}>
+                    <div className={cn("ml-4 mt-1 flex flex-col gap-1 border-l border-white/10 pl-3", collapsed && "lg:hidden")}>
                       {entry.children.map((child) => {
                         const isActive = child.key === active
                         return (
@@ -195,8 +195,8 @@ export function Sidebar({
                             className={cn(
                               "flex w-full items-center rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors",
                               isActive
-                                ? "bg-primary/12 text-primary"
-                                : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                                ? "bg-blue-600 text-white"
+                                : "text-slate-300 hover:bg-white/10 hover:text-white",
                             )}
                           >
                             {child.label}
@@ -224,17 +224,17 @@ export function Sidebar({
                   "group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                   collapsed && "lg:justify-center lg:px-0",
                   isActive
-                    ? "bg-primary/12 text-primary glow-card"
-                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                    ? "bg-blue-600 text-white glow-card"
+                    : "text-slate-300 hover:bg-white/10 hover:text-white",
                 )}
               >
                 {isActive ? (
-                  <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
+                  <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-blue-300" />
                 ) : null}
                 <entry.icon
                   className={cn(
                     "h-[18px] w-[18px] shrink-0 transition-transform group-hover:scale-110",
-                    isActive ? "text-primary" : "",
+                    isActive ? "text-white" : "",
                   )}
                 />
                 <span className={cn("truncate text-left", collapsed && "lg:hidden")}>
@@ -246,14 +246,14 @@ export function Sidebar({
         </nav>
 
         {/* Footer status */}
-        <div className="space-y-2.5 border-t border-border/60 px-4 py-4">
+        <div className="space-y-2.5 border-t border-white/10 px-4 py-4">
           <div
             className={cn(
-              "flex items-center gap-2.5 rounded-lg border border-border/60 bg-card px-3 py-2",
+              "flex items-center gap-2.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2",
               collapsed && "lg:justify-center lg:px-2",
             )}
           >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-blue-200">
               {isAdmin ? (
                 <ShieldCheck className="h-4 w-4" />
               ) : (
@@ -261,24 +261,24 @@ export function Sidebar({
               )}
             </div>
             <div className={cn("min-w-0 flex-1", collapsed && "lg:hidden")}>
-              <p className="truncate text-xs font-semibold text-foreground">
+              <p className="truncate text-xs font-semibold text-white">
                 {currentUser.name}
               </p>
-              <p className="truncate text-[11px] text-muted-foreground">
+              <p className="truncate text-[11px] text-slate-300/80">
                 {currentUser.label}로 접속 중
               </p>
             </div>
           </div>
           <div
             className={cn(
-              "flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-3 py-2",
+              "flex items-center gap-2 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-2",
               collapsed && "lg:justify-center lg:px-2",
             )}
           >
             <span className="relative flex h-2.5 w-2.5 shrink-0">
-              <span className="absolute inline-flex h-full w-full animate-blink rounded-full bg-success" />
+              <span className="absolute inline-flex h-full w-full animate-blink rounded-full bg-emerald-400" />
             </span>
-            <span className={cn("text-xs font-medium text-success", collapsed && "lg:hidden")}>
+            <span className={cn("text-xs font-medium text-emerald-400", collapsed && "lg:hidden")}>
               AI 엔진 실시간 감시 중
             </span>
           </div>
