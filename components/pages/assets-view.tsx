@@ -46,7 +46,7 @@ const ALL_COLS: { key: ColKey; label: string }[] = [
 
 const FACTORY_VISIBLE: ColKey[] = [
   "id", "name", "vendor", "category", "version",
-  "server", "owner", "vuln", "patch", "eos", "approval", "checked_at",
+  "server", "owner", "vuln", "patch", "eos", "checked_at",
 ]
 const LS_KEY = "sw_manager_col_visible"
 
@@ -451,7 +451,7 @@ export function AssetsView() {
               {show("eos")        && <SortTh col="eos"        label="EOS 날짜"  {...stProps} />}
               {show("approval")   && <SortTh col="approval"   label="승인 상태" {...stProps} />}
               {show("checked_at") && <SortTh col="checked_at" label="최근 확인일" {...stProps} />}
-              <Th className={TABLE_HEADER_CELL_H}>작업</Th>
+              <Th className={TABLE_HEADER_CELL_H}>상세정보</Th>
             </tr>
           </thead>
           <tbody>
