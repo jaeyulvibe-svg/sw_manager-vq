@@ -22,9 +22,10 @@ export function ScanHero() {
             AI 자산 스캐닝 엔진 가동 중
           </div>
           <h2 className="text-balance text-2xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl">
-            전사 소프트웨어 자산을{" "}
-            <span className="text-primary">실시간 분석</span>하여
-            위협을 식별합니다
+            전사 소프트웨어 자산을
+            <br />
+            <span className="text-primary">실시간 분석</span>하여 위협을
+            식별합니다
           </h2>
           <p className="mt-3 text-pretty text-sm leading-relaxed text-muted-foreground sm:text-base">
             취약점(CVE), 패치 적용 현황, 단종(EOS) 소프트웨어를 하나의 화면에서
@@ -57,7 +58,7 @@ export function ScanHero() {
 
       <div className="relative flex items-center gap-2 border-t border-border/60 px-6 py-3 text-xs text-muted-foreground sm:px-8">
         <Boxes className="h-4 w-4 text-primary" />
-        전체 자산 인벤토리 자동 동기화 · 클라우드 / 온프레미스 / 엔드포인트
+        전체 자산 인벤토리 자동 동기화
       </div>
     </section>
   )

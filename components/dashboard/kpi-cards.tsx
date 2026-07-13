@@ -97,7 +97,6 @@ function KpiCard({ kpi }: { kpi: KpiData }) {
         </div>
         <Sparkline data={kpi.spark} color={accentVar[kpi.accent]} width={96} height={34} className="shrink-0" />
       </div>
-      <p className="mt-2 text-[11px] text-muted-foreground">DB 기준 실시간</p>
     </div>
   )
 }

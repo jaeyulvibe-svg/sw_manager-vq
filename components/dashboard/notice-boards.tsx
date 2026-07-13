@@ -20,6 +20,8 @@ import {
   StatusBadge,
   MiniButton,
   ExportExcelButton,
+  usePagination,
+  Pagination,
   type Accent,
   type RiskLevel,
 } from "@/components/portal/ui"
@@ -52,6 +54,7 @@ const categoryAccent: Record<string, Accent> = {
 export function NoticeBoard() {
   const { toast } = useToast()
   const [notices, setNotices] = useState<Notice[]>([])
+  const pagination = usePagination(notices)
 
   useEffect(() => {
     const supabase = createClient()
@@ -103,7 +106,7 @@ export function NoticeBoard() {
           </tr>
         </thead>
         <tbody>
-          {notices.map((n) => (
+          {pagination.pageItems.map((n) => (
             <tr key={n.id} className="transition-colors hover:bg-accent/40">
               <Td>
                 <StatusBadge accent={categoryAccent[n.category] ?? "muted"}>
@@ -180,6 +183,18 @@ export function NoticeBoard() {
           ) : null}
         </tbody>
       </TableShell>
+
+      {notices.length > 0 ? (
+        <div className="mt-4 border-t border-border/60 pt-3">
+          <Pagination
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
+        </div>
+      ) : null}
     </SectionCard>
   )
 }
@@ -262,6 +277,13 @@ export function SecurityNoticeBoard({
       return matchesQuery && matchesSeverity && matchesApproval
     })
   }, [rows, query, severity, approval])
+
+  const pagination = usePagination(filtered)
+
+  useEffect(() => {
+    pagination.setPage(1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, severity, approval])
 
   return (
     <SectionCard
@@ -363,7 +385,7 @@ export function SecurityNoticeBoard({
           </tr>
         </thead>
         <tbody>
-          {filtered.map((s) => (
+          {pagination.pageItems.map((s) => (
             <tr key={s.id} className="transition-colors hover:bg-accent/40">
               <Td>
                 <StatusBadge
@@ -508,6 +530,18 @@ export function SecurityNoticeBoard({
           ) : null}
         </tbody>
       </TableShell>
+
+      {filtered.length > 0 ? (
+        <div className="mt-4 border-t border-border/60 pt-3">
+          <Pagination
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
+        </div>
+      ) : null}
     </SectionCard>
   )
 }

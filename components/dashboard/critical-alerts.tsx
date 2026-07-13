@@ -4,6 +4,7 @@ import { AlertTriangle, ArrowUpRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Tables } from "@/lib/supabase/types"
 import { matchAssets } from "@/lib/vuln-match"
+import { usePagination, Pagination } from "@/components/portal/ui"
 
 type Asset = Tables<"assets">
 type Vulnerability = Tables<"vulnerabilities">
@@ -36,6 +37,8 @@ export function CriticalAlerts({
     .map((v) => ({ ...v, mappedCount: matchAssets(v, assets).length }))
     .sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "Critical" ? -1 : 1))
 
+  const pagination = usePagination(alerts)
+
   return (
     <div className="animate-soft-pulse flex h-full flex-col rounded-2xl border border-risk-5/30 bg-card p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -64,7 +67,7 @@ export function CriticalAlerts({
             현재 긴급 대응이 필요한 취약점 공지가 없습니다.
           </li>
         ) : (
-          alerts.map((alert) => {
+          pagination.pageItems.map((alert) => {
             const s = severityStyles[alert.severity] ?? severityStyles.High
             return (
               <li
@@ -99,6 +102,18 @@ export function CriticalAlerts({
           })
         )}
       </ul>
+
+      {alerts.length > 0 ? (
+        <div className="mt-4 border-t border-border/60 pt-3">
+          <Pagination
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
+        </div>
+      ) : null}
     </div>
   )
 }
