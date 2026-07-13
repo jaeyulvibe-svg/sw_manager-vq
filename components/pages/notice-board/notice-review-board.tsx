@@ -49,6 +49,8 @@ export function NoticeReviewBoard({
   description,
   icon: Icon,
   onNavigate,
+  initialPageSize = 10,
+  pageSizeOptions,
 }: {
   sourceType?: "kisa" | "vendor"
   noticeTypes: Vulnerability["notice_type"][]
@@ -56,6 +58,8 @@ export function NoticeReviewBoard({
   description: string
   icon: LucideIcon
   onNavigate?: (view: ViewKey) => void
+  initialPageSize?: number
+  pageSizeOptions?: readonly number[]
 }) {
   const { isAdmin } = useRole()
   const { toast } = useToast()
@@ -74,7 +78,7 @@ export function NoticeReviewBoard({
     return v.severity === filter
   })
 
-  const pagination = usePagination(filtered, 10)
+  const pagination = usePagination(filtered, initialPageSize)
 
   const selected = vulns.find((v) => v.id === selectedId) ?? vulns[0]
   const selectedMatches = selected ? matchMap.get(selected.id) ?? [] : []
@@ -189,6 +193,7 @@ export function NoticeReviewBoard({
                 totalPages={pagination.totalPages}
                 onPageChange={pagination.setPage}
                 onPageSizeChange={pagination.setPageSize}
+                pageSizeOptions={pageSizeOptions}
               />
             ) : null}
           </div>

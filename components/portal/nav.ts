@@ -91,7 +91,7 @@ export const NAV_ITEMS: NavEntry[] = [
       { key: "admin-servers", label: "서버 관리", icon: Server },
       { key: "admin-collect", label: "수집 관리", icon: RefreshCw },
       { key: "admin-policy", label: "승인 정책", icon: ShieldCheck },
-      { key: "admin-users", label: "사용자·로그", icon: UsersRound },
+      { key: "admin-users", label: "사용자 관리", icon: UsersRound },
     ],
   },
 ]

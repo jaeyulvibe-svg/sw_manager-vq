@@ -585,7 +585,7 @@ export function ColumnVisibilityMenu<K extends string>({
 /* ---------------- Shared pagination convention (SW 마스터 관리 방식) ---------------- */
 
 export const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
-export type PageSize = (typeof PAGE_SIZE_OPTIONS)[number]
+export type PageSize = number
 
 export function usePagination<T>(items: T[], initialPageSize: PageSize = 10) {
   const [page, setPage] = useState(1)
@@ -609,12 +609,14 @@ export function Pagination({
   totalPages,
   onPageChange,
   onPageSizeChange,
+  pageSizeOptions = PAGE_SIZE_OPTIONS,
 }: {
   page: number
   pageSize: PageSize
   totalPages: number
   onPageChange: (page: number) => void
   onPageSizeChange: (size: PageSize) => void
+  pageSizeOptions?: readonly number[]
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -625,7 +627,7 @@ export function Pagination({
           onChange={(e) => onPageSizeChange(Number(e.target.value) as PageSize)}
           className="rounded-md border border-border/60 bg-background/50 px-2 py-1 text-xs"
         >
-          {PAGE_SIZE_OPTIONS.map((n) => (
+          {pageSizeOptions.map((n) => (
             <option key={n} value={n}>{n}개</option>
           ))}
         </select>
