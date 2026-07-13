@@ -8,7 +8,7 @@ create sequence if not exists public.patch_task_seq;
 
 create table if not exists public.patch_tasks (
   id                text primary key default 'PT-' || lpad(nextval('public.patch_task_seq')::text, 3, '0'),
-  vulnerability_id  text not null references public.vulnerabilities(id) on delete cascade,
+  vulnerability_id  uuid not null references public.vulnerabilities(id) on delete cascade,
   asset_id          text not null references public.assets(id) on delete cascade,
   owner             text not null,
   status            text not null default '배정됨'
