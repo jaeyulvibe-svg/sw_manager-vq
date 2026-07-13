@@ -34,9 +34,8 @@ import {
   usePagination,
   Pagination,
   type Accent,
-  type RiskLevel,
 } from "@/components/portal/ui"
-import { useNoticeData, type Vulnerability } from "@/components/pages/notice-board/use-notice-data"
+import { useNoticeData, sevRisk, formatCollected, type Vulnerability } from "@/components/pages/notice-board/use-notice-data"
 import type { ViewKey } from "@/components/portal/nav"
 import { cn } from "@/lib/utils"
 
@@ -44,9 +43,9 @@ type Severity = Vulnerability["severity"]
 type SourceType = Vulnerability["source_type"]
 type NoticeType = Vulnerability["notice_type"]
 
-const sevRisk: Record<Severity, RiskLevel> = { Critical: 5, High: 4, Medium: 3, Low: 2 }
 const sourceTypeLabel: Record<SourceType, string> = { kisa: "KISA", vendor: "제조사" }
 const noticeTypeAccent: Record<NoticeType, Accent> = { CVE: "destructive", Patch: "warning", EOS: "eos" }
+const sourceTypeAccent: Record<SourceType, Accent> = { kisa: "primary", vendor: "muted" }
 
 const SEVERITIES: (Severity | "전체")[] = ["전체", "Critical", "High", "Medium", "Low"]
 const SOURCE_TYPES: (SourceType | "전체")[] = ["전체", "kisa", "vendor"]
@@ -68,15 +67,6 @@ const LS_KEY = "patch_view_columns"
 
 type SortKey = ColKey | "none"
 type SortDir = "asc" | "desc"
-
-function formatCollected(iso: string) {
-  const d = new Date(iso)
-  const diffDays = Math.floor((Date.now() - d.getTime()) / 86400000)
-  const time = d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
-  if (diffDays === 0) return `오늘 ${time}`
-  if (diffDays === 1) return `어제 ${time}`
-  return `${d.toLocaleDateString("ko-KR", { month: "long", day: "numeric" })} ${time}`
-}
 
 export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void }) {
   const { vulns, matchMap, loading } = useNoticeData()
@@ -360,7 +350,7 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
                     )}
                     {show("sourceType") && (
                       <Td className={TABLE_ROW_CELL_H}>
-                        <StatusBadge accent={v.source_type === "kisa" ? "primary" : "muted"}>
+                        <StatusBadge accent={sourceTypeAccent[v.source_type]}>
                           {sourceTypeLabel[v.source_type]}
                         </StatusBadge>
                       </Td>
@@ -377,7 +367,7 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
                   </tr>
                   {expanded ? (
                     <tr>
-                      <td colSpan={ALL_COLS.length + 1} className="border-b border-border/40 bg-background/40 px-3 py-3">
+                      <td colSpan={visible.length + 1} className="border-b border-border/40 bg-background/40 px-3 py-3">
                         {matched.length > 0 ? (
                           <ul className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                             {matched.map((a) => (
@@ -398,7 +388,7 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
             })}
             {!loading && pagination.pageItems.length === 0 && (
               <tr>
-                <td colSpan={ALL_COLS.length + 1} className="py-8 text-center text-muted-foreground">
+                <td colSpan={visible.length + 1} className="py-8 text-center text-muted-foreground">
                   검색 조건에 맞는 항목이 없습니다.
                 </td>
               </tr>

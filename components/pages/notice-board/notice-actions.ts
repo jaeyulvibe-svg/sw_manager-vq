@@ -23,11 +23,14 @@ export async function approveNotice(
     await supabase.from("assets").update({ approval: "확인필요" }).in("id", toFlag)
   }
 
+  const isEos = v.notice_type === "EOS"
   await supabase.from("notifications").insert(
     matched.map((a) => ({
       category: "security" as const,
-      title: `${v.title} 관련 패치 필요`,
-      description: `${a.name} (${a.server}) 자산에 ${v.cve} 관련 보안 패치 적용이 필요합니다. 확인 후 조치해주세요.`,
+      title: isEos ? `${v.title} 관련 지원종료(EOS) 대응 필요` : `${v.title} 관련 패치 필요`,
+      description: isEos
+        ? `${a.name} (${a.server}) 자산의 제품이 지원종료(EOS) 대상입니다. ${v.cve} 공지를 확인하고 교체·업그레이드 등 후속 조치를 계획해주세요.`
+        : `${a.name} (${a.server}) 자산에 ${v.cve} 관련 보안 패치 적용이 필요합니다. 확인 후 조치해주세요.`,
       asset: `${a.name} ${a.version}`,
       owner: a.owner,
       status: "확인필요" as const,

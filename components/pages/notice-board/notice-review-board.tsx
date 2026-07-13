@@ -25,7 +25,7 @@ import { useRole } from "@/components/portal/role-context"
 import { useNotifications } from "@/components/portal/notifications-context"
 import { useToast } from "@/components/portal/toast"
 import type { ViewKey } from "@/components/portal/nav"
-import { useNoticeData, type Vulnerability } from "./use-notice-data"
+import { useNoticeData, sevRisk, formatCollected, type Vulnerability } from "./use-notice-data"
 import { approveNotice, rejectNotice } from "./notice-actions"
 import { cn } from "@/lib/utils"
 
@@ -34,20 +34,8 @@ type Status = Vulnerability["approval"]
 
 const FILTERS = ["전체", "Critical", "High", "Medium", "Low", "미매핑", "승인대기"] as const
 
-const sevRisk: Record<Severity, RiskLevel> = {
-  Critical: 5, High: 4, Medium: 3, Low: 2,
-}
 const statusRisk: Record<Status, RiskLevel> = {
   반려: 5, 승인대기: 3, 검토중: 2, 승인완료: 1,
-}
-
-function formatCollected(iso: string) {
-  const d = new Date(iso)
-  const diffDays = Math.floor((Date.now() - d.getTime()) / 86400000)
-  const time = d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
-  if (diffDays === 0) return `오늘 ${time}`
-  if (diffDays === 1) return `어제 ${time}`
-  return `${d.toLocaleDateString("ko-KR", { month: "long", day: "numeric" })} ${time}`
 }
 
 function toUrl(sourceUrl: string) {

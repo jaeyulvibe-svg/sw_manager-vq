@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { Tables } from "@/lib/supabase/types"
 import { matchAssets } from "@/lib/vuln-match"
+import type { RiskLevel } from "@/components/portal/ui"
 
 export type Vulnerability = Tables<"vulnerabilities">
 export type Asset = Tables<"assets">
@@ -11,6 +12,19 @@ export type Asset = Tables<"assets">
 export type NoticeDataFilter = {
   sourceType?: Vulnerability["source_type"]
   noticeTypes?: Vulnerability["notice_type"][]
+}
+
+export const sevRisk: Record<Vulnerability["severity"], RiskLevel> = {
+  Critical: 5, High: 4, Medium: 3, Low: 2,
+}
+
+export function formatCollected(iso: string) {
+  const d = new Date(iso)
+  const diffDays = Math.floor((Date.now() - d.getTime()) / 86400000)
+  const time = d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
+  if (diffDays === 0) return `오늘 ${time}`
+  if (diffDays === 1) return `어제 ${time}`
+  return `${d.toLocaleDateString("ko-KR", { month: "long", day: "numeric" })} ${time}`
 }
 
 export function useNoticeData(filter: NoticeDataFilter = {}) {
