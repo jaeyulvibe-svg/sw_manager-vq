@@ -1,7 +1,7 @@
 // components/pages/patch-view.tsx
 "use client"
 
-import { Fragment, useMemo, useState } from "react"
+import { Fragment, useEffect, useMemo, useState } from "react"
 import {
   ShieldCheck,
   Search,
@@ -37,7 +37,18 @@ import {
 } from "@/components/portal/ui"
 import { useNoticeData, sevRisk, formatCollected, type Vulnerability } from "@/components/pages/notice-board/use-notice-data"
 import type { ViewKey } from "@/components/portal/nav"
+import { createClient } from "@/lib/supabase/client"
+import type { Tables } from "@/lib/supabase/types"
 import { cn } from "@/lib/utils"
+
+type PatchTaskStatus = Tables<"patch_tasks">["status"]
+
+const taskStatusAccent: Record<PatchTaskStatus, Accent> = {
+  배정됨: "muted",
+  조치예정: "primary",
+  조치지연: "warning",
+  조치완료: "success",
+}
 
 type Severity = Vulnerability["severity"]
 type SourceType = Vulnerability["source_type"]
@@ -70,6 +81,7 @@ type SortDir = "asc" | "desc"
 
 export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void }) {
   const { vulns, matchMap, loading } = useNoticeData()
+  const [taskStatusMap, setTaskStatusMap] = useState<Map<string, PatchTaskStatus>>(new Map())
   const [query, setQuery] = useState("")
   const [severity, setSeverity] = useState<(typeof SEVERITIES)[number]>("전체")
   const [sourceType, setSourceType] = useState<(typeof SOURCE_TYPES)[number]>("전체")
@@ -79,6 +91,18 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
   const [visible, setVisible] = useState<ColKey[]>(() => loadColumnVisibility(LS_KEY, FACTORY_VISIBLE))
   const [detailFiltersOpen, setDetailFiltersOpen] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from("patch_tasks")
+      .select("vulnerability_id, asset_id, status")
+      .then(({ data }) => {
+        if (data) {
+          setTaskStatusMap(new Map(data.map((t) => [`${t.vulnerability_id}:${t.asset_id}`, t.status])))
+        }
+      })
+  }, [])
 
   const approved = useMemo(() => vulns.filter((v) => v.approval === "승인완료"), [vulns])
 
@@ -168,6 +192,9 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
               </MiniButton>
               <MiniButton accent="eos" onClick={() => onNavigate("eos-notice")}>
                 EOS 공지 바로가기<ArrowRight className="h-3 w-3" />
+              </MiniButton>
+              <MiniButton accent="success" onClick={() => onNavigate("patch-tasks")}>
+                내 조치 업무 바로가기<ArrowRight className="h-3 w-3" />
               </MiniButton>
             </div>
           ) : undefined
@@ -370,11 +397,17 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
                       <td colSpan={visible.length + 1} className="border-b border-border/40 bg-background/40 px-3 py-3">
                         {matched.length > 0 ? (
                           <ul className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                            {matched.map((a) => (
-                              <li key={a.id} className="rounded-md border border-border/60 bg-card px-2.5 py-1.5">
-                                <span className="font-mono">{a.id}</span> · {a.name} · {a.server} · {a.owner}
-                              </li>
-                            ))}
+                            {matched.map((a) => {
+                              const taskStatus = taskStatusMap.get(`${v.id}:${a.id}`)
+                              return (
+                                <li key={a.id} className="flex items-center gap-2 rounded-md border border-border/60 bg-card px-2.5 py-1.5">
+                                  <span className="font-mono">{a.id}</span> · {a.name} · {a.server} · {a.owner}
+                                  {taskStatus ? (
+                                    <StatusBadge accent={taskStatusAccent[taskStatus]}>{taskStatus}</StatusBadge>
+                                  ) : null}
+                                </li>
+                              )
+                            })}
                           </ul>
                         ) : (
                           <p className="text-xs text-muted-foreground">매칭되는 자산이 없습니다.</p>
