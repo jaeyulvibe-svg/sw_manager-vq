@@ -435,7 +435,10 @@ function detectTrackedProduct(text: string): string | null {
     if (text.includes(name)) return name
   }
   if (text.includes("Tomcat")) return "Apache Tomcat"
-  if (text.includes("RHEL")) return "Red Hat Enterprise Linux"
+  // RHEL은 Linux 배포판이므로 커널 취약점 공지("Linux Kernel", "Linux 제품 보안...")도
+  // RHEL 자산에 실질적으로 영향을 준다 — KNVD 공지 대부분이 "RHEL"이 아니라 "Linux"로만
+  // 표기되어 있어 이 매칭이 없으면 관련 공지가 전부 걸러졌었다.
+  if (text.includes("RHEL") || text.includes("Linux")) return "Red Hat Enterprise Linux"
   return null
 }
 
