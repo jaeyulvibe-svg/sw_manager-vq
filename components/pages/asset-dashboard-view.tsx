@@ -34,7 +34,6 @@ import {
 import {
   CategoryDistribution,
   AssetHealth,
-  ManageNeed,
   VendorDistribution,
 } from "@/components/dashboard/asset-charts"
 import { AssetBoards } from "@/components/dashboard/asset-boards"
@@ -275,8 +274,7 @@ export function AssetDashboardView() {
       </div>
     ),
     charts2: (
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ManageNeed assets={assets} />
+      <div className="grid grid-cols-1 gap-4">
         <VendorDistribution assets={assets} />
       </div>
     ),

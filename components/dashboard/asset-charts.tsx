@@ -15,7 +15,6 @@ import {
 import {
   PieChart as PieIcon,
   BarChart3,
-  Grid3x3,
   Building2,
   Activity,
 } from "lucide-react"
@@ -179,78 +178,6 @@ export function AssetHealth({ assets }: { assets: Asset[] }) {
             <span className="ml-auto font-mono font-semibold text-foreground">{s.value}</span>
           </span>
         ))}
-      </div>
-    </ChartCard>
-  )
-}
-
-/* ---------------- 3. 카테고리별 관리 필요 현황 (히트맵 매트릭스) ----------- */
-
-const RISK_CATEGORIES = ["OS", "WEB", "WAS", "DB", "Middleware", "Security"]
-
-const RISK_METRICS = [
-  { key: "eos", name: "EOS 만료", color: "var(--eos)" },
-  { key: "patch", name: "패치 필요", color: "var(--warning)" },
-  { key: "vuln", name: "취약점", color: "var(--destructive)" },
-  { key: "approval", name: "승인 대기", color: "var(--primary)" },
-] as const
-
-export function ManageNeed({ assets }: { assets: Asset[] }) {
-  const rows = RISK_CATEGORIES.map((cat) => {
-    const items = assets.filter((a) => a.category === cat)
-    return {
-      category: cat,
-      eos: items.filter((a) => a.eos && new Date(a.eos).getTime() < NOW).length,
-      patch: items.filter((a) => a.patch === "Patch Required").length,
-      vuln: items.filter((a) => a.vuln === "Critical" || a.vuln === "High").length,
-      approval: items.filter((a) => a.approval === "승인대기" || a.approval === "긴급").length,
-    }
-  }).filter((r) => r.eos + r.patch + r.vuln + r.approval > 0)
-
-  const max = Math.max(1, ...rows.flatMap((r) => RISK_METRICS.map((m) => r[m.key])))
-
-  return (
-    <ChartCard title="카테고리별 관리 필요 현황" subtitle="항목별 위험도 매트릭스" icon={Grid3x3}>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-max border-collapse text-xs">
-          <thead>
-            <tr>
-              <th className="p-1.5 text-left font-semibold text-muted-foreground">분류</th>
-              {RISK_METRICS.map((m) => (
-                <th key={m.key} className="p-1.5 text-center font-semibold text-muted-foreground">
-                  {m.name}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.category}>
-                <td className="whitespace-nowrap p-1.5 font-semibold text-foreground">{r.category}</td>
-                {RISK_METRICS.map((m) => {
-                  const value = r[m.key]
-                  const pct = value === 0 ? 0 : Math.round(20 + 65 * (value / max))
-                  return (
-                    <td key={m.key} className="p-1">
-                      <div
-                        className="mx-auto flex h-9 w-9 items-center justify-center rounded-lg font-mono text-sm font-bold text-foreground"
-                        style={{
-                          background:
-                            value === 0
-                              ? "var(--muted)"
-                              : `color-mix(in oklch, ${m.color} ${pct}%, var(--card))`,
-                          opacity: value === 0 ? 0.5 : 1,
-                        }}
-                      >
-                        {value}
-                      </div>
-                    </td>
-                  )
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
     </ChartCard>
   )
