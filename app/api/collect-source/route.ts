@@ -392,6 +392,70 @@ async function collectOracle(): Promise<FoundNotice[]> {
   return notices
 }
 
+const SW_MASTER_PRODUCTS = [
+  "Apache Tomcat", "JEUS", "WebtoB", "Oracle Database",
+  "OpenSSL", "Nginx", "Red Hat Enterprise Linux", "PostgreSQL",
+] as const
+
+// KNVD는 전 분야 보안공지를 다루므로, 제목/본문에 SW마스터 8개 제품 중 하나가 언급된
+// 공지만 추적 대상으로 인정한다 — 그렇지 않으면 KISA 공지 화면이 무관한 공지로 가득 찬다.
+function detectTrackedProduct(text: string): string | null {
+  for (const name of SW_MASTER_PRODUCTS) {
+    if (text.includes(name)) return name
+  }
+  if (text.includes("Tomcat")) return "Apache Tomcat"
+  if (text.includes("RHEL")) return "Red Hat Enterprise Linux"
+  return null
+}
+
+// knvd.krcert.or.kr 공식 RSS — KISA 실시간 보안공지. 이 코드베이스의 첫 실제 KISA
+// 수집기다(그전까지는 수동 등록 시 출처 유형을 KISA로 선택하는 경로뿐이었음).
+async function collectKnvd(): Promise<FoundNotice[]> {
+  const url = "https://knvd.krcert.or.kr/rss/security/notice"
+  const xml = await fetchHtml(url)
+  const $ = cheerio.load(xml, { xmlMode: true })
+  const notices: FoundNotice[] = []
+
+  $("item")
+    .slice(0, 30)
+    .each((i, itemEl) => {
+      const title = $(itemEl).find("title").text().trim()
+      const link = $(itemEl).find("link").text().trim()
+      const description = $(itemEl).find("description").text()
+      const pubDateText = $(itemEl).find("pubDate").text().trim()
+      if (!title) return
+
+      const combined = `${title} ${description}`
+      const product = detectTrackedProduct(combined)
+      if (!product) return
+
+      const noticeType = classifyNoticeType(title)
+      if (!noticeType) return
+
+      const cveMatch = combined.match(/CVE-\d{4}-\d{4,7}/)
+      const linkIdMatch = link.match(/id=([a-f0-9]+)/i)
+      const key = cveMatch?.[0] ?? (linkIdMatch ? `KISA-${linkIdMatch[1]}` : `KISA-${i}-${title.slice(0, 20)}`)
+
+      let collectedAt = pubDateText ? new Date(pubDateText) : new Date()
+      if (isNaN(collectedAt.getTime())) collectedAt = new Date()
+
+      notices.push({
+        cve: key,
+        title,
+        severity: "Medium",
+        product,
+        source: "KISA 보안취약점 정보포털(KNVD)",
+        source_url: link || url,
+        source_type: "kisa",
+        notice_type: noticeType,
+        mapped_assets: 0,
+        collected_at: collectedAt.toISOString(),
+      })
+    })
+
+  return notices
+}
+
 // www.tmaxsoft.com/kr/developer/notice/list: 공식 기술공지 게시판.
 // <tr onclick="fnView('./view','SEQ')"> 행마다 제목/등록일이 들어있다.
 async function collectTmaxSoft(product: "JEUS" | "WebtoB"): Promise<FoundNotice[]> {
