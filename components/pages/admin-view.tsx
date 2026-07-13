@@ -1079,19 +1079,26 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
                   collectLog.map((entry) => (
                     <li
                       key={entry.product}
-                      className="flex items-center justify-between gap-2 rounded-md bg-card px-2 py-1.5"
+                      className="flex flex-col gap-1 rounded-md bg-card px-2 py-1.5"
                     >
-                      <span className="min-w-0 truncate text-muted-foreground">
-                        {entry.product}
-                        {entry.ok && entry.newCount > 0 ? ` — 신규 ${entry.newCount}건` : ""}
-                      </span>
-                      <StatusBadge
-                        accent={entry.ok ? "success" : "destructive"}
-                        pulse={!entry.ok}
-                        className="shrink-0"
-                      >
-                        {entry.ok ? "성공" : "실패"}
-                      </StatusBadge>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="min-w-0 truncate text-muted-foreground">
+                          {entry.product}
+                          {entry.ok && entry.newCount > 0 ? ` — 신규 ${entry.newCount}건` : ""}
+                        </span>
+                        <StatusBadge
+                          accent={entry.ok ? "success" : "destructive"}
+                          pulse={!entry.ok}
+                          className="shrink-0"
+                        >
+                          {entry.ok ? "성공" : "실패"}
+                        </StatusBadge>
+                      </div>
+                      {!entry.ok && entry.error && (
+                        <p className="truncate text-destructive/80" title={entry.error}>
+                          {entry.error}
+                        </p>
+                      )}
                     </li>
                   ))
                 )}

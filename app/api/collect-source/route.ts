@@ -549,8 +549,8 @@ function fetchForProduct(product: CollectProduct): Promise<FoundNotice[]> {
 }
 
 async function collectOne(product: CollectProduct): Promise<CollectResult> {
-  const supabase = supabaseAdmin()
   try {
+    const supabase = supabaseAdmin()
     const rawFound = await fetchForProduct(product)
 
     // 동일 CVE가 여러 버전 섹션에 걸쳐 반복 언급될 수 있으므로 배치 내에서도 cve 기준 중복 제거.
