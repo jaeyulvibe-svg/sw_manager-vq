@@ -638,12 +638,19 @@ async function collectOne(
       }
     })
 
-    const { error: insErr } = await supabase.from("vulnerabilities").insert(prepared.map((p) => p.row))
+    const { data: insertedRows, error: insErr } = await supabase
+      .from("vulnerabilities")
+      .insert(prepared.map((p) => p.row))
+      .select("id, cve")
     if (insErr) throw insErr
+
+    const idByCve = new Map((insertedRows ?? []).map((r) => [r.cve, r.id]))
 
     for (const { notice, matched, row } of prepared) {
       if (row.approval !== "승인완료") continue
-      await flagMatchedAssetsAndNotify(supabase, notice, matched, policy)
+      const id = idByCve.get(row.cve)
+      if (!id) continue
+      await flagMatchedAssetsAndNotify(supabase, { ...notice, id }, matched, policy)
     }
 
     return { product, ok: true, newCount: toInsert.length }
