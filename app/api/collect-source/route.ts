@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server"
 import * as cheerio from "cheerio"
 import { createClient } from "@supabase/supabase-js"
-import type { Database, TablesInsert } from "@/lib/supabase/types"
+import type { Database, TablesInsert, Tables } from "@/lib/supabase/types"
 import { classifyNoticeType } from "@/lib/notice-classify"
+import { matchAssets } from "@/lib/vuln-match"
+import { flagMatchedAssetsAndNotify, type ApprovalPolicy } from "@/lib/notice-approval"
 
 export type CollectProduct =
   | "Apache Tomcat"
@@ -38,6 +40,41 @@ function supabaseAdmin() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   )
+}
+
+type CollectPolicy = ApprovalPolicy & {
+  highRequiresApproval: boolean
+  queueAfterCollect: boolean
+}
+
+const DEFAULT_POLICY: CollectPolicy = {
+  criticalUrgentAlert: true,
+  highRequiresApproval: true,
+  queueAfterCollect: true,
+}
+
+async function fetchPolicy(supabase: ReturnType<typeof supabaseAdmin>): Promise<CollectPolicy> {
+  try {
+    const { data } = await supabase
+      .from("admin_policies")
+      .select("critical_urgent_alert, high_requires_approval, queue_after_collect")
+      .eq("id", "default")
+      .maybeSingle()
+    if (!data) return DEFAULT_POLICY
+    return {
+      criticalUrgentAlert: data.critical_urgent_alert,
+      highRequiresApproval: data.high_requires_approval,
+      queueAfterCollect: data.queue_after_collect,
+    }
+  } catch {
+    return DEFAULT_POLICY
+  }
+}
+
+function shouldAutoApprove(severity: FoundNotice["severity"], policy: CollectPolicy): boolean {
+  if (!policy.queueAfterCollect) return true
+  if (!policy.highRequiresApproval && (severity === "Medium" || severity === "Low")) return true
+  return false
 }
 
 async function fetchHtml(url: string): Promise<string> {
@@ -551,7 +588,11 @@ function fetchForProduct(product: CollectProduct): Promise<FoundNotice[]> {
   }
 }
 
-async function collectOne(product: CollectProduct): Promise<CollectResult> {
+async function collectOne(
+  product: CollectProduct,
+  policy: CollectPolicy,
+  assets: Tables<"assets">[],
+): Promise<CollectResult> {
   try {
     const supabase = supabaseAdmin()
     const rawFound = await fetchForProduct(product)
@@ -576,8 +617,34 @@ async function collectOne(product: CollectProduct): Promise<CollectResult> {
       return { product, ok: true, newCount: 0 }
     }
 
-    const { error: insErr } = await supabase.from("vulnerabilities").insert(toInsert)
+    const prepared = toInsert.map((notice) => {
+      const matched = matchAssets(notice, assets)
+      const autoApprove = shouldAutoApprove(notice.severity, policy)
+      return {
+        // notice_type is optional on the Insert type but every collector above always sets it —
+        // fall back to "CVE" only to satisfy the stricter (non-optional) shape flagMatchedAssetsAndNotify expects.
+        notice: {
+          title: notice.title,
+          cve: notice.cve,
+          severity: notice.severity,
+          notice_type: notice.notice_type ?? "CVE",
+        },
+        matched,
+        row: {
+          ...notice,
+          approval: autoApprove ? ("승인완료" as const) : ("승인대기" as const),
+          mapped_assets: autoApprove ? matched.length : 0,
+        },
+      }
+    })
+
+    const { error: insErr } = await supabase.from("vulnerabilities").insert(prepared.map((p) => p.row))
     if (insErr) throw insErr
+
+    for (const { notice, matched, row } of prepared) {
+      if (row.approval !== "승인완료") continue
+      await flagMatchedAssetsAndNotify(supabase, notice, matched, policy)
+    }
 
     return { product, ok: true, newCount: toInsert.length }
   } catch (err) {
@@ -607,6 +674,13 @@ export async function POST(request: Request) {
     )
   }
 
-  const results = await Promise.all(validProducts.map(collectOne))
+  const supabase = supabaseAdmin()
+  const [policy, assetsRes] = await Promise.all([
+    fetchPolicy(supabase),
+    supabase.from("assets").select("*"),
+  ])
+  const assets = assetsRes.data ?? []
+
+  const results = await Promise.all(validProducts.map((p) => collectOne(p, policy, assets)))
   return NextResponse.json({ results })
 }
