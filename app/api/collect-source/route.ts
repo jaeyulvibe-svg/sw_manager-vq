@@ -4,7 +4,22 @@ import { createClient } from "@supabase/supabase-js"
 import type { Database, TablesInsert } from "@/lib/supabase/types"
 import { classifyNoticeType } from "@/lib/notice-classify"
 
-export type CollectProduct = "Apache Tomcat" | "JEUS" | "WebtoB"
+export type CollectProduct =
+  | "Apache Tomcat"
+  | "JEUS"
+  | "WebtoB"
+  | "Nginx"
+  | "PostgreSQL"
+  | "OpenSSL"
+  | "Red Hat Enterprise Linux"
+  | "Oracle Database"
+  | "KISA"
+
+const COLLECT_PRODUCTS: CollectProduct[] = [
+  "Apache Tomcat", "JEUS", "WebtoB",
+  "Nginx", "PostgreSQL", "OpenSSL", "Red Hat Enterprise Linux", "Oracle Database",
+  "KISA",
+]
 
 type FoundNotice = TablesInsert<"vulnerabilities">
 
@@ -503,13 +518,24 @@ async function collectTmaxSoft(product: "JEUS" | "WebtoB"): Promise<FoundNotice[
   return notices
 }
 
+function fetchForProduct(product: CollectProduct): Promise<FoundNotice[]> {
+  switch (product) {
+    case "Apache Tomcat": return collectApacheTomcat()
+    case "JEUS": return collectTmaxSoft("JEUS")
+    case "WebtoB": return collectTmaxSoft("WebtoB")
+    case "Nginx": return collectNginx()
+    case "PostgreSQL": return collectPostgres()
+    case "OpenSSL": return collectOpenSSL()
+    case "Red Hat Enterprise Linux": return collectRedHat()
+    case "Oracle Database": return collectOracle()
+    case "KISA": return collectKnvd()
+  }
+}
+
 async function collectOne(product: CollectProduct): Promise<CollectResult> {
   const supabase = supabaseAdmin()
   try {
-    const rawFound =
-      product === "Apache Tomcat"
-        ? await collectApacheTomcat()
-        : await collectTmaxSoft(product)
+    const rawFound = await fetchForProduct(product)
 
     // 동일 CVE가 여러 버전 섹션에 걸쳐 반복 언급될 수 있으므로 배치 내에서도 cve 기준 중복 제거.
     const found = Array.from(new Map(rawFound.map((n) => [n.cve, n])).values())
@@ -552,11 +578,14 @@ export async function POST(request: Request) {
   const products: CollectProduct[] = Array.isArray(body?.products) ? body.products : []
 
   const validProducts = products.filter(
-    (p): p is CollectProduct => p === "Apache Tomcat" || p === "JEUS" || p === "WebtoB",
+    (p): p is CollectProduct => COLLECT_PRODUCTS.includes(p as CollectProduct),
   )
 
   if (validProducts.length === 0) {
-    return NextResponse.json({ error: "products must include at least one of Apache Tomcat, JEUS, WebtoB" }, { status: 400 })
+    return NextResponse.json(
+      { error: `products must include at least one of ${COLLECT_PRODUCTS.join(", ")}` },
+      { status: 400 },
+    )
   }
 
   const results = await Promise.all(validProducts.map(collectOne))
