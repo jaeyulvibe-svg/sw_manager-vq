@@ -334,6 +334,71 @@ export type Database = {
         }
         Relationships: []
       }
+      sources: {
+        Row: {
+          id: string
+          name: string
+          type: string
+          url: string
+          cycle: "1시간" | "6시간" | "일 1회"
+          status: "정상" | "지연" | "실패"
+          last_collected_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          type: string
+          url: string
+          cycle: "1시간" | "6시간" | "일 1회"
+          status?: "정상" | "지연" | "실패"
+          last_collected_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          type?: string
+          url?: string
+          cycle?: "1시간" | "6시간" | "일 1회"
+          status?: "정상" | "지연" | "실패"
+          last_collected_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      app_users: {
+        Row: {
+          id: string
+          name: string
+          email: string
+          dept: string
+          role: "관리자" | "승인자" | "담당자" | "조회 사용자"
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          email: string
+          dept: string
+          role: "관리자" | "승인자" | "담당자" | "조회 사용자"
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          email?: string
+          dept?: string
+          role?: "관리자" | "승인자" | "담당자" | "조회 사용자"
+          active?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>

@@ -7,7 +7,6 @@ import {
   RefreshCw,
   ShieldCheck,
   UsersRound,
-  ScrollText,
   Play,
   Zap,
   Lock,
@@ -51,73 +50,33 @@ import { cn } from "@/lib/utils"
 const inputCls =
   "rounded-lg border border-border/60 bg-background/50 px-3 py-1.5 text-xs text-foreground focus:border-primary/60 focus:outline-none"
 
-function nextId(prefix: string, rows: { id: string }[]) {
-  const nums = rows.map((r) => Number(r.id.split("-")[1]) || 0)
-  const next = (nums.length ? Math.max(...nums) : 0) + 1
-  return `${prefix}-${String(next).padStart(3, "0")}`
-}
+/* ---- Section: Source URL — 실 데이터(sources 테이블), 자동수집 대상 공식 출처 ---- */
+type Source = Tables<"sources">
 
-/* ---- Section: Source URL — SW 마스터 관리(별도 화면)의 8개 제품을 기준으로 시딩 ---- */
-// 자산 목록(supabase/migrations/002_seed_data.sql의 assets)에 등록된 8개 제품과 동일하게 유지
-// — SW 마스터 관리에 있는 솔루션만 자산 목록에 존재한다는 원칙
-const SOURCE_PRODUCT_NAMES = [
-  "Apache Tomcat",
-  "JEUS",
-  "WebtoB",
-  "Oracle Database",
-  "OpenSSL",
-  "Nginx",
-  "Red Hat Enterprise Linux",
-  "PostgreSQL",
-]
-type Source = {
-  id: string
-  name: string
-  type: string
-  url: string
-  cycle: string
-  last: string
-  status: string
-}
-
-const SOURCE_CYCLES = ["1시간", "6시간", "일 1회"]
-const SOURCE_STATUSES = ["정상", "지연", "실패"]
-
-const SOURCE_SEED_META: Record<
-  string,
-  { type: string; url: string; cycle: string; status?: string; last?: string }
-> = {
-  "Apache Tomcat": { type: "Vendor Security Advisory", url: "tomcat.apache.org/security-10.html", cycle: "6시간", last: "오늘 10:15" },
-  "JEUS": { type: "Vendor Technical Notice", url: "tmaxsoft.com/kr/developer/notice/list", cycle: "일 1회", last: "어제 16:00" },
-  "WebtoB": { type: "Vendor Technical Notice", url: "tmaxsoft.com/kr/developer/notice/list", cycle: "일 1회", last: "2일 전" },
-  "Oracle Database": { type: "Lifecycle Page", url: "oracle.com/security-alerts", cycle: "일 1회", last: "어제 17:40" },
-  "OpenSSL": { type: "Vendor Security Advisory", url: "openssl.org/news/vulnerabilities", cycle: "1시간", last: "오늘 09:30" },
-  "Nginx": { type: "Vendor Security Advisory", url: "nginx.org/en/security_advisories.html", cycle: "6시간", last: "오늘 08:50" },
-  "Red Hat Enterprise Linux": { type: "Vendor Security Advisory", url: "access.redhat.com/security/security-updates", cycle: "6시간", status: "실패", last: "3일 전" },
-  "PostgreSQL": { type: "Vendor Security Advisory", url: "postgresql.org/support/security", cycle: "일 1회", last: "오늘 07:20" },
-}
-
-const initialSources: Source[] = SOURCE_PRODUCT_NAMES.map((name, i) => ({
-  id: `S-${String(i + 1).padStart(3, "0")}`,
-  name,
-  type: SOURCE_SEED_META[name]?.type ?? "Vendor Security Advisory",
-  url: SOURCE_SEED_META[name]?.url ?? "-",
-  cycle: SOURCE_SEED_META[name]?.cycle ?? "일 1회",
-  last: SOURCE_SEED_META[name]?.last ?? "-",
-  status: SOURCE_SEED_META[name]?.status ?? "정상",
-}))
+const SOURCE_CYCLES: Source["cycle"][] = ["1시간", "6시간", "일 1회"]
+const SOURCE_STATUSES: Source["status"][] = ["정상", "지연", "실패"]
 
 const sourceStatusRisk: Record<string, RiskLevel> = {
   정상: 1, 지연: 3, 실패: 4,
 }
 
-type SourceColKey = "name" | "type" | "url" | "cycle" | "last" | "status"
+function formatLastCollected(iso: string | null) {
+  if (!iso) return "-"
+  const d = new Date(iso)
+  const diffDays = Math.floor((Date.now() - d.getTime()) / 86400000)
+  const time = d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
+  if (diffDays === 0) return `오늘 ${time}`
+  if (diffDays === 1) return `어제 ${time}`
+  return `${diffDays}일 전`
+}
+
+type SourceColKey = "name" | "type" | "url" | "cycle" | "last_collected_at" | "status"
 const SOURCE_ALL_COLS: { key: SourceColKey; label: string }[] = [
   { key: "name", label: "제품명" },
   { key: "type", label: "Source 유형" },
   { key: "url", label: "공식 URL" },
   { key: "cycle", label: "수집 주기" },
-  { key: "last", label: "마지막 수집" },
+  { key: "last_collected_at", label: "마지막 수집" },
   { key: "status", label: "상태" },
 ]
 const SOURCE_FACTORY_VISIBLE: SourceColKey[] = SOURCE_ALL_COLS.map((c) => c.key)
@@ -129,11 +88,11 @@ const sourceStatusOrder: Record<string, number> = { 실패: 0, 지연: 1, 정상
 function sourceSortValue(s: Source, key: SourceSortKey): string | number {
   if (key === "status") return sourceStatusOrder[s.status] ?? 99
   if (key === "none") return 0
-  return s[key]
+  return s[key] ?? ""
 }
 
 /* ---- Inline add/edit form for 공식 Source URL 관리 ---- */
-type SourceFormValues = Omit<Source, "id" | "last">
+type SourceFormValues = Pick<Source, "name" | "type" | "url" | "cycle" | "status">
 
 function SourceFormPanel({
   initial,
@@ -187,7 +146,7 @@ function SourceFormPanel({
         <span className="font-medium text-muted-foreground">수집 주기</span>
         <select
           value={values.cycle}
-          onChange={(e) => setValues((v) => ({ ...v, cycle: e.target.value }))}
+          onChange={(e) => setValues((v) => ({ ...v, cycle: e.target.value as Source["cycle"] }))}
           className={inputCls}
         >
           {SOURCE_CYCLES.map((c) => (
@@ -199,7 +158,7 @@ function SourceFormPanel({
         <span className="font-medium text-muted-foreground">상태</span>
         <select
           value={values.status}
-          onChange={(e) => setValues((v) => ({ ...v, status: e.target.value }))}
+          onChange={(e) => setValues((v) => ({ ...v, status: e.target.value as Source["status"] }))}
           className={inputCls}
         >
           {SOURCE_STATUSES.map((s) => (
@@ -481,49 +440,131 @@ function ManualEosFormPanel({
   )
 }
 
-/* ---- Section 5: users ---- */
-const users = [
-  { name: "김관리", email: "admin@corp.com", dept: "정보보안팀", role: "관리자", assets: 0, active: true },
-  { name: "정재율", email: "jy.jung@corp.com", dept: "인프라팀", role: "승인자", assets: 24, active: true },
-  { name: "홍길동", email: "gd.hong@corp.com", dept: "WAS운영팀", role: "담당자", assets: 18, active: true },
-  { name: "이영희", email: "yh.lee@corp.com", dept: "WEB운영팀", role: "조회 사용자", assets: 12, active: false },
-]
+/* ---- Section 5: users — 실 데이터(app_users 테이블) ---- */
+type AppUser = Tables<"app_users">
+type UserRow = AppUser & { assetsCount: number }
+
+const USER_ROLES: AppUser["role"][] = ["관리자", "승인자", "담당자", "조회 사용자"]
 
 const roleAccent: Record<string, Accent> = {
   관리자: "destructive", 승인자: "eos", 담당자: "primary", "조회 사용자": "muted",
 }
 
-type UserColKey = "name" | "email" | "dept" | "role" | "assets" | "active"
+type UserColKey = "name" | "email" | "dept" | "role" | "assetsCount" | "active"
 const USER_ALL_COLS: { key: UserColKey; label: string }[] = [
   { key: "name", label: "사용자명" },
   { key: "email", label: "이메일" },
   { key: "dept", label: "부서" },
   { key: "role", label: "권한" },
-  { key: "assets", label: "담당 자산 수" },
+  { key: "assetsCount", label: "담당 자산 수" },
   { key: "active", label: "상태" },
 ]
 const USER_FACTORY_VISIBLE: UserColKey[] = USER_ALL_COLS.map((c) => c.key)
 const USER_LS_KEY = "admin_users_columns"
 
 type UserSortKey = UserColKey | "none"
-type UserRow = (typeof users)[number]
 
 function userSortValue(u: UserRow, key: UserSortKey): string | number {
   if (key === "active") return u.active ? 1 : 0
-  if (key === "assets") return u.assets
+  if (key === "assetsCount") return u.assetsCount
   if (key === "none") return 0
   return u[key]
 }
 
-/* ---- Section 6: logs ---- */
-const logs = [
-  { time: "10:32:04", type: "수집", target: "OpenSSL Advisory", result: "성공", who: "스케줄러" },
-  { time: "10:15:22", type: "승인", target: "REQ-2026-002", result: "성공", who: "정재율" },
-  { time: "09:58:11", type: "수집", target: "Nginx Release Notes", result: "실패", who: "스케줄러" },
-  { time: "09:30:47", type: "매핑", target: "CVE-2026-0001", result: "성공", who: "김관리" },
-]
+/* ---- Inline add/edit form for 사용자 권한 관리 ---- */
+type UserFormValues = Pick<AppUser, "name" | "email" | "dept" | "role" | "active">
 
-const resultRisk: Record<string, RiskLevel> = { 성공: 1, 실패: 4 }
+const EMPTY_USER_FORM: UserFormValues = {
+  name: "",
+  email: "",
+  dept: "",
+  role: "조회 사용자",
+  active: true,
+}
+
+function UserFormPanel({
+  initial,
+  onCancel,
+  onSubmit,
+}: {
+  initial?: UserFormValues
+  onCancel: () => void
+  onSubmit: (values: UserFormValues) => void
+}) {
+  const [values, setValues] = useState<UserFormValues>(initial ?? EMPTY_USER_FORM)
+
+  return (
+    <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4 sm:grid-cols-2 lg:grid-cols-3">
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">사용자명</span>
+        <input
+          value={values.name}
+          onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))}
+          placeholder="예: 홍길동"
+          className={inputCls}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">이메일</span>
+        <input
+          value={values.email}
+          onChange={(e) => setValues((v) => ({ ...v, email: e.target.value }))}
+          placeholder="예: gd.hong@corp.com"
+          className={cn(inputCls, "font-mono")}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">부서</span>
+        <input
+          value={values.dept}
+          onChange={(e) => setValues((v) => ({ ...v, dept: e.target.value }))}
+          placeholder="예: WAS운영팀"
+          className={inputCls}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">권한</span>
+        <select
+          value={values.role}
+          onChange={(e) => setValues((v) => ({ ...v, role: e.target.value as AppUser["role"] }))}
+          className={inputCls}
+        >
+          {USER_ROLES.map((r) => (
+            <option key={r}>{r}</option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">상태</span>
+        <select
+          value={values.active ? "활성" : "비활성"}
+          onChange={(e) => setValues((v) => ({ ...v, active: e.target.value === "활성" }))}
+          className={inputCls}
+        >
+          <option>활성</option>
+          <option>비활성</option>
+        </select>
+      </label>
+      <div className="flex items-center gap-2 sm:col-span-2 lg:col-span-3">
+        <button
+          type="button"
+          onClick={() => values.name.trim() && values.email.trim() && onSubmit(values)}
+          disabled={!values.name.trim() || !values.email.trim()}
+          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          저장
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          취소
+        </button>
+      </div>
+    </div>
+  )
+}
 
 /* ---- Font size control (admin page only) ---- */
 const FONT_SCALE_MIN = 80
@@ -636,7 +677,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
   const { isAdmin } = useRole()
   const { toast } = useToast()
 
-  const [sources, setSources] = useState<Source[]>(initialSources)
+  const [sources, setSources] = useState<Source[]>([])
   const [sourcePanel, setSourcePanel] = useState<"add" | string | null>(null)
   const [sourceSelectMode, setSourceSelectMode] = useState(false)
   const [selectedSourceIds, setSelectedSourceIds] = useState<Set<string>>(new Set())
@@ -646,6 +687,21 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
   const [sourceVisible, setSourceVisible] = useState<SourceColKey[]>(() =>
     loadColumnVisibility(SOURCE_LS_KEY, SOURCE_FACTORY_VISIBLE),
   )
+
+  function loadSources() {
+    const supabase = createClient()
+    supabase
+      .from("sources")
+      .select("*")
+      .order("name")
+      .then(({ data }) => {
+        if (data) setSources(data)
+      })
+  }
+
+  useEffect(() => {
+    loadSources()
+  }, [])
 
   function handleSourceSort(col: SourceSortKey) {
     if (sourceSortKey === col) setSourceSortDir((d) => (d === "asc" ? "desc" : "asc"))
@@ -669,37 +725,6 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
 
   const showSourceCol = (key: SourceColKey) => sourceVisible.includes(key)
   const sourcePagination = usePagination(filteredSources)
-
-  const [userQuery, setUserQuery] = useState("")
-  const [userSortKey, setUserSortKey] = useState<UserSortKey>("name")
-  const [userSortDir, setUserSortDir] = useState<"asc" | "desc">("asc")
-  const [userVisible, setUserVisible] = useState<UserColKey[]>(() =>
-    loadColumnVisibility(USER_LS_KEY, USER_FACTORY_VISIBLE),
-  )
-
-  function handleUserSort(col: UserSortKey) {
-    if (userSortKey === col) setUserSortDir((d) => (d === "asc" ? "desc" : "asc"))
-    else {
-      setUserSortKey(col)
-      setUserSortDir("asc")
-    }
-  }
-
-  const filteredUsers = users
-    .filter((u) => {
-      const q = userQuery.trim().toLowerCase()
-      return !q || [u.name, u.email, u.dept].some((f) => f.toLowerCase().includes(q))
-    })
-    .sort((a, b) => {
-      const va = userSortValue(a, userSortKey)
-      const vb = userSortValue(b, userSortKey)
-      const d = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb), "ko")
-      return userSortDir === "asc" ? d : -d
-    })
-
-  const showUserCol = (key: UserColKey) => userVisible.includes(key)
-  const userPagination = usePagination(filteredUsers)
-  const logPagination = usePagination(logs)
 
   const [assets, setAssets] = useState<Tables<"assets">[]>([])
   const [manualVulnSubmitting, setManualVulnSubmitting] = useState(false)
@@ -732,6 +757,61 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
       })
   }, [])
 
+  const [users, setUsers] = useState<AppUser[]>([])
+  const [userPanel, setUserPanel] = useState<"add" | string | null>(null)
+  const [userSelectMode, setUserSelectMode] = useState(false)
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set())
+  const [userQuery, setUserQuery] = useState("")
+  const [userSortKey, setUserSortKey] = useState<UserSortKey>("name")
+  const [userSortDir, setUserSortDir] = useState<"asc" | "desc">("asc")
+  const [userVisible, setUserVisible] = useState<UserColKey[]>(() =>
+    loadColumnVisibility(USER_LS_KEY, USER_FACTORY_VISIBLE),
+  )
+
+  function loadUsers() {
+    const supabase = createClient()
+    supabase
+      .from("app_users")
+      .select("*")
+      .order("name")
+      .then(({ data }) => {
+        if (data) setUsers(data)
+      })
+  }
+
+  useEffect(() => {
+    loadUsers()
+  }, [])
+
+  function handleUserSort(col: UserSortKey) {
+    if (userSortKey === col) setUserSortDir((d) => (d === "asc" ? "desc" : "asc"))
+    else {
+      setUserSortKey(col)
+      setUserSortDir("asc")
+    }
+  }
+
+  // 담당 자산 수는 저장된 값이 아니라 assets.owner를 이름으로 매칭해 실시간 계산한다
+  const usersWithCounts: UserRow[] = users.map((u) => ({
+    ...u,
+    assetsCount: assets.filter((a) => a.owner === u.name).length,
+  }))
+
+  const filteredUsers = usersWithCounts
+    .filter((u) => {
+      const q = userQuery.trim().toLowerCase()
+      return !q || [u.name, u.email, u.dept].some((f) => f.toLowerCase().includes(q))
+    })
+    .sort((a, b) => {
+      const va = userSortValue(a, userSortKey)
+      const vb = userSortValue(b, userSortKey)
+      const d = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb), "ko")
+      return userSortDir === "asc" ? d : -d
+    })
+
+  const showUserCol = (key: UserColKey) => userVisible.includes(key)
+  const userPagination = usePagination(filteredUsers)
+
   useEffect(() => {
     const stored = Number(window.localStorage.getItem(FONT_SCALE_STORAGE_KEY))
     if (stored >= FONT_SCALE_MIN && stored <= FONT_SCALE_MAX) {
@@ -744,22 +824,38 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
     window.localStorage.setItem(FONT_SCALE_STORAGE_KEY, String(next))
   }
 
-  function saveSource(values: SourceFormValues) {
+  async function saveSource(values: SourceFormValues) {
+    const supabase = createClient()
     if (sourcePanel === "add") {
-      setSources((prev) => [...prev, { id: nextId("S", prev), last: "-", ...values }])
+      const payload: TablesInsert<"sources"> = { ...values }
+      const { error } = await supabase.from("sources").insert(payload)
+      if (error) {
+        toast({ title: "Source URL 추가 실패", description: error.message, tone: "danger" })
+        return
+      }
       toast({ title: "Source URL이 추가되었습니다", tone: "success" })
     } else if (sourcePanel) {
-      const id = sourcePanel
-      setSources((prev) => prev.map((s) => (s.id === id ? { ...s, ...values } : s)))
+      const { error } = await supabase.from("sources").update(values).eq("id", sourcePanel)
+      if (error) {
+        toast({ title: "Source URL 수정 실패", description: error.message, tone: "danger" })
+        return
+      }
       toast({ title: "Source URL이 수정되었습니다", tone: "success" })
     }
     setSourcePanel(null)
+    loadSources()
   }
 
-  function deleteSource(target: Source) {
+  async function deleteSource(target: Source) {
     if (!window.confirm(`"${target.name}" Source URL을 삭제하시겠습니까?`)) return
-    setSources((prev) => prev.filter((s) => s.id !== target.id))
+    const supabase = createClient()
+    const { error } = await supabase.from("sources").delete().eq("id", target.id)
+    if (error) {
+      toast({ title: "삭제 실패", description: error.message, tone: "danger" })
+      return
+    }
     toast({ title: "Source URL이 삭제되었습니다", tone: "info" })
+    loadSources()
   }
 
   function toggleSourceSelectAll() {
@@ -782,15 +878,92 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
     setSelectedSourceIds(new Set())
   }
 
-  function saveSourceSelection() {
+  async function saveSourceSelection() {
     if (selectedSourceIds.size === 0) {
       cancelSourceSelection()
       return
     }
     if (!window.confirm(`선택한 Source URL ${selectedSourceIds.size}건을 삭제하시겠습니까?`)) return
-    setSources((prev) => prev.filter((s) => !selectedSourceIds.has(s.id)))
+    const supabase = createClient()
+    const { error } = await supabase.from("sources").delete().in("id", Array.from(selectedSourceIds))
+    if (error) {
+      toast({ title: "삭제 실패", description: error.message, tone: "danger" })
+      return
+    }
     toast({ title: `Source URL ${selectedSourceIds.size}건이 삭제되었습니다`, tone: "info" })
     cancelSourceSelection()
+    loadSources()
+  }
+
+  async function saveUser(values: UserFormValues) {
+    const supabase = createClient()
+    if (userPanel === "add") {
+      const payload: TablesInsert<"app_users"> = { ...values }
+      const { error } = await supabase.from("app_users").insert(payload)
+      if (error) {
+        toast({ title: "사용자 추가 실패", description: error.message, tone: "danger" })
+        return
+      }
+      toast({ title: "사용자가 추가되었습니다", tone: "success" })
+    } else if (userPanel) {
+      const { error } = await supabase.from("app_users").update(values).eq("id", userPanel)
+      if (error) {
+        toast({ title: "사용자 수정 실패", description: error.message, tone: "danger" })
+        return
+      }
+      toast({ title: "사용자 정보가 수정되었습니다", tone: "success" })
+    }
+    setUserPanel(null)
+    loadUsers()
+  }
+
+  async function deleteUser(target: AppUser) {
+    if (!window.confirm(`"${target.name}" 사용자를 삭제하시겠습니까?`)) return
+    const supabase = createClient()
+    const { error } = await supabase.from("app_users").delete().eq("id", target.id)
+    if (error) {
+      toast({ title: "삭제 실패", description: error.message, tone: "danger" })
+      return
+    }
+    toast({ title: "사용자가 삭제되었습니다", tone: "info" })
+    loadUsers()
+  }
+
+  function toggleUserSelectAll() {
+    setSelectedUserIds((prev) =>
+      prev.size === filteredUsers.length ? new Set() : new Set(filteredUsers.map((u) => u.id)),
+    )
+  }
+
+  function toggleUserSelected(id: string) {
+    setSelectedUserIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function cancelUserSelection() {
+    setUserSelectMode(false)
+    setSelectedUserIds(new Set())
+  }
+
+  async function saveUserSelection() {
+    if (selectedUserIds.size === 0) {
+      cancelUserSelection()
+      return
+    }
+    if (!window.confirm(`선택한 사용자 ${selectedUserIds.size}건을 삭제하시겠습니까?`)) return
+    const supabase = createClient()
+    const { error } = await supabase.from("app_users").delete().in("id", Array.from(selectedUserIds))
+    if (error) {
+      toast({ title: "삭제 실패", description: error.message, tone: "danger" })
+      return
+    }
+    toast({ title: `사용자 ${selectedUserIds.size}건이 삭제되었습니다`, tone: "info" })
+    cancelUserSelection()
+    loadUsers()
   }
 
   async function submitManualVuln(values: ManualVulnFormValues): Promise<boolean> {
@@ -859,14 +1032,17 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
       const results: CollectLogEntry[] = data.results ?? []
       setCollectLog(results)
 
-      const nowLabel = new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
-      setSources((prev) =>
-        prev.map((s) => {
-          const r = results.find((x) => x.product === s.name)
-          if (!r) return s
-          return { ...s, last: `오늘 ${nowLabel}`, status: r.ok ? "정상" : "실패" }
-        }),
+      const supabase = createClient()
+      const nowIso = new Date().toISOString()
+      await Promise.all(
+        results.map((r) =>
+          supabase
+            .from("sources")
+            .update({ status: r.ok ? "정상" : "실패", last_collected_at: nowIso })
+            .eq("name", r.product),
+        ),
       )
+      loadSources()
 
       const totalNew = results.reduce((sum, r) => sum + r.newCount, 0)
       const failed = results.filter((r) => !r.ok)
@@ -968,7 +1144,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
                   { label: "Source 유형", value: (s: Source) => s.type },
                   { label: "공식 URL", value: (s: Source) => s.url },
                   { label: "수집 주기", value: (s: Source) => s.cycle },
-                  { label: "마지막 수집", value: (s: Source) => s.last },
+                  { label: "마지막 수집", value: (s: Source) => formatLastCollected(s.last_collected_at) },
                   { label: "상태", value: (s: Source) => s.status },
                 ]}
               />
@@ -1012,7 +1188,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
               {showSourceCol("type") && <SortTh col="type" label="Source 유형" sortKey={sourceSortKey} sortDir={sourceSortDir} onSort={handleSourceSort} />}
               {showSourceCol("url") && <SortTh col="url" label="공식 URL" sortKey={sourceSortKey} sortDir={sourceSortDir} onSort={handleSourceSort} />}
               {showSourceCol("cycle") && <SortTh col="cycle" label="수집 주기" sortKey={sourceSortKey} sortDir={sourceSortDir} onSort={handleSourceSort} />}
-              {showSourceCol("last") && <SortTh col="last" label="마지막 수집" sortKey={sourceSortKey} sortDir={sourceSortDir} onSort={handleSourceSort} />}
+              {showSourceCol("last_collected_at") && <SortTh col="last_collected_at" label="마지막 수집" sortKey={sourceSortKey} sortDir={sourceSortDir} onSort={handleSourceSort} />}
               {showSourceCol("status") && <SortTh col="status" label="상태" sortKey={sourceSortKey} sortDir={sourceSortDir} onSort={handleSourceSort} />}
               {sourceSelectMode ? null : <Th className={TABLE_HEADER_CELL_H}>관리</Th>}
             </tr>
@@ -1052,7 +1228,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
                   {showSourceCol("type") && <Td className={cn("text-muted-foreground", TABLE_ROW_CELL_H)}>{s.type}</Td>}
                   {showSourceCol("url") && <Td className={cn("font-mono text-xs text-primary", TABLE_ROW_CELL_H)}>{s.url}</Td>}
                   {showSourceCol("cycle") && <Td className={cn("text-xs", TABLE_ROW_CELL_H)}>{s.cycle}</Td>}
-                  {showSourceCol("last") && <Td className={cn("text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{s.last}</Td>}
+                  {showSourceCol("last_collected_at") && <Td className={cn("text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{formatLastCollected(s.last_collected_at)}</Td>}
                   {showSourceCol("status") && (
                     <Td className={TABLE_ROW_CELL_H}>
                       <StatusBadge risk={sourceStatusRisk[s.status]} pulse={s.status === "실패"}>
@@ -1150,15 +1326,18 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
                       <div className="flex items-center justify-between gap-2">
                         <span className="min-w-0 truncate text-muted-foreground">
                           {entry.product}
-                          {entry.ok && entry.newCount > 0 ? ` — 신규 ${entry.newCount}건` : ""}
                         </span>
-                        <StatusBadge
-                          accent={entry.ok ? "success" : "destructive"}
-                          pulse={!entry.ok}
-                          className="shrink-0"
-                        >
-                          {entry.ok ? "성공" : "실패"}
-                        </StatusBadge>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                            신규 {entry.newCount}건
+                          </span>
+                          <StatusBadge
+                            accent={entry.ok ? "success" : "destructive"}
+                            pulse={!entry.ok}
+                          >
+                            {entry.ok ? "성공" : "실패"}
+                          </StatusBadge>
+                        </div>
                       </div>
                       {!entry.ok && entry.error && (
                         <p className="truncate text-destructive/80" title={entry.error}>
@@ -1226,66 +1405,145 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
         subtitle="관리자 · 승인자 · 담당자 · 조회 사용자"
         icon={UsersRound}
         action={
-          <div className="flex items-center gap-1.5">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <input
-                value={userQuery}
-                onChange={(e) => { setUserQuery(e.target.value); userPagination.setPage(1) }}
-                placeholder="이름, 이메일, 부서 검색"
-                className="w-48 rounded-lg border border-border/60 bg-background/50 py-1.5 pl-8 pr-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none"
-              />
+          userPanel ? null : userSelectMode ? (
+            <div className="flex items-center gap-1.5">
+              <MiniButton accent="success" onClick={saveUserSelection}>
+                <Check className="h-3.5 w-3.5" />
+                저장
+              </MiniButton>
+              <MiniButton onClick={cancelUserSelection}>
+                <X className="h-3.5 w-3.5" />
+                취소
+              </MiniButton>
             </div>
-            <ExportExcelButton
-              rows={filteredUsers}
-              filename="사용자_권한_관리"
-              columns={[
-                { label: "사용자명", value: (u) => u.name },
-                { label: "이메일", value: (u) => u.email },
-                { label: "부서", value: (u) => u.dept },
-                { label: "권한", value: (u) => u.role },
-                { label: "담당 자산 수", value: (u) => u.assets },
-                { label: "상태", value: (u) => (u.active ? "활성" : "비활성") },
-              ]}
-            />
-            <ColumnVisibilityMenu
-              allCols={USER_ALL_COLS}
-              visible={userVisible}
-              onChange={setUserVisible}
-              factoryDefault={USER_FACTORY_VISIBLE}
-              storageKey={USER_LS_KEY}
-            />
-          </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={userQuery}
+                  onChange={(e) => { setUserQuery(e.target.value); userPagination.setPage(1) }}
+                  placeholder="이름, 이메일, 부서 검색"
+                  className="w-48 rounded-lg border border-border/60 bg-background/50 py-1.5 pl-8 pr-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none"
+                />
+              </div>
+              <ExportExcelButton
+                rows={filteredUsers}
+                filename="사용자_권한_관리"
+                columns={[
+                  { label: "사용자명", value: (u: UserRow) => u.name },
+                  { label: "이메일", value: (u: UserRow) => u.email },
+                  { label: "부서", value: (u: UserRow) => u.dept },
+                  { label: "권한", value: (u: UserRow) => u.role },
+                  { label: "담당 자산 수", value: (u: UserRow) => u.assetsCount },
+                  { label: "상태", value: (u: UserRow) => (u.active ? "활성" : "비활성") },
+                ]}
+              />
+              <ColumnVisibilityMenu
+                allCols={USER_ALL_COLS}
+                visible={userVisible}
+                onChange={setUserVisible}
+                factoryDefault={USER_FACTORY_VISIBLE}
+                storageKey={USER_LS_KEY}
+              />
+              <MiniButton accent="primary" onClick={() => setUserPanel("add")}>
+                <Plus className="h-3.5 w-3.5" />
+                추가
+              </MiniButton>
+              <MiniButton accent="destructive" onClick={() => setUserSelectMode(true)}>
+                <Trash2 className="h-3.5 w-3.5" />
+                삭제
+              </MiniButton>
+            </div>
+          )
         }
       >
+        {userPanel === "add" ? (
+          <UserFormPanel onCancel={() => setUserPanel(null)} onSubmit={saveUser} />
+        ) : null}
         <TableShell scrollHint>
           <thead>
             <tr>
+              {userSelectMode ? (
+                <Th className={cn("w-8", TABLE_HEADER_CELL_H)}>
+                  <input
+                    type="checkbox"
+                    checked={filteredUsers.length > 0 && selectedUserIds.size === filteredUsers.length}
+                    onChange={toggleUserSelectAll}
+                    aria-label="전체 선택"
+                    className="h-4 w-4 rounded border-border/60 accent-primary"
+                  />
+                </Th>
+              ) : null}
               {showUserCol("name") && <SortTh col="name" label="사용자명" sortKey={userSortKey} sortDir={userSortDir} onSort={handleUserSort} />}
               {showUserCol("email") && <SortTh col="email" label="이메일" sortKey={userSortKey} sortDir={userSortDir} onSort={handleUserSort} />}
               {showUserCol("dept") && <SortTh col="dept" label="부서" sortKey={userSortKey} sortDir={userSortDir} onSort={handleUserSort} />}
               {showUserCol("role") && <SortTh col="role" label="권한" sortKey={userSortKey} sortDir={userSortDir} onSort={handleUserSort} />}
-              {showUserCol("assets") && <SortTh col="assets" label="담당 자산 수" sortKey={userSortKey} sortDir={userSortDir} onSort={handleUserSort} />}
+              {showUserCol("assetsCount") && <SortTh col="assetsCount" label="담당 자산 수" sortKey={userSortKey} sortDir={userSortDir} onSort={handleUserSort} />}
               {showUserCol("active") && <SortTh col="active" label="상태" sortKey={userSortKey} sortDir={userSortDir} onSort={handleUserSort} />}
+              {userSelectMode ? null : <Th className={TABLE_HEADER_CELL_H}>관리</Th>}
             </tr>
           </thead>
           <tbody>
-            {userPagination.pageItems.map((u) => (
-              <tr key={u.email} className="transition-colors hover:bg-accent/40">
-                {showUserCol("name") && <Td className={cn("font-semibold", TABLE_ROW_CELL_H)}>{u.name}</Td>}
-                {showUserCol("email") && <Td className={cn("font-mono text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{u.email}</Td>}
-                {showUserCol("dept") && <Td className={cn("text-muted-foreground", TABLE_ROW_CELL_H)}>{u.dept}</Td>}
-                {showUserCol("role") && <Td className={TABLE_ROW_CELL_H}><StatusBadge accent={roleAccent[u.role]}>{u.role}</StatusBadge></Td>}
-                {showUserCol("assets") && <Td className={cn("font-mono", TABLE_ROW_CELL_H)}>{u.assets}</Td>}
-                {showUserCol("active") && (
-                  <Td className={TABLE_ROW_CELL_H}>
-                    <StatusBadge accent={u.active ? "success" : "muted"}>
-                      {u.active ? "활성" : "비활성"}
-                    </StatusBadge>
-                  </Td>
-                )}
-              </tr>
-            ))}
+            {userPagination.pageItems.map((u) =>
+              userPanel === u.id ? (
+                <tr key={u.id}>
+                  <td colSpan={7} className="border-b border-border/40 p-0">
+                    <UserFormPanel
+                      initial={{
+                        name: u.name,
+                        email: u.email,
+                        dept: u.dept,
+                        role: u.role,
+                        active: u.active,
+                      }}
+                      onCancel={() => setUserPanel(null)}
+                      onSubmit={saveUser}
+                    />
+                  </td>
+                </tr>
+              ) : (
+                <tr key={u.id} className="transition-colors hover:bg-accent/40">
+                  {userSelectMode ? (
+                    <Td className={TABLE_ROW_CELL_H}>
+                      <input
+                        type="checkbox"
+                        checked={selectedUserIds.has(u.id)}
+                        onChange={() => toggleUserSelected(u.id)}
+                        aria-label={`${u.name} 선택`}
+                        className="h-4 w-4 rounded border-border/60 accent-primary"
+                      />
+                    </Td>
+                  ) : null}
+                  {showUserCol("name") && <Td className={cn("font-semibold", TABLE_ROW_CELL_H)}>{u.name}</Td>}
+                  {showUserCol("email") && <Td className={cn("font-mono text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{u.email}</Td>}
+                  {showUserCol("dept") && <Td className={cn("text-muted-foreground", TABLE_ROW_CELL_H)}>{u.dept}</Td>}
+                  {showUserCol("role") && <Td className={TABLE_ROW_CELL_H}><StatusBadge accent={roleAccent[u.role]}>{u.role}</StatusBadge></Td>}
+                  {showUserCol("assetsCount") && <Td className={cn("font-mono", TABLE_ROW_CELL_H)}>{u.assetsCount}</Td>}
+                  {showUserCol("active") && (
+                    <Td className={TABLE_ROW_CELL_H}>
+                      <StatusBadge accent={u.active ? "success" : "muted"}>
+                        {u.active ? "활성" : "비활성"}
+                      </StatusBadge>
+                    </Td>
+                  )}
+                  {userSelectMode ? null : (
+                    <Td className={TABLE_ROW_CELL_H}>
+                      <div className="flex items-center gap-1.5">
+                        <MiniButton onClick={() => setUserPanel(u.id)}>
+                          <Pencil className="h-3 w-3" />
+                          수정
+                        </MiniButton>
+                        <MiniButton accent="destructive" onClick={() => deleteUser(u)}>
+                          <Trash2 className="h-3 w-3" />
+                          삭제
+                        </MiniButton>
+                      </div>
+                    </Td>
+                  )}
+                </tr>
+              ),
+            )}
             {filteredUsers.length === 0 && (
               <tr>
                 <Td className="py-8 text-center text-muted-foreground">
@@ -1303,60 +1561,6 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
               totalPages={userPagination.totalPages}
               onPageChange={userPagination.setPage}
               onPageSizeChange={userPagination.setPageSize}
-            />
-          </div>
-        )}
-      </SectionCard>
-
-      {/* Section 6: Logs */}
-      <SectionCard
-        title="시스템 로그"
-        subtitle="수집·승인·매핑 작업 이력"
-        icon={ScrollText}
-        action={
-          <ExportExcelButton
-            rows={logs}
-            filename="시스템_로그"
-            columns={[
-              { label: "시간", value: (l) => l.time },
-              { label: "작업 유형", value: (l) => l.type },
-              { label: "대상", value: (l) => l.target },
-              { label: "결과", value: (l) => l.result },
-              { label: "수행자", value: (l) => l.who },
-            ]}
-          />
-        }
-      >
-        <TableShell>
-          <thead>
-            <tr>
-              <Th>시간</Th><Th>작업 유형</Th><Th>대상</Th><Th>결과</Th><Th>수행자</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {logPagination.pageItems.map((l, i) => (
-              <tr key={i} className="transition-colors hover:bg-accent/40">
-                <Td className="font-mono text-xs text-muted-foreground">{l.time}</Td>
-                <Td><StatusBadge accent="primary">{l.type}</StatusBadge></Td>
-                <Td className="font-mono text-xs">{l.target}</Td>
-                <Td>
-                  <StatusBadge risk={resultRisk[l.result]} pulse={l.result === "실패"}>
-                    {l.result}
-                  </StatusBadge>
-                </Td>
-                <Td className="text-muted-foreground">{l.who}</Td>
-              </tr>
-            ))}
-          </tbody>
-        </TableShell>
-        {logs.length > 0 && (
-          <div className="mt-3">
-            <Pagination
-              page={logPagination.page}
-              pageSize={logPagination.pageSize}
-              totalPages={logPagination.totalPages}
-              onPageChange={logPagination.setPage}
-              onPageSizeChange={logPagination.setPageSize}
             />
           </div>
         )}
