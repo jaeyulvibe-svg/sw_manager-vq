@@ -8,10 +8,12 @@ import {
   CalendarX,
   Package,
   ShieldAlert,
+  ArrowRight,
 } from "lucide-react"
-import { SectionCard, StatusBadge, type Accent, type RiskLevel } from "@/components/portal/ui"
+import { SectionCard, StatusBadge, MiniButton, type Accent, type RiskLevel } from "@/components/portal/ui"
 import { createClient } from "@/lib/supabase/client"
 import type { Tables } from "@/lib/supabase/types"
+import type { ViewKey } from "@/components/portal/nav"
 import { cn } from "@/lib/utils"
 
 /* ---------------- 공지사항 ---------------- */
@@ -25,7 +27,7 @@ const noticeCategoryAccent: Record<string, Accent> = {
   보고서: "muted",
 }
 
-function NoticePanel() {
+function NoticePanel({ onNavigate }: { onNavigate?: (view: ViewKey) => void }) {
   const [notices, setNotices] = useState<Notice[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -43,7 +45,18 @@ function NoticePanel() {
   }, [])
 
   return (
-    <SectionCard title="공지사항" subtitle="포털 운영 공지" icon={Megaphone}>
+    <SectionCard
+      title="공지사항"
+      subtitle="포털 운영 공지"
+      icon={Megaphone}
+      action={
+        onNavigate ? (
+          <MiniButton accent="primary" onClick={() => onNavigate("notice-board")}>
+            더보기<ArrowRight className="h-3 w-3" />
+          </MiniButton>
+        ) : undefined
+      }
+    >
       {loading ? (
         <div className="flex flex-col gap-2.5">
           {[0, 1, 2].map((i) => (
@@ -253,10 +266,10 @@ function FeedPanel() {
   )
 }
 
-export function AssetBoards() {
+export function AssetBoards({ onNavigate }: { onNavigate?: (view: ViewKey) => void }) {
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      <NoticePanel />
+      <NoticePanel onNavigate={onNavigate} />
       <ChangeRequestPanel />
       <FeedPanel />
     </div>

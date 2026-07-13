@@ -16,6 +16,7 @@ import { isViewAllowed, type ViewKey } from "@/components/portal/nav"
 import { DashboardView } from "@/components/pages/dashboard-view"
 import { AssetsView } from "@/components/pages/assets-view"
 import { EosView } from "@/components/pages/eos-view"
+import { NoticeBoardView } from "@/components/pages/notice-board-view"
 import { RequestView } from "@/components/pages/request-view"
 import { ApprovalView } from "@/components/pages/approval-view"
 import { KisaView } from "@/components/pages/kisa-view"
@@ -60,11 +61,13 @@ function Portal({ onLogout }: { onLogout: () => void }) {
   function renderView() {
     switch (active) {
       case "dashboard":
-        return <DashboardView />
+        return <DashboardView onNavigate={setActive} />
       case "assets":
         return <AssetsView />
       case "eos":
         return <EosView />
+      case "notice-board":
+        return <NoticeBoardView />
       case "request":
         return <RequestView />
       case "approval":
@@ -90,7 +93,7 @@ function Portal({ onLogout }: { onLogout: () => void }) {
       case "notifications":
         return <NotificationsView onNavigate={setActive} />
       default:
-        return <DashboardView />
+        return <DashboardView onNavigate={setActive} />
     }
   }
 

@@ -25,6 +25,7 @@ import {
 import { useToast } from "@/components/portal/toast"
 import { createClient } from "@/lib/supabase/client"
 import type { Tables } from "@/lib/supabase/types"
+import type { ViewKey } from "@/components/portal/nav"
 import { matchAssets } from "@/lib/vuln-match"
 import { cn } from "@/lib/utils"
 
@@ -47,7 +48,7 @@ const categoryAccent: Record<string, Accent> = {
   보고서: "muted",
 }
 
-export function NoticeBoard() {
+export function NoticeBoard({ onNavigate }: { onNavigate?: (view: ViewKey) => void }) {
   const { toast } = useToast()
   const [notices, setNotices] = useState<Notice[]>([])
   const pagination = usePagination(notices)
@@ -82,10 +83,12 @@ export function NoticeBoard() {
               { label: "상태", value: (n: Notice) => n.status },
             ]}
           />
-          <MiniButton accent="primary">
-            <ExternalLink className="h-3 w-3" />
-            전체보기
-          </MiniButton>
+          {onNavigate ? (
+            <MiniButton accent="primary" onClick={() => onNavigate("notice-board")}>
+              <ExternalLink className="h-3 w-3" />
+              전체보기
+            </MiniButton>
+          ) : null}
         </div>
       }
     >
@@ -154,11 +157,13 @@ export function NoticeBoard() {
                 <MiniButton
                   accent="primary"
                   onClick={() =>
-                    toast({
-                      tone: "info",
-                      title: "공지 상세보기",
-                      description: `${n.title} (${n.author})`,
-                    })
+                    onNavigate
+                      ? onNavigate("notice-board")
+                      : toast({
+                          tone: "info",
+                          title: "공지 상세보기",
+                          description: `${n.title} (${n.author})`,
+                        })
                   }
                 >
                   <Eye className="h-3 w-3" />

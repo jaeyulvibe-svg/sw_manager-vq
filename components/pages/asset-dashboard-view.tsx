@@ -37,6 +37,7 @@ import {
   VendorDistribution,
 } from "@/components/dashboard/asset-charts"
 import { AssetBoards } from "@/components/dashboard/asset-boards"
+import type { ViewKey } from "@/components/portal/nav"
 
 type Asset = Tables<"assets">
 
@@ -178,7 +179,7 @@ function CategorySummary({ assets }: { assets: Asset[] }) {
 
 const ASSET_DASHBOARD_BLOCKS = ["kpi", "charts1", "charts2", "summary", "boards"]
 
-export function AssetDashboardView() {
+export function AssetDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey) => void }) {
   const [assets, setAssets] = useState<Asset[]>([])
   const [loading, setLoading] = useState(true)
   const { isAdmin } = useRole()
@@ -279,7 +280,7 @@ export function AssetDashboardView() {
       </div>
     ),
     summary: <CategorySummary assets={assets} />,
-    boards: <AssetBoards />,
+    boards: <AssetBoards onNavigate={onNavigate} />,
   }
 
   return (

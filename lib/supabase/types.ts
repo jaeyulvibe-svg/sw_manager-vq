@@ -234,6 +234,7 @@ export type Database = {
           author: string
           status: "일반" | "중요" | "긴급"
           views: number
+          content: string
           created_at: string
         }
         Insert: {
@@ -243,6 +244,7 @@ export type Database = {
           author: string
           status?: "일반" | "중요" | "긴급"
           views?: number
+          content?: string
           created_at?: string
         }
         Update: {
@@ -251,6 +253,7 @@ export type Database = {
           author?: string
           status?: "일반" | "중요" | "긴급"
           views?: number
+          content?: string
         }
         Relationships: []
       }

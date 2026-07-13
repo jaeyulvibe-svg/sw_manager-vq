@@ -19,6 +19,7 @@ import {
 } from "@/components/dashboard/notice-boards"
 import { SectionCard, type Accent } from "@/components/portal/ui"
 import { useRole } from "@/components/portal/role-context"
+import type { ViewKey } from "@/components/portal/nav"
 import {
   useDashboardOrder,
   DashboardSection,
@@ -98,7 +99,7 @@ function RecentUpdates() {
 
 const SECURITY_DASHBOARD_BLOCKS = ["hero", "kpi", "charts", "alerts", "notices", "security-notices"]
 
-function SecurityDashboardView() {
+function SecurityDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey) => void }) {
   const [assets, setAssets] = useState<Asset[]>([])
   const [vulns, setVulns] = useState<Vulnerability[]>([])
   const [loading, setLoading] = useState(true)
@@ -140,7 +141,7 @@ function SecurityDashboardView() {
         <RecentUpdates />
       </div>
     ),
-    notices: <NoticeBoard />,
+    notices: <NoticeBoard onNavigate={onNavigate} />,
     "security-notices": <SecurityNoticeBoard assets={assets} vulns={vulns} />,
   }
 
@@ -195,7 +196,7 @@ const TABS: { key: DashKind; label: string; icon: typeof Boxes }[] = [
   { key: "security", label: "보안 대시보드", icon: ShieldCheck },
 ]
 
-export function DashboardView() {
+export function DashboardView({ onNavigate }: { onNavigate?: (view: ViewKey) => void }) {
   const [kind, setKind] = useState<DashKind>("asset")
 
   return (
@@ -225,7 +226,7 @@ export function DashboardView() {
       </div>
 
       <div key={kind} className="animate-view">
-        {kind === "asset" ? <AssetDashboardView /> : <SecurityDashboardView />}
+        {kind === "asset" ? <AssetDashboardView onNavigate={onNavigate} /> : <SecurityDashboardView onNavigate={onNavigate} />}
       </div>
     </div>
   )
