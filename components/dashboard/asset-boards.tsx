@@ -81,78 +81,79 @@ function NoticePanel() {
 
 /* ---------------- SW 자산 변경 요청 ---------------- */
 
-type ChangeReq = {
-  title: string
-  requester: string
-  status: "승인대기" | "검토중" | "승인완료"
-  icon: typeof Package
-}
+type AssetRequest = Tables<"asset_requests">
 
-const changeReqRisk: Record<ChangeReq["status"], RiskLevel> = {
+const requestApprovalRisk: Record<AssetRequest["approval"], RiskLevel> = {
+  반려: 5,
   승인대기: 3,
   검토중: 2,
   승인완료: 1,
 }
 
-const changeReqs: ChangeReq[] = [
-  {
-    title: "신규 자산 등록 요청",
-    requester: "김철수 · 미들웨어팀",
-    status: "승인대기",
-    icon: Package,
-  },
-  {
-    title: "자산 정보 변경 요청",
-    requester: "이영희 · 인프라팀",
-    status: "검토중",
-    icon: FileEdit,
-  },
-  {
-    title: "담당자 변경 요청",
-    requester: "박민수 · 운영팀",
-    status: "승인완료",
-    icon: ClipboardCheck,
-  },
-  {
-    title: "폐기 예정 자산 요청",
-    requester: "정지훈 · DBA팀",
-    status: "승인대기",
-    icon: CalendarX,
-  },
-]
-
 function ChangeRequestPanel() {
+  const [requests, setRequests] = useState<AssetRequest[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from("asset_requests")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(4)
+      .then(({ data }) => {
+        if (data) setRequests(data)
+        setLoading(false)
+      })
+  }, [])
+
   return (
     <SectionCard
       title="SW 자산 변경 요청"
       subtitle="등록·변경·폐기 요청 현황"
       icon={FileEdit}
     >
-      <ul className="flex flex-col divide-y divide-border/50">
-        {changeReqs.map((r, i) => (
-          <li key={i} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-            <span
-              className={cn(
-                "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border",
-                changeReqRisk[r.status] === 3 && "border-risk-3/40 bg-risk-3/15 text-risk-3",
-                changeReqRisk[r.status] === 2 && "border-risk-2/40 bg-risk-2/12 text-risk-2",
-                changeReqRisk[r.status] === 1 && "border-risk-1/40 bg-risk-1/12 text-risk-1",
-              )}
-            >
-              <r.icon className="h-4 w-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-foreground">
-                {r.title}
-              </p>
-              <p className="truncate text-xs text-muted-foreground">
-                {r.requester}
-              </p>
-            </div>
-            <StatusBadge risk={changeReqRisk[r.status]}>{r.status}</StatusBadge>
-          </li>
-        ))}
-      </ul>
+      {loading ? (
+        <div className="flex flex-col gap-2.5">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-10 animate-pulse rounded-xl bg-muted/40" />
+          ))}
+        </div>
+      ) : requests.length === 0 ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          등록된 자산 변경 요청이 없습니다.
+        </p>
+      ) : (
+        <ul className="flex flex-col divide-y divide-border/50">
+          {requests.map((r) => {
+            const risk = requestApprovalRisk[r.approval]
+            return (
+              <li key={r.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                <span
+                  className={cn(
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border",
+                    risk === 5 && "border-risk-5/40 bg-risk-5/15 text-risk-5",
+                    risk === 3 && "border-risk-3/40 bg-risk-3/15 text-risk-3",
+                    risk === 2 && "border-risk-2/40 bg-risk-2/12 text-risk-2",
+                    risk === 1 && "border-risk-1/40 bg-risk-1/12 text-risk-1",
+                  )}
+                >
+                  <Package className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {r.name}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {r.requester} · {r.requester_dept}
+                  </p>
+                </div>
+                <StatusBadge risk={risk}>{r.approval}</StatusBadge>
+              </li>
+            )
+          })}
+        </ul>
+      )}
     </SectionCard>
   )
 }
