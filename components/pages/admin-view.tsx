@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   Settings,
   Link2,
@@ -773,6 +773,8 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
       })
   }, [])
 
+  const eosNotifyClaimedRef = useRef<Set<string>>(new Set())
+
   useEffect(() => {
     if (!policy?.eos_alert_180d || assets.length === 0) return
     const now = Date.now()
@@ -784,15 +786,23 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
     })
     if (due.length === 0) return
 
-    const titleFor = (a: Tables<"assets">) => `${a.name} 지원종료(EOS) 180일 전 알림`
+    // 서버까지 포함해야 같은 제품명이 여러 서버에 설치된 경우에도 자산별로 구분된다.
+    const titleFor = (a: Tables<"assets">) => `${a.name} (${a.server}) 지원종료(EOS) 180일 전 알림`
+
+    // assets 참조가 바뀔 때마다(예: 수동 EOS 수정) 이 effect가 다시 실행될 수 있으므로,
+    // DB 조회가 끝나기 전에 같은 자산을 두 번 시도하지 않도록 동기적으로 먼저 선점한다.
+    const candidates = due.filter((a) => !eosNotifyClaimedRef.current.has(titleFor(a)))
+    if (candidates.length === 0) return
+    candidates.forEach((a) => eosNotifyClaimedRef.current.add(titleFor(a)))
+
     const supabase = createClient()
     supabase
       .from("notifications")
       .select("title")
-      .in("title", due.map(titleFor))
+      .in("title", candidates.map(titleFor))
       .then(({ data }) => {
         const existing = new Set((data ?? []).map((n) => n.title))
-        const toInsert = due
+        const toInsert = candidates
           .filter((a) => !existing.has(titleFor(a)))
           .map((a) => ({
             category: "security" as const,
