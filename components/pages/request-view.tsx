@@ -29,7 +29,7 @@ import { createClient } from "@/lib/supabase/client"
 import type { Tables } from "@/lib/supabase/types"
 import { useToast } from "@/components/portal/toast"
 import { useNotifications } from "@/components/portal/notifications-context"
-import { MASTER_CATEGORIES, type MasterCategory } from "@/components/pages/sw-master/use-master-draft"
+import { MASTER_CATEGORIES, type MasterCategory } from "@/components/pages/sw-master/master-shared"
 import { cn } from "@/lib/utils"
 
 type AssetRequest = Tables<"asset_requests">

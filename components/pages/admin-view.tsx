@@ -1159,9 +1159,9 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
                 <Plus className="h-3.5 w-3.5" />
                 추가
               </MiniButton>
-              <MiniButton accent="destructive" onClick={() => setSourceSelectMode(true)}>
-                <Trash2 className="h-3.5 w-3.5" />
-                삭제
+              <MiniButton onClick={() => setSourceSelectMode(true)}>
+                <Pencil className="h-3.5 w-3.5" />
+                편집
               </MiniButton>
             </div>
           )
@@ -1450,9 +1450,9 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
                 <Plus className="h-3.5 w-3.5" />
                 추가
               </MiniButton>
-              <MiniButton accent="destructive" onClick={() => setUserSelectMode(true)}>
-                <Trash2 className="h-3.5 w-3.5" />
-                삭제
+              <MiniButton onClick={() => setUserSelectMode(true)}>
+                <Pencil className="h-3.5 w-3.5" />
+                편집
               </MiniButton>
             </div>
           )

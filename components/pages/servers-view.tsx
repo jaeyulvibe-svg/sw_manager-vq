@@ -374,9 +374,9 @@ export function ServersView() {
                 <Plus className="h-3.5 w-3.5" />
                 추가
               </MiniButton>
-              <MiniButton accent="destructive" onClick={() => setSelectMode(true)}>
-                <Trash2 className="h-3.5 w-3.5" />
-                삭제
+              <MiniButton onClick={() => setSelectMode(true)}>
+                <Pencil className="h-3.5 w-3.5" />
+                편집
               </MiniButton>
             </div>
           )

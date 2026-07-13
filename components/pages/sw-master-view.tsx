@@ -1,51 +1,201 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import {
   Database,
-  Plus,
   Search,
-  SlidersHorizontal,
+  Plus,
+  Pencil,
+  Trash2,
   Check,
   X,
-  ChevronUp,
-  ChevronDown,
-  ChevronsUpDown,
-  RotateCcw,
-  Save,
-  AlertTriangle,
-  History,
-  Loader2,
-  Filter,
 } from "lucide-react"
-import { PageHeader, TableShell, Th, Td, MiniButton, ExportExcelButton, usePagination, Pagination } from "@/components/portal/ui"
-import { useToast } from "@/components/portal/toast"
-import { useUnsavedGuard } from "@/components/portal/unsaved-guard"
-import { cn } from "@/lib/utils"
 import {
-  useMasterDraft,
+  PageHeader,
+  SectionCard,
+  TableShell,
+  Th,
+  Td,
+  MiniButton,
+  ExportExcelButton,
+  SortTh,
+  ColumnVisibilityMenu,
+  loadColumnVisibility,
+  TABLE_HEADER_CELL_H,
+  TABLE_ROW_CELL_H,
+  usePagination,
+  Pagination,
+} from "@/components/portal/ui"
+import { useToast } from "@/components/portal/toast"
+import { createClient } from "@/lib/supabase/client"
+import type { TablesInsert, TablesUpdate } from "@/lib/supabase/types"
+import {
   MASTER_CATEGORIES,
   COLLECT_MODES,
+  MASTER_ACTOR,
   formatDateOnly,
-  type EditableFields,
-  type EffectiveRow,
-} from "@/components/pages/sw-master/use-master-draft"
-import {
-  EditableText,
-  EditableVendor,
-  EditableCategory,
-  EditableCollectMode,
-  ActiveToggle,
-  RowStatusBadge,
-  RowMenu,
-  MasterDetailModal,
-  CATEGORY_ICONS,
-  CollectModeBadge,
-  UseStatusBadge,
-  CategoryCell,
-} from "@/components/pages/sw-master/cells"
+  type MasterRow,
+} from "@/components/pages/sw-master/master-shared"
+import { CategoryCell, CollectModeBadge, UseStatusBadge } from "@/components/pages/sw-master/cells"
+import { cn } from "@/lib/utils"
 
-/* ---- 컬럼 정의 ---- */
+/* ---- Shared input style for inline add/edit form ---- */
+const inputCls =
+  "rounded-lg border border-border/60 bg-background/50 px-3 py-1.5 text-xs text-foreground focus:border-primary/60 focus:outline-none"
+
+type MasterFormValues = {
+  name: string
+  vendor: string
+  category: MasterRow["category"]
+  std_version: string
+  collect_mode: MasterRow["collect_mode"]
+  active: boolean
+  manager: string
+  note: string
+}
+
+const EMPTY_MASTER_FORM: MasterFormValues = {
+  name: "",
+  vendor: "",
+  category: MASTER_CATEGORIES[0],
+  std_version: "",
+  collect_mode: COLLECT_MODES[0],
+  active: true,
+  manager: "",
+  note: "",
+}
+
+function toFormValues(row: MasterRow): MasterFormValues {
+  return {
+    name: row.name,
+    vendor: row.vendor,
+    category: row.category,
+    std_version: row.std_version,
+    collect_mode: row.collect_mode,
+    active: row.active,
+    manager: row.manager ?? "",
+    note: row.note ?? "",
+  }
+}
+
+/* ---- Inline add/edit form ---- */
+function MasterFormPanel({
+  initial,
+  onCancel,
+  onSubmit,
+}: {
+  initial?: MasterFormValues
+  onCancel: () => void
+  onSubmit: (values: MasterFormValues) => void
+}) {
+  const [values, setValues] = useState<MasterFormValues>(initial ?? EMPTY_MASTER_FORM)
+
+  return (
+    <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4 sm:grid-cols-2 lg:grid-cols-3">
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">제품명</span>
+        <input
+          value={values.name}
+          onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))}
+          placeholder="예: Apache Tomcat"
+          className={inputCls}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">벤더</span>
+        <input
+          value={values.vendor}
+          onChange={(e) => setValues((v) => ({ ...v, vendor: e.target.value }))}
+          placeholder="예: Apache"
+          className={inputCls}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">분류</span>
+        <select
+          value={values.category}
+          onChange={(e) => setValues((v) => ({ ...v, category: e.target.value as MasterRow["category"] }))}
+          className={inputCls}
+        >
+          {MASTER_CATEGORIES.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">표준 버전</span>
+        <input
+          value={values.std_version}
+          onChange={(e) => setValues((v) => ({ ...v, std_version: e.target.value }))}
+          placeholder="예: 10.1.24"
+          className={cn(inputCls, "font-mono")}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">수집 모드</span>
+        <select
+          value={values.collect_mode}
+          onChange={(e) => setValues((v) => ({ ...v, collect_mode: e.target.value as MasterRow["collect_mode"] }))}
+          className={inputCls}
+        >
+          {COLLECT_MODES.map((m) => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">사용 여부</span>
+        <select
+          value={values.active ? "사용" : "미사용"}
+          onChange={(e) => setValues((v) => ({ ...v, active: e.target.value === "사용" }))}
+          className={inputCls}
+        >
+          <option>사용</option>
+          <option>미사용</option>
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">관리자</span>
+        <input
+          value={values.manager}
+          onChange={(e) => setValues((v) => ({ ...v, manager: e.target.value }))}
+          placeholder="예: 홍길동"
+          className={inputCls}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs sm:col-span-2 lg:col-span-2">
+        <span className="font-medium text-muted-foreground">비고</span>
+        <input
+          value={values.note}
+          onChange={(e) => setValues((v) => ({ ...v, note: e.target.value }))}
+          placeholder="선택 입력"
+          className={inputCls}
+        />
+      </label>
+      <div className="flex items-center gap-2 sm:col-span-2 lg:col-span-3">
+        <button
+          type="button"
+          onClick={() =>
+            values.name.trim() && values.vendor.trim() && values.std_version.trim() && onSubmit(values)
+          }
+          disabled={!values.name.trim() || !values.vendor.trim() || !values.std_version.trim()}
+          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          저장
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          취소
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ---- 컬럼 정의 + 정렬 ---- */
 type ColKey =
   | "id" | "category" | "name" | "std_version" | "vendor" | "collect_mode" | "active" | "created_at"
   | "manager" | "updated_by" | "note"
@@ -66,1073 +216,365 @@ const ALL_COLS: { key: ColKey; label: string }[] = [
 const FACTORY_VISIBLE: ColKey[] = [
   "id", "category", "name", "std_version", "vendor", "collect_mode", "active", "created_at",
 ]
-const LS_COLUMNS_KEY = "sw_master_columns"
+const LS_KEY = "sw_master_columns"
 
-function loadVisibleCols(): ColKey[] {
-  if (typeof window === "undefined") return FACTORY_VISIBLE
-  try {
-    const raw = window.localStorage.getItem(LS_COLUMNS_KEY)
-    if (raw) return JSON.parse(raw) as ColKey[]
-  } catch {}
-  return FACTORY_VISIBLE
+type SortKey = ColKey | "none"
+
+function sortValue(row: MasterRow, key: SortKey): string | number {
+  if (key === "active") return row.active ? 1 : 0
+  if (key === "created_at") return row.created_at ? new Date(row.created_at).getTime() : 0
+  if (key === "updated_by") return row.updated_by ?? ""
+  if (key === "manager") return row.manager ?? ""
+  if (key === "note") return row.note ?? ""
+  if (key === "none") return 0
+  return row[key]
 }
-function saveVisibleCols(cols: ColKey[]) {
-  window.localStorage.setItem(LS_COLUMNS_KEY, JSON.stringify(cols))
-}
-
-/* ---- 컬럼 너비 조절 ---- */
-const DEFAULT_COL_WIDTHS: Record<ColKey, number> = {
-  id: 140,
-  category: 130,
-  name: 280,
-  std_version: 140,
-  vendor: 220,
-  collect_mode: 180,
-  active: 120,
-  created_at: 130,
-  manager: 110,
-  updated_by: 100,
-  note: 160,
-}
-
-/* ---- 헤더/행 높이, 세로 중앙 정렬 — SW 마스터 그리드 전용 ---- */
-const HEADER_CELL_H = "h-[52px] py-0"
-const ROW_CELL_H = "h-16 py-0"
-const MIN_COL_WIDTH = 60
-const MAX_COL_WIDTH = 480
-const LS_COL_WIDTHS_KEY = "sw_master_col_widths"
-
-function loadColWidths(): Partial<Record<ColKey, number>> {
-  if (typeof window === "undefined") return {}
-  try {
-    const raw = window.localStorage.getItem(LS_COL_WIDTHS_KEY)
-    if (raw) return JSON.parse(raw) as Partial<Record<ColKey, number>>
-  } catch {}
-  return {}
-}
-function saveColWidths(widths: Partial<Record<ColKey, number>>) {
-  window.localStorage.setItem(LS_COL_WIDTHS_KEY, JSON.stringify(widths))
-}
-
-function ColumnResizeHandle({ onResize }: { onResize: (deltaPx: number) => void }) {
-  const lastX = useRef(0)
-
-  function handleMouseDown(e: React.MouseEvent) {
-    e.preventDefault()
-    e.stopPropagation()
-    lastX.current = e.clientX
-
-    function onMouseMove(ev: MouseEvent) {
-      const delta = ev.clientX - lastX.current
-      lastX.current = ev.clientX
-      onResize(delta)
-    }
-    function onMouseUp() {
-      window.removeEventListener("mousemove", onMouseMove)
-      window.removeEventListener("mouseup", onMouseUp)
-    }
-    window.addEventListener("mousemove", onMouseMove)
-    window.addEventListener("mouseup", onMouseUp)
-  }
-
-  return (
-    <span
-      onMouseDown={handleMouseDown}
-      onClick={(e) => e.stopPropagation()}
-      className="absolute right-0 top-0 z-10 h-full w-1.5 cursor-col-resize select-none hover:bg-primary/50 active:bg-primary/70"
-    />
-  )
-}
-
-/* ---- 정렬 ---- */
-type SortKey = "id" | keyof EditableFields | "created_at"
-type SortDir = "asc" | "desc"
-type SortSpec = { key: SortKey; dir: SortDir }
-
-function sortValue(row: EffectiveRow, key: SortKey): string | number {
-  if (key === "id") return row.id
-  if (key === "created_at") return row.createdAt ? new Date(row.createdAt).getTime() : 0
-  if (key === "active") return row.values.active ? 1 : 0
-  return String(row.values[key as keyof EditableFields])
-}
-
-function cycleSort(current: SortSpec[], key: SortKey, additive: boolean): SortSpec[] {
-  const idx = current.findIndex((s) => s.key === key)
-  if (!additive) {
-    if (idx === -1) return [{ key, dir: "asc" }]
-    if (current[idx].dir === "asc") return [{ key, dir: "desc" }]
-    return []
-  }
-  if (idx === -1) return [...current, { key, dir: "asc" }]
-  if (current[idx].dir === "asc") {
-    const next = [...current]
-    next[idx] = { key, dir: "desc" }
-    return next
-  }
-  return current.filter((_, i) => i !== idx)
-}
-
-function SortTh({
-  col,
-  label,
-  sort,
-  onSort,
-  width,
-  onResize,
-  align = "left",
-}: {
-  col: SortKey
-  label: string
-  sort: SortSpec[]
-  onSort: (key: SortKey, additive: boolean) => void
-  width: number
-  onResize: (deltaPx: number) => void
-  align?: "left" | "center" | "right"
-}) {
-  const idx = sort.findIndex((s) => s.key === col)
-  const active = idx !== -1
-  const dir = active ? sort[idx].dir : undefined
-  return (
-    <th
-      onClick={(e) => onSort(col, e.shiftKey)}
-      style={{ width, minWidth: width, maxWidth: width }}
-      className={cn(
-        "relative cursor-pointer select-none overflow-hidden text-ellipsis whitespace-nowrap border-b border-border/60 bg-accent/15 px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground",
-        HEADER_CELL_H,
-        align === "center" && "text-center",
-        align === "right" && "text-right",
-        align === "left" && "text-left",
-        active && "bg-primary/12 text-primary",
-      )}
-    >
-      <span className="inline-flex items-center gap-1">
-        {label}
-        {active ? (
-          <>
-            {dir === "asc" ? (
-              <ChevronUp className="h-3 w-3 text-primary" />
-            ) : (
-              <ChevronDown className="h-3 w-3 text-primary" />
-            )}
-            {sort.length > 1 ? <span className="text-[9px] text-primary">{idx + 1}</span> : null}
-          </>
-        ) : (
-          <ChevronsUpDown className="h-3 w-3 opacity-30" />
-        )}
-      </span>
-      <ColumnResizeHandle onResize={onResize} />
-    </th>
-  )
-}
-
-const CATEGORY_FILTERS = ["전체", ...MASTER_CATEGORIES] as const
-const COLLECT_MODE_FILTERS = ["전체", ...COLLECT_MODES] as const
-const ACTIVE_FILTERS = ["전체", "사용", "미사용"] as const
 
 export function SwMasterView() {
   const { toast } = useToast()
-  const { setDirty } = useUnsavedGuard()
-  const draft = useMasterDraft()
 
+  const [masters, setMasters] = useState<MasterRow[]>([])
+  const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState("")
-  const [catFilter, setCatFilter] = useState<(typeof CATEGORY_FILTERS)[number]>("전체")
-  const [modeFilter, setModeFilter] = useState<(typeof COLLECT_MODE_FILTERS)[number]>("전체")
-  const [activeFilter, setActiveFilter] = useState<(typeof ACTIVE_FILTERS)[number]>("전체")
-  const [detailFiltersOpen, setDetailFiltersOpen] = useState(false)
+  const [sortKey, setSortKey] = useState<SortKey>("id")
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
+  const [visible, setVisible] = useState<ColKey[]>(() => loadColumnVisibility(LS_KEY, FACTORY_VISIBLE))
 
-  const [sort, setSort] = useState<SortSpec[]>([{ key: "id", dir: "asc" }])
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [bulkCategory, setBulkCategory] = useState<"" | EditableFields["category"]>("")
-  const [bulkMode, setBulkMode] = useState<"" | (typeof COLLECT_MODES)[number]>("")
-  const [bulkActive, setBulkActive] = useState<"" | "사용" | "미사용">("")
-  const [visibleCols, setVisibleCols] = useState<ColKey[]>(() => loadVisibleCols())
-  const [colWidths, setColWidths] = useState<Partial<Record<ColKey, number>>>(() => loadColWidths())
-  const [colMenuOpen, setColMenuOpen] = useState(false)
-  const colMenuRef = useRef<HTMLDivElement>(null)
+  const [panel, setPanel] = useState<"add" | string | null>(null)
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
-  const [detailRow, setDetailRow] = useState<EffectiveRow | null>(null)
-  const [confirmOpen, setConfirmOpen] = useState(false)
-  const [saving, setSaving] = useState(false)
-
-  const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map())
-  const [highlightId, setHighlightId] = useState<string | null>(null)
-  const [editingRowId, setEditingRowId] = useState<string | null>(null)
+  function loadMasters() {
+    const supabase = createClient()
+    supabase
+      .from("sw_masters")
+      .select("*")
+      .is("deleted_at", null)
+      .order("id")
+      .then(({ data }) => {
+        if (data) setMasters(data)
+        setLoading(false)
+      })
+  }
 
   useEffect(() => {
-    setDirty(draft.hasChanges)
-  }, [draft.hasChanges, setDirty])
-  useEffect(() => () => setDirty(false), [setDirty])
-
-  useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
-      if (colMenuRef.current && !colMenuRef.current.contains(e.target as Node)) setColMenuOpen(false)
-    }
-    document.addEventListener("mousedown", onClickOutside)
-    return () => document.removeEventListener("mousedown", onClickOutside)
+    loadMasters()
   }, [])
 
-  useEffect(() => {
-    if (!editingRowId) return
-    const id = editingRowId
-    function onClickOutside(e: MouseEvent) {
-      const el = rowRefs.current.get(id)
-      if (el && !el.contains(e.target as Node)) setEditingRowId(null)
+  function handleSort(col: SortKey) {
+    if (sortKey === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
+    else {
+      setSortKey(col)
+      setSortDir("asc")
     }
-    document.addEventListener("mousedown", onClickOutside)
-    return () => document.removeEventListener("mousedown", onClickOutside)
-  }, [editingRowId])
+  }
 
-  useEffect(() => {
-    if (!highlightId) return
-    const t = setTimeout(() => setHighlightId(null), 2400)
-    return () => clearTimeout(t)
-  }, [highlightId])
-
-  const vendorOptions = useMemo(
-    () =>
-      Array.from(new Set(draft.rows.map((r) => r.values.vendor).filter(Boolean))).sort((a, b) =>
-        a.localeCompare(b, "ko"),
-      ),
-    [draft.rows],
-  )
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return draft.rows.filter((row) => {
-      const matchesQuery =
-        !q ||
-        [row.id, row.values.name, row.values.vendor, row.values.std_version].some((v) =>
-          v.toLowerCase().includes(q),
-        )
-      const matchesCat = catFilter === "전체" || row.values.category === catFilter
-      const matchesMode = modeFilter === "전체" || row.values.collect_mode === modeFilter
-      const matchesActive = activeFilter === "전체" || (activeFilter === "사용" ? row.values.active : !row.values.active)
-      return matchesQuery && matchesCat && matchesMode && matchesActive
+  const filtered = masters
+    .filter((m) => {
+      const q = query.trim().toLowerCase()
+      return !q || [m.id, m.name, m.vendor, m.std_version].some((f) => f.toLowerCase().includes(q))
     })
-  }, [draft.rows, query, catFilter, modeFilter, activeFilter])
+    .sort((a, b) => {
+      const va = sortValue(a, sortKey)
+      const vb = sortValue(b, sortKey)
+      const d = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb), "ko")
+      return sortDir === "asc" ? d : -d
+    })
 
-  const detailFilterCount = [catFilter, modeFilter, activeFilter].filter((v) => v !== "전체").length
-  const filterChips: { key: string; label: string; onRemove: () => void }[] = []
-  if (catFilter !== "전체") filterChips.push({ key: "category", label: catFilter, onRemove: () => setCatFilter("전체") })
-  if (modeFilter !== "전체") filterChips.push({ key: "mode", label: modeFilter, onRemove: () => setModeFilter("전체") })
-  if (activeFilter !== "전체") filterChips.push({ key: "active", label: activeFilter, onRemove: () => setActiveFilter("전체") })
+  const show = (key: ColKey) => visible.includes(key)
+  const pagination = usePagination(filtered)
 
-  const sorted = useMemo(() => {
-    if (sort.length === 0) return filtered
-    return [...filtered].sort((a, b) => {
-      for (const spec of sort) {
-        const va = sortValue(a, spec.key)
-        const vb = sortValue(b, spec.key)
-        const d = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb), "ko")
-        if (d !== 0) return spec.dir === "asc" ? d : -d
+  async function saveMaster(values: MasterFormValues) {
+    const supabase = createClient()
+
+    if (panel === "add") {
+      const payload: TablesInsert<"sw_masters"> = {
+        name: values.name.trim(),
+        vendor: values.vendor.trim(),
+        category: values.category,
+        std_version: values.std_version.trim(),
+        collect_mode: values.collect_mode,
+        active: values.active,
+        manager: values.manager.trim() || null,
+        note: values.note.trim() || null,
+        updated_by: MASTER_ACTOR,
+        deactivated_at: values.active ? null : new Date().toISOString(),
       }
-      return 0
-    })
-  }, [filtered, sort])
-
-  const pagination = usePagination(sorted)
-
-  useEffect(() => {
-    if (editingRowId && !pagination.pageItems.some((r) => r.id === editingRowId)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setEditingRowId(null)
+      const { error } = await supabase.from("sw_masters").insert(payload)
+      if (error) {
+        toast({ title: "SW 마스터 추가 실패", description: error.message, tone: "danger" })
+        return
+      }
+      toast({ title: "SW 마스터가 추가되었습니다", tone: "success" })
+    } else if (panel) {
+      const previous = masters.find((m) => m.id === panel)
+      const deactivatedAt = values.active
+        ? null
+        : previous && !previous.active
+          ? previous.deactivated_at
+          : new Date().toISOString()
+      const payload: TablesUpdate<"sw_masters"> = {
+        name: values.name.trim(),
+        vendor: values.vendor.trim(),
+        category: values.category,
+        std_version: values.std_version.trim(),
+        collect_mode: values.collect_mode,
+        active: values.active,
+        manager: values.manager.trim() || null,
+        note: values.note.trim() || null,
+        updated_by: MASTER_ACTOR,
+        deactivated_at: deactivatedAt,
+      }
+      const { error } = await supabase.from("sw_masters").update(payload).eq("id", panel)
+      if (error) {
+        toast({ title: "SW 마스터 수정 실패", description: error.message, tone: "danger" })
+        return
+      }
+      toast({ title: "SW 마스터가 수정되었습니다", tone: "success" })
     }
-  }, [editingRowId, pagination.pageItems])
-
-  function handleSort(key: SortKey, additive: boolean) {
-    setSort((prev) => cycleSort(prev, key, additive))
-    pagination.setPage(1)
+    setPanel(null)
+    loadMasters()
   }
 
-  function getColWidth(key: ColKey) {
-    return colWidths[key] ?? DEFAULT_COL_WIDTHS[key]
-  }
-
-  function resizeColumn(key: ColKey, deltaPx: number) {
-    setColWidths((prev) => {
-      const current = prev[key] ?? DEFAULT_COL_WIDTHS[key]
-      const next = Math.min(MAX_COL_WIDTH, Math.max(MIN_COL_WIDTH, current + deltaPx))
-      const updated = { ...prev, [key]: next }
-      saveColWidths(updated)
-      return updated
-    })
-  }
-
-  function resetFilters() {
-    setQuery("")
-    setCatFilter("전체")
-    setModeFilter("전체")
-    setActiveFilter("전체")
-    setSort([{ key: "id", dir: "asc" }])
-    pagination.setPage(1)
+  async function deleteMaster(target: MasterRow) {
+    if (!window.confirm(`"${target.name}" SW 마스터를 삭제하시겠습니까?`)) return
+    const supabase = createClient()
+    const payload: TablesUpdate<"sw_masters"> = {
+      active: false,
+      deleted_at: new Date().toISOString(),
+      deleted_by: MASTER_ACTOR,
+    }
+    const { error } = await supabase.from("sw_masters").update(payload).eq("id", target.id)
+    if (error) {
+      toast({ title: "삭제 실패", description: error.message, tone: "danger" })
+      return
+    }
+    toast({ title: "SW 마스터가 삭제되었습니다", tone: "info" })
+    loadMasters()
   }
 
   function toggleSelectAll() {
-    setSelected((prev) => (prev.size === sorted.length && sorted.length > 0 ? new Set() : new Set(sorted.map((r) => r.id))))
+    setSelectedIds((prev) =>
+      prev.size === filtered.length && filtered.length > 0 ? new Set() : new Set(filtered.map((m) => m.id)),
+    )
   }
-  function toggleSelect(id: string) {
-    setSelected((prev) => {
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return next
     })
   }
-
-  function handleAddRow() {
-    const id = draft.addRow()
-    pagination.setPage(1)
-    setHighlightId(id)
+  function cancelSelection() {
+    setSelectMode(false)
+    setSelectedIds(new Set())
   }
-
-  function handleBulkDelete() {
-    selected.forEach((id) => draft.markDeleted(id))
-    setSelected(new Set())
-  }
-
-  function handleBulkApply() {
-    if (bulkCategory) selected.forEach((id) => draft.editCell(id, "category", bulkCategory))
-    if (bulkMode) selected.forEach((id) => draft.editCell(id, "collect_mode", bulkMode))
-    if (bulkActive) selected.forEach((id) => draft.editCell(id, "active", bulkActive === "사용"))
-    setBulkCategory("")
-    setBulkMode("")
-    setBulkActive("")
-  }
-
-  function handleSaveClick() {
-    if (!draft.validate()) {
-      toast({ tone: "danger", title: "저장할 수 없습니다", description: "필수값 또는 중복 오류를 확인해주세요." })
+  async function saveSelection() {
+    if (selectedIds.size === 0) {
+      cancelSelection()
       return
     }
-    setConfirmOpen(true)
-  }
-
-  async function handleConfirmSave() {
-    setSaving(true)
-    const outcomes = await draft.commit()
-    setSaving(false)
-    setConfirmOpen(false)
-    const failed = outcomes.filter((o) => !o.ok)
-    if (failed.length === 0) {
-      toast({ tone: "success", title: "변경사항이 저장되었습니다" })
-    } else {
-      toast({
-        tone: "danger",
-        title: `저장 실패 ${failed.length}건`,
-        description: failed.map((f) => `${f.id}: ${f.error}`).join(" · "),
-      })
+    if (!window.confirm(`선택한 SW 마스터 ${selectedIds.size}건을 삭제하시겠습니까?`)) return
+    const supabase = createClient()
+    const payload: TablesUpdate<"sw_masters"> = {
+      active: false,
+      deleted_at: new Date().toISOString(),
+      deleted_by: MASTER_ACTOR,
     }
+    const { error } = await supabase.from("sw_masters").update(payload).in("id", Array.from(selectedIds))
+    if (error) {
+      toast({ title: "삭제 실패", description: error.message, tone: "danger" })
+      return
+    }
+    toast({ title: `SW 마스터 ${selectedIds.size}건이 삭제되었습니다`, tone: "info" })
+    cancelSelection()
+    loadMasters()
   }
-
-  function jumpToRow(id: string) {
-    setHighlightId(id)
-    const idx = sorted.findIndex((r) => r.id === id)
-    if (idx >= 0) pagination.setPage(Math.floor(idx / pagination.pageSize) + 1)
-    requestAnimationFrame(() => {
-      rowRefs.current.get(id)?.scrollIntoView({ block: "center", behavior: "smooth" })
-    })
-  }
-
-  const show = (key: ColKey) => visibleCols.includes(key)
-  const colSpan = 2 + ALL_COLS.filter((c) => show(c.key)).length
-
-  const toolbarAction = (
-    <div className="flex flex-wrap items-center justify-end gap-2">
-      {draft.hasChanges ? (
-        <span className="text-xs font-medium text-warning">변경사항 {draft.summary.total}건 · 저장하지 않음</span>
-      ) : (
-        <span className="text-xs text-muted-foreground">변경사항은 저장 버튼을 눌러야 반영됩니다.</span>
-      )}
-      <MiniButton onClick={draft.revertAll} disabled={!draft.hasChanges}>
-        <X className="h-3.5 w-3.5" />
-        취소
-      </MiniButton>
-      <MiniButton accent="primary" onClick={handleSaveClick} disabled={!draft.hasChanges || saving}>
-        <Save className="h-3.5 w-3.5" />
-        저장{draft.hasChanges ? ` ${draft.summary.total}건` : ""}
-      </MiniButton>
-      <ExportExcelButton
-        rows={sorted}
-        filename="SW_마스터_관리"
-        columns={[
-          { label: "마스터 ID", value: (r: EffectiveRow) => r.id },
-          { label: "분류", value: (r: EffectiveRow) => r.values.category },
-          { label: "제품명", value: (r: EffectiveRow) => r.values.name },
-          { label: "버전", value: (r: EffectiveRow) => r.values.std_version },
-          { label: "제조사", value: (r: EffectiveRow) => r.values.vendor },
-          { label: "수집 모드", value: (r: EffectiveRow) => r.values.collect_mode },
-          { label: "사용 여부", value: (r: EffectiveRow) => (r.values.active ? "사용" : "미사용") },
-          { label: "미사용 전환일", value: (r: EffectiveRow) => (r.deactivatedAt ? formatDateOnly(r.deactivatedAt) : "-") },
-          { label: "등록일", value: (r: EffectiveRow) => (r.createdAt ? formatDateOnly(r.createdAt) : "-") },
-        ]}
-      />
-    </div>
-  )
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         icon={Database}
         title="SW 마스터 관리"
-        description="표준 소프트웨어 마스터 데이터를 편집형 그리드에서 관리합니다. 변경사항은 저장 버튼을 눌러야 반영됩니다."
-        action={toolbarAction}
+        description="신규 자산 요청·자동수집 대상의 기준이 되는 표준 소프트웨어 목록을 관리합니다."
       />
 
-      {/* 검색 + 필터 */}
-      <div className="glow-card animate-rise flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4">
-        {/* 기본 검색 한 줄 */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[220px] flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value)
-                pagination.setPage(1)
-              }}
-              placeholder="마스터 ID, 제품명, 벤더, 표준 버전 검색"
-              className="w-full rounded-lg border border-border/60 bg-background/50 py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20"
+      <SectionCard
+        title="SW 마스터 목록"
+        subtitle="등록된 표준 소프트웨어"
+        icon={Database}
+        action={
+          panel ? null : selectMode ? (
+            <div className="flex items-center gap-1.5">
+              <MiniButton accent="success" onClick={saveSelection}>
+                <Check className="h-3.5 w-3.5" />
+                저장
+              </MiniButton>
+              <MiniButton onClick={cancelSelection}>
+                <X className="h-3.5 w-3.5" />
+                취소
+              </MiniButton>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={query}
+                  onChange={(e) => { setQuery(e.target.value); pagination.setPage(1) }}
+                  placeholder="마스터 ID, 제품명, 벤더, 버전 검색"
+                  className="w-48 rounded-lg border border-border/60 bg-background/50 py-1.5 pl-8 pr-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none"
+                />
+              </div>
+              <ExportExcelButton
+                rows={filtered}
+                filename="SW_마스터_관리"
+                columns={[
+                  { label: "마스터 ID", value: (m: MasterRow) => m.id },
+                  { label: "분류", value: (m: MasterRow) => m.category },
+                  { label: "제품명", value: (m: MasterRow) => m.name },
+                  { label: "버전", value: (m: MasterRow) => m.std_version },
+                  { label: "제조사", value: (m: MasterRow) => m.vendor },
+                  { label: "수집 모드", value: (m: MasterRow) => m.collect_mode },
+                  { label: "사용 여부", value: (m: MasterRow) => (m.active ? "사용" : "미사용") },
+                  { label: "등록일", value: (m: MasterRow) => (m.created_at ? formatDateOnly(m.created_at) : "-") },
+                  { label: "관리자", value: (m: MasterRow) => m.manager ?? "-" },
+                  { label: "수정자", value: (m: MasterRow) => m.updated_by ?? "-" },
+                  { label: "비고", value: (m: MasterRow) => m.note ?? "-" },
+                ]}
+              />
+              <ColumnVisibilityMenu
+                allCols={ALL_COLS}
+                visible={visible}
+                onChange={setVisible}
+                factoryDefault={FACTORY_VISIBLE}
+                storageKey={LS_KEY}
+              />
+              <MiniButton accent="primary" onClick={() => setPanel("add")}>
+                <Plus className="h-3.5 w-3.5" />
+                추가
+              </MiniButton>
+              <MiniButton onClick={() => setSelectMode(true)}>
+                <Pencil className="h-3.5 w-3.5" />
+                편집
+              </MiniButton>
+            </div>
+          )
+        }
+      >
+        {panel === "add" ? (
+          <MasterFormPanel onCancel={() => setPanel(null)} onSubmit={saveMaster} />
+        ) : null}
+
+        <TableShell scrollHint>
+          <thead>
+            <tr>
+              {selectMode ? (
+                <Th className={cn("w-8", TABLE_HEADER_CELL_H)}>
+                  <input
+                    type="checkbox"
+                    checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                    onChange={toggleSelectAll}
+                    aria-label="전체 선택"
+                    className="h-4 w-4 rounded border-border/60 accent-primary"
+                  />
+                </Th>
+              ) : null}
+              {show("id") && <SortTh col="id" label="마스터 ID" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {show("category") && <SortTh col="category" label="분류" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="center" />}
+              {show("name") && <SortTh col="name" label="제품명" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {show("std_version") && <SortTh col="std_version" label="버전" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {show("vendor") && <SortTh col="vendor" label="제조사" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {show("collect_mode") && <SortTh col="collect_mode" label="수집 모드" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="center" />}
+              {show("active") && <SortTh col="active" label="사용 여부" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="center" />}
+              {show("created_at") && <SortTh col="created_at" label="등록일" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {show("manager") && <SortTh col="manager" label="관리자" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {show("updated_by") && <SortTh col="updated_by" label="수정자" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {show("note") && <SortTh col="note" label="비고" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {selectMode ? null : <Th className={TABLE_HEADER_CELL_H}>관리</Th>}
+            </tr>
+          </thead>
+          <tbody>
+            {!loading && masters.length === 0 ? (
+              <tr>
+                <Td className="py-8 text-center text-muted-foreground">
+                  <span className="block w-full">등록된 SW 마스터가 없습니다.</span>
+                </Td>
+              </tr>
+            ) : (
+              pagination.pageItems.map((m) =>
+                panel === m.id ? (
+                  <tr key={m.id}>
+                    <td colSpan={12} className="border-b border-border/40 p-0">
+                      <MasterFormPanel
+                        initial={toFormValues(m)}
+                        onCancel={() => setPanel(null)}
+                        onSubmit={saveMaster}
+                      />
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={m.id} className="transition-colors hover:bg-accent/40">
+                    {selectMode ? (
+                      <Td className={TABLE_ROW_CELL_H}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(m.id)}
+                          onChange={() => toggleSelected(m.id)}
+                          aria-label={`${m.name} 선택`}
+                          className="h-4 w-4 rounded border-border/60 accent-primary"
+                        />
+                      </Td>
+                    ) : null}
+                    {show("id") && <Td className={cn("font-mono text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{m.id}</Td>}
+                    {show("category") && <Td className={TABLE_ROW_CELL_H}><CategoryCell value={m.category} /></Td>}
+                    {show("name") && <Td className={cn("font-semibold", TABLE_ROW_CELL_H)}>{m.name}</Td>}
+                    {show("std_version") && <Td className={cn("font-mono text-xs", TABLE_ROW_CELL_H)}>{m.std_version}</Td>}
+                    {show("vendor") && <Td className={cn("text-muted-foreground", TABLE_ROW_CELL_H)}>{m.vendor}</Td>}
+                    {show("collect_mode") && <Td className={TABLE_ROW_CELL_H}><CollectModeBadge value={m.collect_mode} /></Td>}
+                    {show("active") && <Td className={TABLE_ROW_CELL_H}><UseStatusBadge value={m.active} /></Td>}
+                    {show("created_at") && (
+                      <Td className={cn("text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>
+                        {m.created_at ? formatDateOnly(m.created_at) : "-"}
+                      </Td>
+                    )}
+                    {show("manager") && <Td className={cn("text-xs", TABLE_ROW_CELL_H)}>{m.manager ?? "-"}</Td>}
+                    {show("updated_by") && <Td className={cn("text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{m.updated_by ?? "-"}</Td>}
+                    {show("note") && <Td className={cn("text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{m.note ?? "-"}</Td>}
+                    {selectMode ? null : (
+                      <Td className={TABLE_ROW_CELL_H}>
+                        <div className="flex items-center gap-1.5">
+                          <MiniButton onClick={() => setPanel(m.id)}>
+                            <Pencil className="h-3 w-3" />
+                            수정
+                          </MiniButton>
+                          <MiniButton accent="destructive" onClick={() => deleteMaster(m)}>
+                            <Trash2 className="h-3 w-3" />
+                            삭제
+                          </MiniButton>
+                        </div>
+                      </Td>
+                    )}
+                  </tr>
+                ),
+              )
+            )}
+          </tbody>
+        </TableShell>
+        {loading ? <p className="mt-2 text-xs text-muted-foreground">불러오는 중…</p> : null}
+        {!loading && filtered.length > 0 && (
+          <div className="mt-3">
+            <Pagination
+              page={pagination.page}
+              pageSize={pagination.pageSize}
+              totalPages={pagination.totalPages}
+              onPageChange={pagination.setPage}
+              onPageSizeChange={pagination.setPageSize}
             />
           </div>
-
-          <select
-            value={catFilter}
-            onChange={(e) => {
-              setCatFilter(e.target.value as (typeof CATEGORY_FILTERS)[number])
-              pagination.setPage(1)
-            }}
-            className="rounded-lg border border-border/60 bg-background/50 px-2.5 py-2 text-xs font-medium text-foreground focus:border-primary/60 focus:outline-none"
-          >
-            <option value="전체">분류 전체</option>
-            {MASTER_CATEGORIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-
-          <select
-            value={modeFilter}
-            onChange={(e) => {
-              setModeFilter(e.target.value as (typeof COLLECT_MODE_FILTERS)[number])
-              pagination.setPage(1)
-            }}
-            className="rounded-lg border border-border/60 bg-background/50 px-2.5 py-2 text-xs font-medium text-foreground focus:border-primary/60 focus:outline-none"
-          >
-            <option value="전체">수집 모드 전체</option>
-            {COLLECT_MODES.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-
-          <select
-            value={activeFilter}
-            onChange={(e) => {
-              setActiveFilter(e.target.value as (typeof ACTIVE_FILTERS)[number])
-              pagination.setPage(1)
-            }}
-            className="rounded-lg border border-border/60 bg-background/50 px-2.5 py-2 text-xs font-medium text-foreground focus:border-primary/60 focus:outline-none"
-          >
-            <option value="전체">사용 여부 전체</option>
-            <option value="사용">사용</option>
-            <option value="미사용">미사용</option>
-          </select>
-
-          <MiniButton
-            onClick={() => setDetailFiltersOpen((v) => !v)}
-            className={cn(detailFiltersOpen && "border-primary/50 bg-primary/10 text-primary")}
-          >
-            <Filter className="h-3.5 w-3.5" />
-            상세 필터{detailFilterCount > 0 ? ` (${detailFilterCount})` : ""}
-            {detailFiltersOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-          </MiniButton>
-
-          <MiniButton onClick={resetFilters}>
-            <RotateCcw className="h-3 w-3" />
-            초기화
-          </MiniButton>
-        </div>
-
-        {/* 상세 필터 아코디언 */}
-        {detailFiltersOpen ? (
-          <div className="animate-rise flex flex-col gap-3 border-t border-border/50 pt-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="w-16 shrink-0 text-xs font-medium text-muted-foreground">분류</span>
-              {CATEGORY_FILTERS.map((c) => {
-                const Icon = c === "전체" ? null : CATEGORY_ICONS[c]
-                return (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => {
-                      setCatFilter(c)
-                      pagination.setPage(1)
-                    }}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
-                      catFilter === c
-                        ? "border-primary/60 bg-primary/8 text-primary"
-                        : "border-border text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {Icon ? <Icon className="h-3.5 w-3.5" aria-hidden /> : null}
-                    {c}
-                  </button>
-                )
-              })}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="w-16 shrink-0 text-xs font-medium text-muted-foreground">수집 모드</span>
-              {COLLECT_MODE_FILTERS.map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => {
-                    setModeFilter(m)
-                    pagination.setPage(1)
-                  }}
-                  className={cn(
-                    "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
-                    modeFilter === m
-                      ? "border-primary/60 bg-primary/8 text-primary"
-                      : "border-border text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="w-16 shrink-0 text-xs font-medium text-muted-foreground">사용 여부</span>
-              {ACTIVE_FILTERS.map((a) => (
-                <button
-                  key={a}
-                  type="button"
-                  onClick={() => {
-                    setActiveFilter(a)
-                    pagination.setPage(1)
-                  }}
-                  className={cn(
-                    "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
-                    activeFilter === a
-                      ? "border-primary/60 bg-primary/8 text-primary"
-                      : "border-border text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {a}
-                </button>
-              ))}
-            </div>
-
-            {filterChips.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-1.5 border-t border-border/50 pt-3">
-                <span className="text-[11px] text-muted-foreground">적용된 조건</span>
-                {filterChips.map((chip) => (
-                  <span
-                    key={chip.key}
-                    className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 py-0.5 pl-2.5 pr-1 text-xs font-medium text-primary"
-                  >
-                    {chip.label}
-                    <button
-                      type="button"
-                      onClick={chip.onRemove}
-                      aria-label={`${chip.label} 필터 해제`}
-                      className="flex h-4 w-4 items-center justify-center rounded-full transition-colors hover:bg-primary/20"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-
-      {/* 선택/일괄 작업 바 */}
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 bg-accent/8 px-3 py-2.5">
-        <div className="flex flex-wrap items-center gap-2">
-          {selected.size > 0 ? (
-            <span className="text-xs font-semibold text-primary">{selected.size}개 선택됨</span>
-          ) : (
-            <span className="text-xs text-muted-foreground">총 {sorted.length}건</span>
-          )}
-          {selected.size > 0 ? (
-            <>
-              <select
-                value={bulkCategory}
-                onChange={(e) => setBulkCategory(e.target.value as typeof bulkCategory)}
-                className="rounded-lg border border-border/60 bg-background/50 px-2 py-1.5 text-xs text-foreground focus:border-primary/60 focus:outline-none"
-              >
-                <option value="">분류 변경 안 함</option>
-                {MASTER_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-              <select
-                value={bulkMode}
-                onChange={(e) => setBulkMode(e.target.value as typeof bulkMode)}
-                className="rounded-lg border border-border/60 bg-background/50 px-2 py-1.5 text-xs text-foreground focus:border-primary/60 focus:outline-none"
-              >
-                <option value="">수집 모드 변경 안 함</option>
-                {COLLECT_MODES.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-              <select
-                value={bulkActive}
-                onChange={(e) => setBulkActive(e.target.value as typeof bulkActive)}
-                className="rounded-lg border border-border/60 bg-background/50 px-2 py-1.5 text-xs text-foreground focus:border-primary/60 focus:outline-none"
-              >
-                <option value="">사용 여부 변경 안 함</option>
-                <option value="사용">사용</option>
-                <option value="미사용">미사용</option>
-              </select>
-              <MiniButton
-                accent="primary"
-                onClick={handleBulkApply}
-                disabled={!bulkCategory && !bulkMode && !bulkActive}
-              >
-                적용
-              </MiniButton>
-            </>
-          ) : null}
-          <MiniButton accent="destructive" onClick={handleBulkDelete} disabled={selected.size === 0}>
-            삭제
-          </MiniButton>
-        </div>
-        <div className="flex items-center gap-2">
-          <MiniButton accent="primary" onClick={handleAddRow}>
-            <Plus className="h-3.5 w-3.5" />
-            추가
-          </MiniButton>
-          <div ref={colMenuRef} className="relative">
-            <MiniButton onClick={() => setColMenuOpen((v) => !v)} className="border-border bg-card text-foreground">
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-              컬럼 설정
-            </MiniButton>
-            {colMenuOpen ? (
-              <div className="absolute right-0 top-8 z-50 w-52 rounded-xl border border-border/70 bg-card shadow-2xl">
-                <ul className="py-1.5">
-                  {ALL_COLS.map(({ key, label }) => {
-                    const checked = show(key)
-                    return (
-                      <li key={key}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const next = checked ? visibleCols.filter((k) => k !== key) : [...visibleCols, key]
-                            setVisibleCols(next)
-                            saveVisibleCols(next)
-                          }}
-                          className="flex w-full items-center gap-2.5 px-3 py-1.5 text-xs transition-colors hover:bg-accent/60"
-                        >
-                          <span
-                            className={cn(
-                              "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
-                              checked ? "border-primary bg-primary text-primary-foreground" : "border-border/60",
-                            )}
-                          >
-                            {checked && <Check className="h-2.5 w-2.5" />}
-                          </span>
-                          <span className={checked ? "text-foreground" : "text-muted-foreground"}>{label}</span>
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-                <div className="border-t border-border/50 px-3 py-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setVisibleCols(FACTORY_VISIBLE)
-                      saveVisibleCols(FACTORY_VISIBLE)
-                    }}
-                    className="w-full text-center text-[11px] text-muted-foreground transition-colors hover:text-foreground hover:underline"
-                  >
-                    기본값으로 복원
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
-
-      {/* 테이블 */}
-      <TableShell scrollHint>
-        <thead>
-          <tr>
-            <Th className={cn("w-12 bg-accent/15 text-center", HEADER_CELL_H)}>
-              <input
-                type="checkbox"
-                checked={sorted.length > 0 && selected.size === sorted.length}
-                onChange={toggleSelectAll}
-                aria-label="전체 선택"
-                className="h-4 w-4 rounded border-border/60 accent-primary"
-              />
-            </Th>
-            <Th className={cn("w-12 bg-accent/15 text-center", HEADER_CELL_H)}>{null}</Th>
-            {show("id") && (
-              <SortTh col="id" label="마스터 ID" sort={sort} onSort={handleSort} width={getColWidth("id")} onResize={(d) => resizeColumn("id", d)} align="left" />
-            )}
-            {show("category") && (
-              <SortTh col="category" label="분류" sort={sort} onSort={handleSort} width={getColWidth("category")} onResize={(d) => resizeColumn("category", d)} align="center" />
-            )}
-            {show("name") && (
-              <SortTh col="name" label="제품명" sort={sort} onSort={handleSort} width={getColWidth("name")} onResize={(d) => resizeColumn("name", d)} align="left" />
-            )}
-            {show("std_version") && (
-              <SortTh col="std_version" label="버전" sort={sort} onSort={handleSort} width={getColWidth("std_version")} onResize={(d) => resizeColumn("std_version", d)} align="left" />
-            )}
-            {show("vendor") && (
-              <SortTh col="vendor" label="제조사" sort={sort} onSort={handleSort} width={getColWidth("vendor")} onResize={(d) => resizeColumn("vendor", d)} align="left" />
-            )}
-            {show("collect_mode") && (
-              <SortTh col="collect_mode" label="수집 모드" sort={sort} onSort={handleSort} width={getColWidth("collect_mode")} onResize={(d) => resizeColumn("collect_mode", d)} align="center" />
-            )}
-            {show("active") && (
-              <SortTh col="active" label="사용 여부" sort={sort} onSort={handleSort} width={getColWidth("active")} onResize={(d) => resizeColumn("active", d)} align="center" />
-            )}
-            {show("created_at") && (
-              <SortTh col="created_at" label="등록일" sort={sort} onSort={handleSort} width={getColWidth("created_at")} onResize={(d) => resizeColumn("created_at", d)} align="left" />
-            )}
-            {show("manager") && (
-              <Th
-                className={cn("relative bg-accent/15 text-left", HEADER_CELL_H)}
-                style={{ width: getColWidth("manager"), minWidth: getColWidth("manager"), maxWidth: getColWidth("manager") }}
-              >
-                관리자
-                <ColumnResizeHandle onResize={(d) => resizeColumn("manager", d)} />
-              </Th>
-            )}
-            {show("updated_by") && (
-              <Th
-                className={cn("relative bg-accent/15 text-left", HEADER_CELL_H)}
-                style={{ width: getColWidth("updated_by"), minWidth: getColWidth("updated_by"), maxWidth: getColWidth("updated_by") }}
-              >
-                수정자
-                <ColumnResizeHandle onResize={(d) => resizeColumn("updated_by", d)} />
-              </Th>
-            )}
-            {show("note") && (
-              <Th
-                className={cn("relative bg-accent/15 text-left", HEADER_CELL_H)}
-                style={{ width: getColWidth("note"), minWidth: getColWidth("note"), maxWidth: getColWidth("note") }}
-              >
-                비고
-                <ColumnResizeHandle onResize={(d) => resizeColumn("note", d)} />
-              </Th>
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {draft.loading ? (
-            <tr>
-              <td colSpan={colSpan} className="border-b border-border/40 px-3 py-8 text-center text-muted-foreground">
-                불러오는 중…
-              </td>
-            </tr>
-          ) : pagination.pageItems.length === 0 ? (
-            <tr>
-              <td colSpan={colSpan} className="border-b border-border/40 px-3 py-8 text-center text-muted-foreground">
-                검색 결과가 없습니다.
-              </td>
-            </tr>
-          ) : (
-            pagination.pageItems.map((row) => {
-              const requiredEmpty = (f: "name" | "vendor" | "std_version") =>
-                row.status !== "clean" && row.status !== "deleted" && !row.values[f].trim()
-              return (
-                <tr
-                  key={row.id}
-                  ref={(el) => {
-                    if (el) rowRefs.current.set(row.id, el)
-                    else rowRefs.current.delete(row.id)
-                  }}
-                  onDoubleClick={() => setEditingRowId((prev) => (prev === row.id ? null : row.id))}
-                  className={cn(
-                    "border-l-2 border-l-transparent transition-colors hover:border-l-primary",
-                    row.status === "deleted"
-                      ? "bg-destructive/8 line-through opacity-70 hover:bg-destructive/12"
-                      : row.status === "added"
-                        ? "bg-success/8 hover:bg-success/12"
-                        : row.status === "modified"
-                          ? "bg-warning/8 hover:bg-warning/12"
-                          : selected.has(row.id)
-                            ? "bg-primary/8 hover:bg-primary/12"
-                            : "hover:bg-accent/30",
-                    highlightId === row.id && "ring-2 ring-inset ring-primary/60",
-                  )}
-                >
-                  <Td className={cn("text-center", ROW_CELL_H)}>
-                    <input
-                      type="checkbox"
-                      checked={selected.has(row.id)}
-                      onChange={() => toggleSelect(row.id)}
-                      aria-label={`${row.values.name || row.id} 선택`}
-                      className="h-4 w-4 rounded border-border/60 accent-primary"
-                    />
-                  </Td>
-                  <Td className={cn("text-center", ROW_CELL_H)}>
-                    <RowMenu
-                      row={row}
-                      editing={editingRowId === row.id}
-                      onToggleEdit={() => setEditingRowId((prev) => (prev === row.id ? null : row.id))}
-                      onDetail={() => setDetailRow(row)}
-                      onDuplicate={() => draft.duplicateRow(row.id)}
-                      onToggleDelete={() => (row.status === "deleted" ? draft.undoDelete(row.id) : draft.markDeleted(row.id))}
-                      onRevert={() => draft.revertRow(row.id)}
-                    />
-                  </Td>
-                  {show("id") && (
-                    <Td
-                      className={cn("text-left font-mono text-xs text-muted-foreground", ROW_CELL_H)}
-                      style={{ width: getColWidth("id"), minWidth: getColWidth("id"), maxWidth: getColWidth("id") }}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        {row.id}
-                        <RowStatusBadge status={row.status} />
-                      </div>
-                    </Td>
-                  )}
-                  {show("category") && (
-                    <Td
-                      className={cn("text-center", ROW_CELL_H)}
-                      style={{ width: getColWidth("category"), minWidth: getColWidth("category"), maxWidth: getColWidth("category") }}
-                    >
-                      <div className="flex items-center justify-center">
-                        {editingRowId === row.id && row.status !== "deleted" ? (
-                          <EditableCategory
-                            value={row.values.category}
-                            onChange={(v) => draft.editCell(row.id, "category", v)}
-                            dirty={row.dirtyFields.has("category")}
-                          />
-                        ) : (
-                          <CategoryCell value={row.values.category} />
-                        )}
-                      </div>
-                    </Td>
-                  )}
-                  {show("name") && (
-                    <Td
-                      className={cn("text-left", ROW_CELL_H)}
-                      style={{ width: getColWidth("name"), minWidth: getColWidth("name"), maxWidth: getColWidth("name") }}
-                    >
-                      <EditableText
-                        value={row.values.name}
-                        onChange={(v) => draft.editCell(row.id, "name", v)}
-                        dirty={row.dirtyFields.has("name")}
-                        error={row.fieldErrors?.name}
-                        required={requiredEmpty("name")}
-                        bold
-                      />
-                    </Td>
-                  )}
-                  {show("std_version") && (
-                    <Td
-                      className={cn("text-left", ROW_CELL_H)}
-                      style={{ width: getColWidth("std_version"), minWidth: getColWidth("std_version"), maxWidth: getColWidth("std_version") }}
-                    >
-                      <EditableText
-                        value={row.values.std_version}
-                        onChange={(v) => draft.editCell(row.id, "std_version", v)}
-                        dirty={row.dirtyFields.has("std_version")}
-                        error={row.fieldErrors?.std_version}
-                        required={requiredEmpty("std_version")}
-                      />
-                    </Td>
-                  )}
-                  {show("vendor") && (
-                    <Td
-                      className={cn("text-left", ROW_CELL_H)}
-                      style={{ width: getColWidth("vendor"), minWidth: getColWidth("vendor"), maxWidth: getColWidth("vendor") }}
-                    >
-                      <EditableVendor
-                        rowId={row.id}
-                        value={row.values.vendor}
-                        onChange={(v) => draft.editCell(row.id, "vendor", v)}
-                        options={vendorOptions}
-                        dirty={row.dirtyFields.has("vendor")}
-                        error={row.fieldErrors?.vendor}
-                        required={requiredEmpty("vendor")}
-                      />
-                    </Td>
-                  )}
-                  {show("collect_mode") && (
-                    <Td
-                      className={cn("text-center", ROW_CELL_H)}
-                      style={{ width: getColWidth("collect_mode"), minWidth: getColWidth("collect_mode"), maxWidth: getColWidth("collect_mode") }}
-                    >
-                      <div className="flex items-center justify-center">
-                        {editingRowId === row.id && row.status !== "deleted" ? (
-                          <EditableCollectMode
-                            value={row.values.collect_mode}
-                            onChange={(v) => draft.editCell(row.id, "collect_mode", v)}
-                            dirty={row.dirtyFields.has("collect_mode")}
-                          />
-                        ) : (
-                          <CollectModeBadge value={row.values.collect_mode} />
-                        )}
-                      </div>
-                    </Td>
-                  )}
-                  {show("active") && (
-                    <Td
-                      className={cn("text-center", ROW_CELL_H)}
-                      style={{ width: getColWidth("active"), minWidth: getColWidth("active"), maxWidth: getColWidth("active") }}
-                    >
-                      <div className="flex items-center justify-center">
-                        {editingRowId === row.id && row.status !== "deleted" ? (
-                          <ActiveToggle
-                            value={row.values.active}
-                            onChange={(v) => draft.editCell(row.id, "active", v)}
-                            dirty={row.dirtyFields.has("active")}
-                          />
-                        ) : (
-                          <UseStatusBadge value={row.values.active} />
-                        )}
-                      </div>
-                    </Td>
-                  )}
-                  {show("created_at") && (
-                    <Td
-                      className={cn("text-left text-xs text-muted-foreground", ROW_CELL_H)}
-                      style={{ width: getColWidth("created_at"), minWidth: getColWidth("created_at"), maxWidth: getColWidth("created_at") }}
-                    >
-                      {row.createdAt ? formatDateOnly(row.createdAt) : "-"}
-                    </Td>
-                  )}
-                  {show("manager") && (
-                    <Td
-                      className={cn("text-left", ROW_CELL_H)}
-                      style={{ width: getColWidth("manager"), minWidth: getColWidth("manager"), maxWidth: getColWidth("manager") }}
-                    >
-                      <EditableText
-                        value={row.values.manager}
-                        onChange={(v) => draft.editCell(row.id, "manager", v)}
-                        dirty={row.dirtyFields.has("manager")}
-                      />
-                    </Td>
-                  )}
-                  {show("updated_by") && (
-                    <Td
-                      className={cn("text-left text-xs text-muted-foreground", ROW_CELL_H)}
-                      style={{ width: getColWidth("updated_by"), minWidth: getColWidth("updated_by"), maxWidth: getColWidth("updated_by") }}
-                    >
-                      {row.updatedBy ?? "-"}
-                    </Td>
-                  )}
-                  {show("note") && (
-                    <Td
-                      className={cn("text-left", ROW_CELL_H)}
-                      style={{ width: getColWidth("note"), minWidth: getColWidth("note"), maxWidth: getColWidth("note") }}
-                    >
-                      <EditableText
-                        value={row.values.note}
-                        onChange={(v) => draft.editCell(row.id, "note", v)}
-                        dirty={row.dirtyFields.has("note")}
-                      />
-                    </Td>
-                  )}
-                </tr>
-              )
-            })
-          )}
-        </tbody>
-      </TableShell>
-
-      {/* 페이지네이션 */}
-      <Pagination
-        page={pagination.page}
-        pageSize={pagination.pageSize}
-        totalPages={pagination.totalPages}
-        onPageChange={pagination.setPage}
-        onPageSizeChange={pagination.setPageSize}
-      />
-
-      {/* 변경 이력 */}
-      {draft.hasChanges ? (
-        <div className="glow-card animate-rise flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="flex items-center gap-1.5 text-sm font-bold text-foreground">
-              <History className="h-4 w-4 text-primary" />
-              변경 이력 {draft.changeLog.length}건
-            </span>
-            <div className="flex items-center gap-2">
-              <MiniButton onClick={draft.revertAll}>
-                <X className="h-3 w-3" />
-                변경사항 초기화
-              </MiniButton>
-              <MiniButton accent="primary" onClick={handleSaveClick} disabled={saving}>
-                <Save className="h-3 w-3" />
-                저장 {draft.summary.total}건
-              </MiniButton>
-            </div>
-          </div>
-          <ul className="flex flex-col gap-1">
-            {draft.changeLog.map((entry) => (
-              <li key={entry.id}>
-                <button
-                  type="button"
-                  onClick={() => jumpToRow(entry.id)}
-                  className="w-full rounded-md px-2 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
-                >
-                  {entry.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      <MasterDetailModal row={detailRow} onClose={() => setDetailRow(null)} />
-
-      {/* 저장 확인 팝업 */}
-      {confirmOpen ? (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
-          <button
-            type="button"
-            aria-label="닫기"
-            onClick={() => !saving && setConfirmOpen(false)}
-            className="animate-overlay absolute inset-0 bg-background/70 backdrop-blur-sm"
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="glass relative flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-primary/25 p-5 shadow-2xl"
-          >
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-warning" />
-              <h2 className="text-base font-bold text-foreground">변경사항을 저장하시겠습니까?</h2>
-            </div>
-            <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
-              {draft.summary.added > 0 ? <li>추가 {draft.summary.added}건</li> : null}
-              {draft.summary.modified > 0 ? <li>수정 {draft.summary.modified}건</li> : null}
-              {draft.summary.deleted > 0 ? <li>삭제 {draft.summary.deleted}건</li> : null}
-            </ul>
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmOpen(false)}
-                disabled={saving}
-                className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmSave}
-                disabled={saving}
-                className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
-              >
-                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                저장
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+        )}
+      </SectionCard>
     </div>
   )
 }
