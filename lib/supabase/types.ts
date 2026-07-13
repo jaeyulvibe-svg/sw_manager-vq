@@ -399,6 +399,38 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_policies: {
+        Row: {
+          id: string
+          auto_collect_enabled: boolean
+          collect_interval: "1시간" | "6시간" | "일 1회"
+          critical_urgent_alert: boolean
+          high_requires_approval: boolean
+          eos_alert_180d: boolean
+          queue_after_collect: boolean
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          auto_collect_enabled?: boolean
+          collect_interval?: "1시간" | "6시간" | "일 1회"
+          critical_urgent_alert?: boolean
+          high_requires_approval?: boolean
+          eos_alert_180d?: boolean
+          queue_after_collect?: boolean
+          updated_at?: string
+        }
+        Update: {
+          auto_collect_enabled?: boolean
+          collect_interval?: "1시간" | "6시간" | "일 1회"
+          critical_urgent_alert?: boolean
+          high_requires_approval?: boolean
+          eos_alert_180d?: boolean
+          queue_after_collect?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
