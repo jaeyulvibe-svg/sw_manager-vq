@@ -587,7 +587,7 @@ export function ColumnVisibilityMenu<K extends string>({
 export const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
 export type PageSize = (typeof PAGE_SIZE_OPTIONS)[number]
 
-export function usePagination<T>(items: T[], initialPageSize: PageSize = 20) {
+export function usePagination<T>(items: T[], initialPageSize: PageSize = 10) {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSizeState] = useState<PageSize>(initialPageSize)
 

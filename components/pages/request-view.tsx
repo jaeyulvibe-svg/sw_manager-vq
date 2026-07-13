@@ -20,6 +20,8 @@ import {
   Th,
   Td,
   ExportExcelButton,
+  usePagination,
+  Pagination,
   type Accent,
   type RiskLevel,
 } from "@/components/portal/ui"
@@ -165,6 +167,7 @@ export function RequestView() {
     approved: requests.filter((r) => r.approval === "승인완료").length,
     rejected: requests.filter((r) => r.approval === "반려").length,
   }
+  const pagination = usePagination(requests)
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -442,7 +445,7 @@ export function RequestView() {
             </tr>
           </thead>
           <tbody>
-            {requests.map((r) => (
+            {pagination.pageItems.map((r) => (
               <tr key={r.id} className="transition-colors hover:bg-accent/40">
                 <Td className="font-mono text-xs text-muted-foreground">{r.no}</Td>
                 <Td className="font-semibold">{r.name}</Td>
@@ -464,6 +467,17 @@ export function RequestView() {
           </tbody>
         </TableShell>
         {loading ? <p className="mt-2 text-xs text-muted-foreground">불러오는 중…</p> : null}
+        {!loading && requests.length > 0 && (
+          <div className="mt-3">
+            <Pagination
+              page={pagination.page}
+              pageSize={pagination.pageSize}
+              totalPages={pagination.totalPages}
+              onPageChange={pagination.setPage}
+              onPageSizeChange={pagination.setPageSize}
+            />
+          </div>
+        )}
       </SectionCard>
     </div>
   )

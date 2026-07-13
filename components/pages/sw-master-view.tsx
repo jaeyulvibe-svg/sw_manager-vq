@@ -18,7 +18,7 @@ import {
   Loader2,
   Filter,
 } from "lucide-react"
-import { PageHeader, TableShell, Th, Td, MiniButton, ExportExcelButton } from "@/components/portal/ui"
+import { PageHeader, TableShell, Th, Td, MiniButton, ExportExcelButton, usePagination, Pagination } from "@/components/portal/ui"
 import { useToast } from "@/components/portal/toast"
 import { useUnsavedGuard } from "@/components/portal/unsaved-guard"
 import { cn } from "@/lib/utils"
@@ -225,7 +225,6 @@ function SortTh({
   )
 }
 
-const PAGE_SIZES = [10, 20, 50] as const
 const CATEGORY_FILTERS = ["전체", ...MASTER_CATEGORIES] as const
 const COLLECT_MODE_FILTERS = ["전체", ...COLLECT_MODES] as const
 const ACTIVE_FILTERS = ["전체", "사용", "미사용"] as const
@@ -246,8 +245,6 @@ export function SwMasterView() {
   const [bulkCategory, setBulkCategory] = useState<"" | EditableFields["category"]>("")
   const [bulkMode, setBulkMode] = useState<"" | (typeof COLLECT_MODES)[number]>("")
   const [bulkActive, setBulkActive] = useState<"" | "사용" | "미사용">("")
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(20)
   const [visibleCols, setVisibleCols] = useState<ColKey[]>(() => loadVisibleCols())
   const [colWidths, setColWidths] = useState<Partial<Record<ColKey, number>>>(() => loadColWidths())
   const [colMenuOpen, setColMenuOpen] = useState(false)
@@ -333,20 +330,18 @@ export function SwMasterView() {
     })
   }, [filtered, sort])
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize))
-  const pageSafe = Math.min(page, totalPages)
-  const pageRows = sorted.slice((pageSafe - 1) * pageSize, pageSafe * pageSize)
+  const pagination = usePagination(sorted)
 
   useEffect(() => {
-    if (editingRowId && !pageRows.some((r) => r.id === editingRowId)) {
+    if (editingRowId && !pagination.pageItems.some((r) => r.id === editingRowId)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setEditingRowId(null)
     }
-  }, [editingRowId, pageRows])
+  }, [editingRowId, pagination.pageItems])
 
   function handleSort(key: SortKey, additive: boolean) {
     setSort((prev) => cycleSort(prev, key, additive))
-    setPage(1)
+    pagination.setPage(1)
   }
 
   function getColWidth(key: ColKey) {
@@ -369,7 +364,7 @@ export function SwMasterView() {
     setModeFilter("전체")
     setActiveFilter("전체")
     setSort([{ key: "id", dir: "asc" }])
-    setPage(1)
+    pagination.setPage(1)
   }
 
   function toggleSelectAll() {
@@ -386,7 +381,7 @@ export function SwMasterView() {
 
   function handleAddRow() {
     const id = draft.addRow()
-    setPage(1)
+    pagination.setPage(1)
     setHighlightId(id)
   }
 
@@ -432,7 +427,7 @@ export function SwMasterView() {
   function jumpToRow(id: string) {
     setHighlightId(id)
     const idx = sorted.findIndex((r) => r.id === id)
-    if (idx >= 0) setPage(Math.floor(idx / pageSize) + 1)
+    if (idx >= 0) pagination.setPage(Math.floor(idx / pagination.pageSize) + 1)
     requestAnimationFrame(() => {
       rowRefs.current.get(id)?.scrollIntoView({ block: "center", behavior: "smooth" })
     })
@@ -493,7 +488,7 @@ export function SwMasterView() {
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value)
-                setPage(1)
+                pagination.setPage(1)
               }}
               placeholder="마스터 ID, 제품명, 벤더, 표준 버전 검색"
               className="w-full rounded-lg border border-border/60 bg-background/50 py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -504,7 +499,7 @@ export function SwMasterView() {
             value={catFilter}
             onChange={(e) => {
               setCatFilter(e.target.value as (typeof CATEGORY_FILTERS)[number])
-              setPage(1)
+              pagination.setPage(1)
             }}
             className="rounded-lg border border-border/60 bg-background/50 px-2.5 py-2 text-xs font-medium text-foreground focus:border-primary/60 focus:outline-none"
           >
@@ -518,7 +513,7 @@ export function SwMasterView() {
             value={modeFilter}
             onChange={(e) => {
               setModeFilter(e.target.value as (typeof COLLECT_MODE_FILTERS)[number])
-              setPage(1)
+              pagination.setPage(1)
             }}
             className="rounded-lg border border-border/60 bg-background/50 px-2.5 py-2 text-xs font-medium text-foreground focus:border-primary/60 focus:outline-none"
           >
@@ -532,7 +527,7 @@ export function SwMasterView() {
             value={activeFilter}
             onChange={(e) => {
               setActiveFilter(e.target.value as (typeof ACTIVE_FILTERS)[number])
-              setPage(1)
+              pagination.setPage(1)
             }}
             className="rounded-lg border border-border/60 bg-background/50 px-2.5 py-2 text-xs font-medium text-foreground focus:border-primary/60 focus:outline-none"
           >
@@ -569,7 +564,7 @@ export function SwMasterView() {
                     type="button"
                     onClick={() => {
                       setCatFilter(c)
-                      setPage(1)
+                      pagination.setPage(1)
                     }}
                     className={cn(
                       "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
@@ -593,7 +588,7 @@ export function SwMasterView() {
                   type="button"
                   onClick={() => {
                     setModeFilter(m)
-                    setPage(1)
+                    pagination.setPage(1)
                   }}
                   className={cn(
                     "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
@@ -615,7 +610,7 @@ export function SwMasterView() {
                   type="button"
                   onClick={() => {
                     setActiveFilter(a)
-                    setPage(1)
+                    pagination.setPage(1)
                   }}
                   className={cn(
                     "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
@@ -838,14 +833,14 @@ export function SwMasterView() {
                 불러오는 중…
               </td>
             </tr>
-          ) : pageRows.length === 0 ? (
+          ) : pagination.pageItems.length === 0 ? (
             <tr>
               <td colSpan={colSpan} className="border-b border-border/40 px-3 py-8 text-center text-muted-foreground">
                 검색 결과가 없습니다.
               </td>
             </tr>
           ) : (
-            pageRows.map((row) => {
+            pagination.pageItems.map((row) => {
               const requiredEmpty = (f: "name" | "vendor" | "std_version") =>
                 row.status !== "clean" && row.status !== "deleted" && !row.values[f].trim()
               return (
@@ -1048,42 +1043,13 @@ export function SwMasterView() {
       </TableShell>
 
       {/* 페이지네이션 */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <label className="flex items-center gap-2 text-xs text-muted-foreground">
-          표시 개수
-          <select
-            value={pageSize}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value) as (typeof PAGE_SIZES)[number])
-              setPage(1)
-            }}
-            className="rounded-md border border-border/60 bg-background/50 px-2 py-1 text-xs"
-          >
-            {PAGE_SIZES.map((n) => (
-              <option key={n} value={n}>{n}개</option>
-            ))}
-          </select>
-        </label>
-        <div className="flex items-center gap-2 text-xs">
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={pageSafe <= 1}
-            className="rounded-md border border-border/60 px-2.5 py-1 text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            이전
-          </button>
-          <span className="text-muted-foreground">{pageSafe} / {totalPages}</span>
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={pageSafe >= totalPages}
-            className="rounded-md border border-border/60 px-2.5 py-1 text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            다음
-          </button>
-        </div>
-      </div>
+      <Pagination
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        totalPages={pagination.totalPages}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
+      />
 
       {/* 변경 이력 */}
       {draft.hasChanges ? (

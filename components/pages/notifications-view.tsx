@@ -11,6 +11,8 @@ import {
   Td,
   MiniButton,
   ExportExcelButton,
+  usePagination,
+  Pagination,
 } from "@/components/portal/ui"
 import {
   useNotifications,
@@ -61,6 +63,7 @@ export function NotificationsView({
       })
       .sort((a, b) => a.order - b.order)
   }, [notifications, query, type, read])
+  const pagination = usePagination(filtered)
 
   return (
     <div className="flex flex-col gap-6">
@@ -129,14 +132,14 @@ export function NotificationsView({
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => { setQuery(e.target.value); pagination.setPage(1) }}
             placeholder="제목, 상세, 관련 자산, 담당자 검색"
             className="w-full rounded-lg border border-border/60 bg-background/60 py-2 pl-9 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/50"
           />
         </div>
         <div className="flex flex-col gap-2">
-          <FilterRow options={TYPE_FILTERS} value={type} onChange={setType} />
-          <FilterRow options={READ_FILTERS} value={read} onChange={setRead} />
+          <FilterRow options={TYPE_FILTERS} value={type} onChange={(v) => { setType(v); pagination.setPage(1) }} />
+          <FilterRow options={READ_FILTERS} value={read} onChange={(v) => { setRead(v); pagination.setPage(1) }} />
         </div>
       </div>
 
@@ -155,7 +158,7 @@ export function NotificationsView({
           </tr>
         </thead>
         <tbody>
-          {filtered.map((n) => {
+          {pagination.pageItems.map((n) => {
             const meta = CATEGORY_META[n.category]
             return (
               <tr
@@ -233,6 +236,15 @@ export function NotificationsView({
           ) : null}
         </tbody>
       </TableShell>
+      {filtered.length > 0 && (
+        <Pagination
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          totalPages={pagination.totalPages}
+          onPageChange={pagination.setPage}
+          onPageSizeChange={pagination.setPageSize}
+        />
+      )}
     </div>
   )
 }

@@ -36,6 +36,8 @@ import {
   loadColumnVisibility,
   TABLE_HEADER_CELL_H,
   TABLE_ROW_CELL_H,
+  usePagination,
+  Pagination,
   type Accent,
   type RiskLevel,
 } from "@/components/portal/ui"
@@ -242,8 +244,7 @@ type ManualVulnFormValues = {
   cve: string
   title: string
   severity: VulnSeverity
-  product: string
-  source: string
+  masterId: string
   source_url: string
   source_type: SourceType
   notice_type: NoticeType
@@ -253,28 +254,44 @@ const EMPTY_MANUAL_VULN: ManualVulnFormValues = {
   cve: "",
   title: "",
   severity: "Medium",
-  product: "",
-  source: "",
+  masterId: "",
   source_url: "",
   source_type: "vendor",
   notice_type: "CVE",
 }
 
 function ManualVulnFormPanel({
+  masters,
+  mastersLoading,
   onSubmit,
   submitting,
 }: {
+  masters: Tables<"sw_masters">[]
+  mastersLoading: boolean
   onSubmit: (values: ManualVulnFormValues) => Promise<boolean>
   submitting: boolean
 }) {
   const [values, setValues] = useState<ManualVulnFormValues>(EMPTY_MANUAL_VULN)
-  const canSubmit =
-    values.cve.trim() && values.title.trim() && values.product.trim() && values.source.trim()
+  const [productName, setProductName] = useState("")
+  const canSubmit = values.cve.trim() && values.title.trim() && values.masterId
+
+  const productNames = Array.from(new Set(masters.map((m) => m.name))).sort((a, b) =>
+    a.localeCompare(b, "ko"),
+  )
+  const versionOptions = productName ? masters.filter((m) => m.name === productName) : []
+
+  function handleProductChange(next: string) {
+    setProductName(next)
+    setValues((v) => ({ ...v, masterId: "" }))
+  }
 
   async function handleSubmit() {
     if (!canSubmit) return
     const ok = await onSubmit(values)
-    if (ok) setValues(EMPTY_MANUAL_VULN)
+    if (ok) {
+      setValues(EMPTY_MANUAL_VULN)
+      setProductName("")
+    }
   }
 
   return (
@@ -323,21 +340,38 @@ function ManualVulnFormPanel({
       </label>
       <label className="flex flex-col gap-1 text-xs">
         <span className="font-medium text-muted-foreground">제품명</span>
-        <input
-          value={values.product}
-          onChange={(e) => setValues((v) => ({ ...v, product: e.target.value }))}
-          placeholder="예: Apache Tomcat 10.1.x"
+        <select
+          value={productName}
+          onChange={(e) => handleProductChange(e.target.value)}
           className={inputCls}
-        />
+        >
+          <option value="">
+            {mastersLoading
+              ? "불러오는 중..."
+              : productNames.length === 0
+                ? "등록된 제품이 없습니다"
+                : "SW 마스터에 등록된 제품을 선택하세요"}
+          </option>
+          {productNames.map((name) => (
+            <option key={name} value={name}>{name}</option>
+          ))}
+        </select>
       </label>
       <label className="flex flex-col gap-1 text-xs">
-        <span className="font-medium text-muted-foreground">출처</span>
-        <input
-          value={values.source}
-          onChange={(e) => setValues((v) => ({ ...v, source: e.target.value }))}
-          placeholder="예: KISA 보안공지"
+        <span className="font-medium text-muted-foreground">버전</span>
+        <select
+          value={values.masterId}
+          onChange={(e) => setValues((v) => ({ ...v, masterId: e.target.value }))}
+          disabled={!productName}
           className={inputCls}
-        />
+        >
+          <option value="">
+            {!productName ? "먼저 제품명을 선택하세요" : "버전을 선택하세요"}
+          </option>
+          {versionOptions.map((m) => (
+            <option key={m.id} value={m.id}>{m.std_version}</option>
+          ))}
+        </select>
       </label>
       <label className="flex flex-col gap-1 text-xs">
         <span className="font-medium text-muted-foreground">출처 유형</span>
@@ -634,6 +668,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
     })
 
   const showSourceCol = (key: SourceColKey) => sourceVisible.includes(key)
+  const sourcePagination = usePagination(filteredSources)
 
   const [userQuery, setUserQuery] = useState("")
   const [userSortKey, setUserSortKey] = useState<UserSortKey>("name")
@@ -663,10 +698,14 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
     })
 
   const showUserCol = (key: UserColKey) => userVisible.includes(key)
+  const userPagination = usePagination(filteredUsers)
+  const logPagination = usePagination(logs)
 
   const [assets, setAssets] = useState<Tables<"assets">[]>([])
   const [manualVulnSubmitting, setManualVulnSubmitting] = useState(false)
   const [manualEosSubmitting, setManualEosSubmitting] = useState(false)
+  const [masters, setMasters] = useState<Tables<"sw_masters">[]>([])
+  const [mastersLoading, setMastersLoading] = useState(true)
 
   useEffect(() => {
     const supabase = createClient()
@@ -676,6 +715,20 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
       .order("name")
       .then(({ data }) => {
         if (data) setAssets(data)
+      })
+  }, [])
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from("sw_masters")
+      .select("*")
+      .eq("active", true)
+      .is("deleted_at", null)
+      .order("name")
+      .then(({ data }) => {
+        if (data) setMasters(data)
+        setMastersLoading(false)
       })
   }, [])
 
@@ -741,14 +794,16 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
   }
 
   async function submitManualVuln(values: ManualVulnFormValues): Promise<boolean> {
+    const master = masters.find((m) => m.id === values.masterId)
+    if (!master) return false
     setManualVulnSubmitting(true)
     const supabase = createClient()
     const payload: TablesInsert<"vulnerabilities"> = {
       cve: values.cve.trim(),
       title: values.title.trim(),
       severity: values.severity,
-      product: values.product.trim(),
-      source: values.source.trim(),
+      product: `${master.name} ${master.std_version}`,
+      source: values.source_type === "kisa" ? "KISA 보안공지" : `${master.name} 공식 보안 공지`,
       source_url: values.source_url.trim() || null,
       source_type: values.source_type,
       notice_type: values.notice_type,
@@ -900,7 +955,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
                 <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <input
                   value={sourceQuery}
-                  onChange={(e) => setSourceQuery(e.target.value)}
+                  onChange={(e) => { setSourceQuery(e.target.value); sourcePagination.setPage(1) }}
                   placeholder="제품명, URL 검색"
                   className="w-48 rounded-lg border border-border/60 bg-background/50 py-1.5 pl-8 pr-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none"
                 />
@@ -963,7 +1018,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
             </tr>
           </thead>
           <tbody>
-            {filteredSources.map((s) =>
+            {sourcePagination.pageItems.map((s) =>
               sourcePanel === s.id ? (
                 <tr key={s.id}>
                   <td colSpan={7} className="border-b border-border/40 p-0">
@@ -1024,6 +1079,17 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
             )}
           </tbody>
         </TableShell>
+        {filteredSources.length > 0 && (
+          <div className="mt-3">
+            <Pagination
+              page={sourcePagination.page}
+              pageSize={sourcePagination.pageSize}
+              totalPages={sourcePagination.totalPages}
+              onPageChange={sourcePagination.setPage}
+              onPageSizeChange={sourcePagination.setPageSize}
+            />
+          </div>
+        )}
       </SectionCard>
 
       <div className="grid grid-cols-1 gap-6">
@@ -1116,7 +1182,12 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
           subtitle="자동수집 대상이 아닌 공지를 직접 등록"
           icon={FilePlus2}
         >
-          <ManualVulnFormPanel onSubmit={submitManualVuln} submitting={manualVulnSubmitting} />
+          <ManualVulnFormPanel
+            masters={masters}
+            mastersLoading={mastersLoading}
+            onSubmit={submitManualVuln}
+            submitting={manualVulnSubmitting}
+          />
           <p className="mt-3 text-[11px] text-muted-foreground">
             등록된 공지는 &apos;승인대기&apos; 상태로 공지 유형에 맞는 화면(EOS는 &apos;EOS 공지&apos;, 그 외는 출처 유형에 따라 &apos;KISA 취약점 공지&apos; 또는 &apos;제조사 취약점 공지&apos;)에 나타납니다. 그곳에서 검토 후 승인하면 승인된 취약점 공지에 반영됩니다.
           </p>
@@ -1160,7 +1231,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
               <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={userQuery}
-                onChange={(e) => setUserQuery(e.target.value)}
+                onChange={(e) => { setUserQuery(e.target.value); userPagination.setPage(1) }}
                 placeholder="이름, 이메일, 부서 검색"
                 className="w-48 rounded-lg border border-border/60 bg-background/50 py-1.5 pl-8 pr-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none"
               />
@@ -1199,7 +1270,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
             </tr>
           </thead>
           <tbody>
-            {filteredUsers.map((u) => (
+            {userPagination.pageItems.map((u) => (
               <tr key={u.email} className="transition-colors hover:bg-accent/40">
                 {showUserCol("name") && <Td className={cn("font-semibold", TABLE_ROW_CELL_H)}>{u.name}</Td>}
                 {showUserCol("email") && <Td className={cn("font-mono text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{u.email}</Td>}
@@ -1224,6 +1295,17 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
             )}
           </tbody>
         </TableShell>
+        {filteredUsers.length > 0 && (
+          <div className="mt-3">
+            <Pagination
+              page={userPagination.page}
+              pageSize={userPagination.pageSize}
+              totalPages={userPagination.totalPages}
+              onPageChange={userPagination.setPage}
+              onPageSizeChange={userPagination.setPageSize}
+            />
+          </div>
+        )}
       </SectionCard>
 
       {/* Section 6: Logs */}
@@ -1252,7 +1334,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
             </tr>
           </thead>
           <tbody>
-            {logs.map((l, i) => (
+            {logPagination.pageItems.map((l, i) => (
               <tr key={i} className="transition-colors hover:bg-accent/40">
                 <Td className="font-mono text-xs text-muted-foreground">{l.time}</Td>
                 <Td><StatusBadge accent="primary">{l.type}</StatusBadge></Td>
@@ -1267,6 +1349,17 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
             ))}
           </tbody>
         </TableShell>
+        {logs.length > 0 && (
+          <div className="mt-3">
+            <Pagination
+              page={logPagination.page}
+              pageSize={logPagination.pageSize}
+              totalPages={logPagination.totalPages}
+              onPageChange={logPagination.setPage}
+              onPageSizeChange={logPagination.setPageSize}
+            />
+          </div>
+        )}
       </SectionCard>
       </>
       )}

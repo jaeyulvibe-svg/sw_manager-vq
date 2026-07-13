@@ -24,6 +24,8 @@ import {
   Td,
   MiniButton,
   ExportExcelButton,
+  usePagination,
+  Pagination,
   type RiskLevel,
 } from "@/components/portal/ui"
 import { createClient } from "@/lib/supabase/client"
@@ -96,6 +98,7 @@ export function ApprovalView() {
     () => (filter === "전체" ? requests : requests.filter((r) => r.approval === filter)),
     [requests, filter],
   )
+  const pagination = usePagination(filtered)
 
   async function decide(req: AssetRequest, decision: "승인완료" | "반려") {
     if (busyId) return
@@ -205,7 +208,7 @@ export function ApprovalView() {
                 <button
                   key={f}
                   type="button"
-                  onClick={() => setFilter(f)}
+                  onClick={() => { setFilter(f); pagination.setPage(1) }}
                   className={cn(
                     "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors",
                     filter === f
@@ -230,7 +233,7 @@ export function ApprovalView() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r) => (
+                {pagination.pageItems.map((r) => (
                   <tr
                     key={r.id}
                     onClick={() => setSelectedId(r.id)}
@@ -296,6 +299,17 @@ export function ApprovalView() {
                 ) : null}
               </tbody>
             </TableShell>
+            {!loading && filtered.length > 0 && (
+              <div className="mt-3">
+                <Pagination
+                  page={pagination.page}
+                  pageSize={pagination.pageSize}
+                  totalPages={pagination.totalPages}
+                  onPageChange={pagination.setPage}
+                  onPageSizeChange={pagination.setPageSize}
+                />
+              </div>
+            )}
           </SectionCard>
         </div>
 

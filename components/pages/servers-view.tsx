@@ -24,6 +24,8 @@ import {
   loadColumnVisibility,
   TABLE_HEADER_CELL_H,
   TABLE_ROW_CELL_H,
+  usePagination,
+  Pagination,
   type RiskLevel,
 } from "@/components/portal/ui"
 import { useToast } from "@/components/portal/toast"
@@ -243,6 +245,7 @@ export function ServersView() {
     })
 
   const show = (key: ServerColKey) => visible.includes(key)
+  const pagination = usePagination(filtered)
 
   async function saveServer(values: ServerFormValues) {
     const supabase = createClient()
@@ -342,7 +345,7 @@ export function ServersView() {
                 <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <input
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={(e) => { setQuery(e.target.value); pagination.setPage(1) }}
                   placeholder="서버명, 호스트명, IP, 위치 검색"
                   className="w-48 rounded-lg border border-border/60 bg-background/50 py-1.5 pl-8 pr-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none"
                 />
@@ -415,7 +418,7 @@ export function ServersView() {
                 </Td>
               </tr>
             ) : (
-              filtered.map((s) =>
+              pagination.pageItems.map((s) =>
                 panel === s.id ? (
                   <tr key={s.id}>
                     <td colSpan={8} className="border-b border-border/40 p-0">
@@ -481,6 +484,17 @@ export function ServersView() {
           </tbody>
         </TableShell>
         {loading ? <p className="mt-2 text-xs text-muted-foreground">불러오는 중…</p> : null}
+        {!loading && filtered.length > 0 && (
+          <div className="mt-3">
+            <Pagination
+              page={pagination.page}
+              pageSize={pagination.pageSize}
+              totalPages={pagination.totalPages}
+              onPageChange={pagination.setPage}
+              onPageSizeChange={pagination.setPageSize}
+            />
+          </div>
+        )}
       </SectionCard>
     </div>
   )

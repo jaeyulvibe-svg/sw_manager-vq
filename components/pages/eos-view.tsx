@@ -29,6 +29,8 @@ import {
   Th,
   Td,
   ExportExcelButton,
+  usePagination,
+  Pagination,
   type RiskLevel,
 } from "@/components/portal/ui"
 import { createClient } from "@/lib/supabase/client"
@@ -164,6 +166,7 @@ export function EosView() {
         .sort((a, b) => a.days - b.days),
     [assets],
   )
+  const pagination = usePagination(eosRows)
 
   return (
     <div className="flex flex-col gap-6">
@@ -244,7 +247,7 @@ export function EosView() {
               </tr>
             </thead>
             <tbody>
-              {eosRows.map((it) => {
+              {pagination.pageItems.map((it) => {
                 const soon = it.remainPct <= 35
                 return (
                   <tr key={it.id} className="transition-colors hover:bg-accent/40">
@@ -298,6 +301,17 @@ export function EosView() {
               })}
             </tbody>
           </TableShell>
+        )}
+        {!loading && eosRows.length > 0 && (
+          <div className="mt-3">
+            <Pagination
+              page={pagination.page}
+              pageSize={pagination.pageSize}
+              totalPages={pagination.totalPages}
+              onPageChange={pagination.setPage}
+              onPageSizeChange={pagination.setPageSize}
+            />
+          </div>
         )}
       </SectionCard>
     </div>

@@ -21,6 +21,8 @@ import {
   Th,
   Td,
   ExportExcelButton,
+  usePagination,
+  Pagination,
   type RiskLevel,
 } from "@/components/portal/ui"
 import { useRole } from "@/components/portal/role-context"
@@ -96,6 +98,7 @@ function buildRows(assets: Asset[]): CategoryRow[] {
 
 function CategorySummary({ assets }: { assets: Asset[] }) {
   const rows = buildRows(assets)
+  const pagination = usePagination(rows)
   return (
     <SectionCard
       title="카테고리별 자산 요약"
@@ -130,7 +133,7 @@ function CategorySummary({ assets }: { assets: Asset[] }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
+          {pagination.pageItems.map((r) => (
             <tr key={r.category} className="transition-colors hover:bg-accent/40">
               <Td className="font-semibold text-foreground">{r.category}</Td>
               <Td className="font-mono tabular-nums">{r.count}</Td>
@@ -159,6 +162,17 @@ function CategorySummary({ assets }: { assets: Asset[] }) {
           ))}
         </tbody>
       </TableShell>
+      {rows.length > 0 && (
+        <div className="mt-3">
+          <Pagination
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
+        </div>
+      )}
     </SectionCard>
   )
 }
