@@ -106,6 +106,79 @@ function toDetail(a: Asset): AssetDetail {
   }
 }
 
+/* ── 행별 수정 패널 (담당자/설치 서버/승인 상태만) ─────────── */
+type AssetEditValues = { owner: string; server: string; approval: Asset["approval"] }
+const APPROVAL_OPTIONS: Asset["approval"][] = ["승인대기", "확인필요", "승인완료", "긴급"]
+
+function AssetEditFormPanel({
+  initial,
+  servers,
+  onCancel,
+  onSubmit,
+}: {
+  initial: AssetEditValues
+  servers: Server[]
+  onCancel: () => void
+  onSubmit: (values: AssetEditValues) => void
+}) {
+  const [values, setValues] = useState<AssetEditValues>(initial)
+  const inputCls =
+    "rounded-lg border border-border/60 bg-background/50 px-3 py-1.5 text-xs text-foreground focus:border-primary/60 focus:outline-none"
+
+  return (
+    <div className="flex flex-wrap items-end gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">담당자</span>
+        <input
+          value={values.owner}
+          onChange={(e) => setValues((v) => ({ ...v, owner: e.target.value }))}
+          className={inputCls}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">설치 서버</span>
+        <select
+          value={values.server}
+          onChange={(e) => setValues((v) => ({ ...v, server: e.target.value }))}
+          className={inputCls}
+        >
+          {servers.map((s) => (
+            <option key={s.id} value={s.name}>{s.name}</option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">승인 상태</span>
+        <select
+          value={values.approval}
+          onChange={(e) => setValues((v) => ({ ...v, approval: e.target.value as Asset["approval"] }))}
+          className={inputCls}
+        >
+          {APPROVAL_OPTIONS.map((a) => (
+            <option key={a} value={a}>{a}</option>
+          ))}
+        </select>
+      </label>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onSubmit(values)}
+          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+        >
+          저장
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          취소
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /* ── 메인 컴포넌트 ──────────────────────────────────────── */
 export function AssetsView() {
   const { toast } = useToast()
@@ -120,6 +193,7 @@ export function AssetsView() {
   const [visible, setVisible] = useState<ColKey[]>(() => loadColumnVisibility(LS_KEY, FACTORY_VISIBLE))
   const [selected, setSelected] = useState<AssetDetail | null>(null)
   const [detailFiltersOpen, setDetailFiltersOpen] = useState(false)
+  const [editPanel, setEditPanel] = useState<string | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -132,6 +206,18 @@ export function AssetsView() {
       setLoading(false)
     })
   }, [])
+
+  async function saveAssetEdit(assetId: string, values: AssetEditValues) {
+    const supabase = createClient()
+    const { error } = await supabase.from("assets").update(values).eq("id", assetId)
+    if (error) {
+      toast({ tone: "danger", title: "자산 수정 실패", description: error.message })
+      return
+    }
+    setAssets((prev) => prev.map((a) => (a.id === assetId ? { ...a, ...values } : a)))
+    setEditPanel(null)
+    toast({ tone: "success", title: "자산 정보가 수정되었습니다" })
+  }
 
   function handleSort(col: SortKey) {
     if (sortKey === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
@@ -322,6 +408,20 @@ export function AssetsView() {
           <tbody>
             {pagination.pageItems.map((a) => {
               const sv = servers.find((s) => s.name === a.server)
+              if (editPanel === a.id) {
+                return (
+                  <tr key={a.id}>
+                    <td colSpan={visible.length + 1} className="border-b border-border/40 p-0">
+                      <AssetEditFormPanel
+                        initial={{ owner: a.owner, server: a.server, approval: a.approval }}
+                        servers={servers}
+                        onCancel={() => setEditPanel(null)}
+                        onSubmit={(values) => saveAssetEdit(a.id, values)}
+                      />
+                    </td>
+                  </tr>
+                )
+              }
               return (
                 <tr key={a.id} className="transition-colors hover:bg-accent/40">
                   {show("id")       && <Td className={cn("font-mono text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{a.id}</Td>}
@@ -379,7 +479,9 @@ export function AssetsView() {
                       <MiniButton accent="primary" onClick={() => setSelected(toDetail(a))}>
                         <Eye className="h-3 w-3" />상세
                       </MiniButton>
-                      <MiniButton accent="muted"><Pencil className="h-3 w-3" />수정</MiniButton>
+                      <MiniButton accent="muted" onClick={() => setEditPanel(a.id)}>
+                        <Pencil className="h-3 w-3" />수정
+                      </MiniButton>
                       <MiniButton accent="success" onClick={() => toast({
                         tone: "info",
                         title: "자산 정보 수집 시작",
