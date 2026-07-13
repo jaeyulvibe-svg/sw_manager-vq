@@ -140,17 +140,22 @@ function stripHtmlTags(html: string): string {
   return html.replace(/<[^>]+>/g, "").trim()
 }
 
+const NGINX_RECENT_COUNT = 30
+
 // nginx.org/en/security_advisories.html: 각 공지가
 // <li><p>제목<br>Severity: <b>등급</b><br><a>Advisory</a><br><a href="...cve.org...">CVE-ID</a><br>
 // Not vulnerable: ...<br>Vulnerable: 버전범위</p></li> 형태로 나열된다.
 // <br> 태그로 줄이 나뉘므로 raw HTML을 <br> 기준으로 쪼갠 뒤 각 줄의 태그를 벗겨 파싱한다.
+// 페이지 전체(수년치 이력)를 매번 다시 훑지 않도록 최근 NGINX_RECENT_COUNT개만 처리한다.
 async function collectNginx(): Promise<FoundNotice[]> {
   const url = "https://nginx.org/en/security_advisories.html"
   const html = await fetchHtml(url)
   const $ = cheerio.load(html)
   const notices: FoundNotice[] = []
 
-  $("#content li > p").each((_, pEl) => {
+  $("#content li > p")
+    .slice(0, NGINX_RECENT_COUNT)
+    .each((_, pEl) => {
     const $p = $(pEl)
     const rawHtml = $p.html() ?? ""
     const lines = rawHtml.split(/<br\s*\/?>/i).map(stripHtmlTags).filter(Boolean)
@@ -181,7 +186,8 @@ async function collectNginx(): Promise<FoundNotice[]> {
   return notices
 }
 
-const PG_TARGET_MAJOR_VERSION = "14"
+// 시드 데이터의 PostgreSQL 자산(SW-008)이 16.2이므로 그에 맞춰 추적한다.
+const PG_TARGET_MAJOR_VERSION = "16"
 
 function cvssToSeverity(score: number): FoundNotice["severity"] {
   if (score >= 9) return "Critical"
@@ -298,15 +304,25 @@ async function collectOpenSSL(): Promise<FoundNotice[]> {
 
       let severityWord = ""
       let title = ""
+      let affected = ""
       $grid.children().each((__, fieldEl) => {
         const labelText = $(fieldEl).find("span.font-semibold").first().text().trim()
         if (labelText === "Severity") severityWord = $(fieldEl).next().text().trim().toLowerCase()
         if (labelText === "Title") title = $(fieldEl).next().text().trim()
+        if (labelText === "Affected") {
+          const ranges: string[] = []
+          $(fieldEl).next().find("li").each((___, liEl) => {
+            const range = $(liEl).text().trim()
+            if (range) ranges.push(range)
+          })
+          affected = ranges.join("; ")
+        }
       })
 
+      const baseTitle = title || cveId
       notices.push({
         cve: cveId,
-        title: title || cveId,
+        title: affected ? `${baseTitle} (Affected: ${affected})` : baseTitle,
         severity: OPENSSL_SEVERITY_MAP[severityWord] ?? "Medium",
         product: "OpenSSL",
         source: "OpenSSL 공식 취약점 공지",
