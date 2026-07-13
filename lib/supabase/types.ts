@@ -292,7 +292,6 @@ export type Database = {
           vendor: string
           category: "OS" | "WEB" | "WAS" | "DB" | "Middleware" | "Security"
           std_version: string
-          collect_mode: "AUTO" | "SEMI_AUTO" | "MANUAL"
           active: boolean
           manager: string | null
           note: string | null
@@ -309,7 +308,6 @@ export type Database = {
           vendor: string
           category: "OS" | "WEB" | "WAS" | "DB" | "Middleware" | "Security"
           std_version: string
-          collect_mode: "AUTO" | "SEMI_AUTO" | "MANUAL"
           active?: boolean
           manager?: string | null
           note?: string | null
@@ -325,7 +323,6 @@ export type Database = {
           vendor?: string
           category?: "OS" | "WEB" | "WAS" | "DB" | "Middleware" | "Security"
           std_version?: string
-          collect_mode?: "AUTO" | "SEMI_AUTO" | "MANUAL"
           active?: boolean
           manager?: string | null
           note?: string | null

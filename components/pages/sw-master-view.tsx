@@ -31,12 +31,11 @@ import { createClient } from "@/lib/supabase/client"
 import type { TablesInsert, TablesUpdate } from "@/lib/supabase/types"
 import {
   MASTER_CATEGORIES,
-  COLLECT_MODES,
   MASTER_ACTOR,
   formatDateOnly,
   type MasterRow,
 } from "@/components/pages/sw-master/master-shared"
-import { CategoryCell, CollectModeBadge, UseStatusBadge } from "@/components/pages/sw-master/cells"
+import { CategoryCell, UseStatusBadge } from "@/components/pages/sw-master/cells"
 import { cn } from "@/lib/utils"
 
 /* ---- Shared input style for inline add/edit form ---- */
@@ -48,7 +47,6 @@ type MasterFormValues = {
   vendor: string
   category: MasterRow["category"]
   std_version: string
-  collect_mode: MasterRow["collect_mode"]
   active: boolean
   manager: string
   note: string
@@ -59,7 +57,6 @@ const EMPTY_MASTER_FORM: MasterFormValues = {
   vendor: "",
   category: MASTER_CATEGORIES[0],
   std_version: "",
-  collect_mode: COLLECT_MODES[0],
   active: true,
   manager: "",
   note: "",
@@ -71,7 +68,6 @@ function toFormValues(row: MasterRow): MasterFormValues {
     vendor: row.vendor,
     category: row.category,
     std_version: row.std_version,
-    collect_mode: row.collect_mode,
     active: row.active,
     manager: row.manager ?? "",
     note: row.note ?? "",
@@ -132,18 +128,6 @@ function MasterFormPanel({
         />
       </label>
       <label className="flex flex-col gap-1 text-xs">
-        <span className="font-medium text-muted-foreground">수집 모드</span>
-        <select
-          value={values.collect_mode}
-          onChange={(e) => setValues((v) => ({ ...v, collect_mode: e.target.value as MasterRow["collect_mode"] }))}
-          className={inputCls}
-        >
-          {COLLECT_MODES.map((m) => (
-            <option key={m} value={m}>{m}</option>
-          ))}
-        </select>
-      </label>
-      <label className="flex flex-col gap-1 text-xs">
         <span className="font-medium text-muted-foreground">사용 여부</span>
         <select
           value={values.active ? "사용" : "미사용"}
@@ -197,7 +181,7 @@ function MasterFormPanel({
 
 /* ---- 컬럼 정의 + 정렬 ---- */
 type ColKey =
-  | "id" | "category" | "name" | "std_version" | "vendor" | "collect_mode" | "active" | "created_at"
+  | "id" | "category" | "name" | "std_version" | "vendor" | "active" | "created_at"
   | "manager" | "updated_by" | "note"
 
 const ALL_COLS: { key: ColKey; label: string }[] = [
@@ -206,7 +190,6 @@ const ALL_COLS: { key: ColKey; label: string }[] = [
   { key: "name", label: "제품명" },
   { key: "std_version", label: "버전" },
   { key: "vendor", label: "제조사" },
-  { key: "collect_mode", label: "수집 모드" },
   { key: "active", label: "사용 여부" },
   { key: "created_at", label: "등록일" },
   { key: "manager", label: "관리자" },
@@ -214,7 +197,7 @@ const ALL_COLS: { key: ColKey; label: string }[] = [
   { key: "note", label: "비고" },
 ]
 const FACTORY_VISIBLE: ColKey[] = [
-  "id", "category", "name", "std_version", "vendor", "collect_mode", "active", "created_at",
+  "id", "category", "name", "std_version", "vendor", "active", "created_at",
 ]
 const LS_KEY = "sw_master_columns"
 
@@ -293,7 +276,6 @@ export function SwMasterView() {
         vendor: values.vendor.trim(),
         category: values.category,
         std_version: values.std_version.trim(),
-        collect_mode: values.collect_mode,
         active: values.active,
         manager: values.manager.trim() || null,
         note: values.note.trim() || null,
@@ -318,7 +300,6 @@ export function SwMasterView() {
         vendor: values.vendor.trim(),
         category: values.category,
         std_version: values.std_version.trim(),
-        collect_mode: values.collect_mode,
         active: values.active,
         manager: values.manager.trim() || null,
         note: values.note.trim() || null,
@@ -436,7 +417,6 @@ export function SwMasterView() {
                   { label: "제품명", value: (m: MasterRow) => m.name },
                   { label: "버전", value: (m: MasterRow) => m.std_version },
                   { label: "제조사", value: (m: MasterRow) => m.vendor },
-                  { label: "수집 모드", value: (m: MasterRow) => m.collect_mode },
                   { label: "사용 여부", value: (m: MasterRow) => (m.active ? "사용" : "미사용") },
                   { label: "등록일", value: (m: MasterRow) => (m.created_at ? formatDateOnly(m.created_at) : "-") },
                   { label: "관리자", value: (m: MasterRow) => m.manager ?? "-" },
@@ -486,7 +466,6 @@ export function SwMasterView() {
               {show("name") && <SortTh col="name" label="제품명" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
               {show("std_version") && <SortTh col="std_version" label="버전" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
               {show("vendor") && <SortTh col="vendor" label="제조사" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
-              {show("collect_mode") && <SortTh col="collect_mode" label="수집 모드" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="center" />}
               {show("active") && <SortTh col="active" label="사용 여부" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="center" />}
               {show("created_at") && <SortTh col="created_at" label="등록일" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
               {show("manager") && <SortTh col="manager" label="관리자" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
@@ -506,7 +485,7 @@ export function SwMasterView() {
               pagination.pageItems.map((m) =>
                 panel === m.id ? (
                   <tr key={m.id}>
-                    <td colSpan={12} className="border-b border-border/40 p-0">
+                    <td colSpan={11} className="border-b border-border/40 p-0">
                       <MasterFormPanel
                         initial={toFormValues(m)}
                         onCancel={() => setPanel(null)}
@@ -532,7 +511,6 @@ export function SwMasterView() {
                     {show("name") && <Td className={cn("font-semibold", TABLE_ROW_CELL_H)}>{m.name}</Td>}
                     {show("std_version") && <Td className={cn("font-mono text-xs", TABLE_ROW_CELL_H)}>{m.std_version}</Td>}
                     {show("vendor") && <Td className={cn("text-muted-foreground", TABLE_ROW_CELL_H)}>{m.vendor}</Td>}
-                    {show("collect_mode") && <Td className={TABLE_ROW_CELL_H}><CollectModeBadge value={m.collect_mode} /></Td>}
                     {show("active") && <Td className={TABLE_ROW_CELL_H}><UseStatusBadge value={m.active} /></Td>}
                     {show("created_at") && (
                       <Td className={cn("text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>

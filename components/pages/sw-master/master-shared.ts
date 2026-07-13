@@ -2,10 +2,8 @@ import type { Tables } from "@/lib/supabase/types"
 
 export type MasterRow = Tables<"sw_masters">
 export type MasterCategory = MasterRow["category"]
-export type CollectMode = MasterRow["collect_mode"]
 
 export const MASTER_CATEGORIES: MasterCategory[] = ["OS", "WEB", "WAS", "DB", "Middleware", "Security"]
-export const COLLECT_MODES: CollectMode[] = ["AUTO", "SEMI_AUTO", "MANUAL"]
 
 /** 실제 인증 도입 전까지 고정하는 mock 수정자명 — sidebar.tsx의 CURRENT_USER.admin과 동일 */
 export const MASTER_ACTOR = "김관리"
