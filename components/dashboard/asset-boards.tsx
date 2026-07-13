@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import {
   Megaphone,
   FileEdit,
@@ -10,63 +11,70 @@ import {
   ClipboardCheck,
 } from "lucide-react"
 import { SectionCard, StatusBadge, type Accent, type RiskLevel } from "@/components/portal/ui"
+import { createClient } from "@/lib/supabase/client"
+import type { Tables } from "@/lib/supabase/types"
 import { cn } from "@/lib/utils"
 
 /* ---------------- 공지사항 ---------------- */
 
-type Notice = {
-  title: string
-  date: string
-  tag: string
-  tagAccent: Accent
+type Notice = Tables<"notices">
+
+const noticeCategoryAccent: Record<string, Accent> = {
+  시스템: "primary",
+  운영: "success",
+  승인: "eos",
+  보고서: "muted",
 }
 
-const notices: Notice[] = [
-  {
-    title: "AI SW Asset Master 정기 점검 안내",
-    date: "2026-06-28",
-    tag: "점검",
-    tagAccent: "warning",
-  },
-  {
-    title: "신규 SW 자산 등록 기준 안내",
-    date: "2026-06-24",
-    tag: "안내",
-    tagAccent: "primary",
-  },
-  {
-    title: "패치 승인 프로세스 변경 안내",
-    date: "2026-06-20",
-    tag: "변경",
-    tagAccent: "eos",
-  },
-  {
-    title: "6월 SW 자산·보안 월간 보고서 생성 안내",
-    date: "2026-06-17",
-    tag: "보고서",
-    tagAccent: "success",
-  },
-]
-
 function NoticePanel() {
+  const [notices, setNotices] = useState<Notice[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from("notices")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(4)
+      .then(({ data }) => {
+        if (data) setNotices(data)
+        setLoading(false)
+      })
+  }, [])
+
   return (
     <SectionCard title="공지사항" subtitle="포털 운영 공지" icon={Megaphone}>
-      <ul className="flex flex-col divide-y divide-border/50">
-        {notices.map((n, i) => (
-          <li
-            key={i}
-            className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0"
-          >
-            <StatusBadge accent={n.tagAccent}>{n.tag}</StatusBadge>
-            <p className="min-w-0 flex-1 truncate text-sm text-foreground">
-              {n.title}
-            </p>
-            <span className="shrink-0 font-mono text-xs text-muted-foreground">
-              {n.date}
-            </span>
-          </li>
-        ))}
-      </ul>
+      {loading ? (
+        <div className="flex flex-col gap-2.5">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-10 animate-pulse rounded-xl bg-muted/40" />
+          ))}
+        </div>
+      ) : notices.length === 0 ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          등록된 공지사항이 없습니다.
+        </p>
+      ) : (
+        <ul className="flex flex-col divide-y divide-border/50">
+          {notices.map((n) => (
+            <li
+              key={n.id}
+              className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0"
+            >
+              <StatusBadge accent={noticeCategoryAccent[n.category] ?? "muted"}>
+                {n.category}
+              </StatusBadge>
+              <p className="min-w-0 flex-1 truncate text-sm text-foreground">
+                {n.title}
+              </p>
+              <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                {new Date(n.created_at).toLocaleDateString("ko-KR")}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </SectionCard>
   )
 }
