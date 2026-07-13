@@ -7,7 +7,6 @@ import {
   Link2,
   Check,
   X,
-  BellDot,
   Server,
   ArrowRight,
   type LucideIcon,
@@ -284,9 +283,7 @@ export function NoticeReviewBoard({
                           </MiniButton>
                         </>
                       )
-                    ) : (
-                      <MiniButton accent="warning"><BellDot className="h-3 w-3" />알림 수신 확인</MiniButton>
-                    )}
+                    ) : null}
                     {selected.approval === "승인완료" && onNavigate ? (
                       <MiniButton accent="eos" onClick={() => onNavigate("patch")}>
                         <ArrowRight className="h-3 w-3" />승인된 취약점 공지에서 보기
