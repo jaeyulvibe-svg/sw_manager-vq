@@ -166,6 +166,95 @@ async function collectNginx(): Promise<FoundNotice[]> {
   return notices
 }
 
+const PG_TARGET_MAJOR_VERSION = "14"
+
+function cvssToSeverity(score: number): FoundNotice["severity"] {
+  if (score >= 9) return "Critical"
+  if (score >= 7) return "High"
+  if (score >= 4) return "Medium"
+  return "Low"
+}
+
+// postgresql.org/support/versioning/: 버전별 최종 릴리스(EOS) 날짜 테이블에서
+// PG_TARGET_MAJOR_VERSION 행을 찾아 EOS 공지 1건을 만든다. 자산으로 보유 중인 버전만
+// 추적하므로 다른 major 버전 행은 무시한다.
+async function collectPostgresEos(): Promise<FoundNotice[]> {
+  const url = "https://www.postgresql.org/support/versioning/"
+  const html = await fetchHtml(url)
+  const $ = cheerio.load(html)
+  let eosDateText: string | null = null
+
+  $("table.table-striped tr").each((_, trEl) => {
+    const cells = $(trEl).find("td")
+    if (cells.length < 5) return
+    const majorVersion = $(cells[0]).text().trim()
+    if (majorVersion === PG_TARGET_MAJOR_VERSION) {
+      eosDateText = $(cells[4]).text().trim()
+    }
+  })
+
+  if (!eosDateText) return []
+  const eosDate = new Date(eosDateText)
+  if (isNaN(eosDate.getTime())) return []
+
+  return [{
+    cve: `PG-EOS-${PG_TARGET_MAJOR_VERSION}`,
+    title: `PostgreSQL ${PG_TARGET_MAJOR_VERSION} 지원 종료 안내 (종료일: ${eosDateText})`,
+    severity: "High",
+    product: `PostgreSQL ${PG_TARGET_MAJOR_VERSION}`,
+    source: "PostgreSQL 공식 버전 지원 정책",
+    source_url: url,
+    source_type: "vendor",
+    notice_type: "EOS",
+    mapped_assets: 0,
+    collected_at: eosDate.toISOString(),
+  }]
+}
+
+// postgresql.org/support/security/: CVE/영향버전/수정버전/CVSS/설명 테이블에서
+// PG_TARGET_MAJOR_VERSION이 영향 major 버전 목록에 포함된 행만 취약점 공지로 만든다.
+async function collectPostgresCve(): Promise<FoundNotice[]> {
+  const url = "https://www.postgresql.org/support/security/"
+  const html = await fetchHtml(url)
+  const $ = cheerio.load(html)
+  const notices: FoundNotice[] = []
+
+  $("table.table-striped tr").each((_, trEl) => {
+    const cells = $(trEl).find("td")
+    if (cells.length < 5) return
+
+    const cveText = $(cells[0]).find("a").first().text().trim()
+    if (!/^CVE-/.test(cveText)) return
+
+    const affectedVersions = $(cells[1]).text().split(",").map((s) => s.trim())
+    if (!affectedVersions.includes(PG_TARGET_MAJOR_VERSION)) return
+
+    const cvssText = $(cells[3]).find("a").first().text().trim()
+    const cvssScore = parseFloat(cvssText)
+    const description = $(cells[4]).contents().first().text().trim()
+
+    notices.push({
+      cve: cveText,
+      title: description || cveText,
+      severity: isNaN(cvssScore) ? "Medium" : cvssToSeverity(cvssScore),
+      product: `PostgreSQL ${PG_TARGET_MAJOR_VERSION}`,
+      source: "PostgreSQL 공식 보안 공지",
+      source_url: url,
+      source_type: "vendor",
+      notice_type: "CVE",
+      mapped_assets: 0,
+      collected_at: new Date().toISOString(),
+    })
+  })
+
+  return notices
+}
+
+async function collectPostgres(): Promise<FoundNotice[]> {
+  const [eos, cve] = await Promise.all([collectPostgresEos(), collectPostgresCve()])
+  return [...eos, ...cve]
+}
+
 // www.tmaxsoft.com/kr/developer/notice/list: 공식 기술공지 게시판.
 // <tr onclick="fnView('./view','SEQ')"> 행마다 제목/등록일이 들어있다.
 async function collectTmaxSoft(product: "JEUS" | "WebtoB"): Promise<FoundNotice[]> {
