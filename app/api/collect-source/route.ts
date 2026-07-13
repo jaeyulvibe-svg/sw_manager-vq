@@ -255,6 +255,57 @@ async function collectPostgres(): Promise<FoundNotice[]> {
   return [...eos, ...cve]
 }
 
+const OPENSSL_SEVERITY_MAP: Record<string, FoundNotice["severity"]> = {
+  critical: "Critical",
+  high: "High",
+  moderate: "Medium",
+  low: "Low",
+}
+
+const OPENSSL_RECENT_COUNT = 15
+
+// openssl-library.org/news/vulnerabilities/: 각 CVE가 <h3 id="CVE-...">와 그 뒤에 오는
+// .grid(라벨/값 div가 번갈아 나오는 레이아웃)로 구성된다. 페이지 전체(수년치 이력)를 매번
+// 다시 훑지 않도록 최근 OPENSSL_RECENT_COUNT개만 처리한다.
+async function collectOpenSSL(): Promise<FoundNotice[]> {
+  const url = "https://openssl-library.org/news/vulnerabilities/index.html"
+  const html = await fetchHtml(url)
+  const $ = cheerio.load(html)
+  const notices: FoundNotice[] = []
+
+  $("h3[id^='CVE-']")
+    .slice(0, OPENSSL_RECENT_COUNT)
+    .each((_, h3El) => {
+      const cveId = $(h3El).attr("id") ?? ""
+      if (!cveId) return
+      const $grid = $(h3El).parent().nextAll(".grid").first()
+      if ($grid.length === 0) return
+
+      let severityWord = ""
+      let title = ""
+      $grid.children().each((__, fieldEl) => {
+        const labelText = $(fieldEl).find("span.font-semibold").first().text().trim()
+        if (labelText === "Severity") severityWord = $(fieldEl).next().text().trim().toLowerCase()
+        if (labelText === "Title") title = $(fieldEl).next().text().trim()
+      })
+
+      notices.push({
+        cve: cveId,
+        title: title || cveId,
+        severity: OPENSSL_SEVERITY_MAP[severityWord] ?? "Medium",
+        product: "OpenSSL",
+        source: "OpenSSL 공식 취약점 공지",
+        source_url: `${url}#${cveId}`,
+        source_type: "vendor",
+        notice_type: "CVE",
+        mapped_assets: 0,
+        collected_at: new Date().toISOString(),
+      })
+    })
+
+  return notices
+}
+
 // www.tmaxsoft.com/kr/developer/notice/list: 공식 기술공지 게시판.
 // <tr onclick="fnView('./view','SEQ')"> 행마다 제목/등록일이 들어있다.
 async function collectTmaxSoft(product: "JEUS" | "WebtoB"): Promise<FoundNotice[]> {
