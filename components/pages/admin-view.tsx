@@ -774,6 +774,44 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
   }, [])
 
   useEffect(() => {
+    if (!policy?.eos_alert_180d || assets.length === 0) return
+    const now = Date.now()
+    const horizon = now + 180 * 86400000
+    const due = assets.filter((a) => {
+      if (!a.eos) return false
+      const t = new Date(a.eos).getTime()
+      return t >= now && t <= horizon
+    })
+    if (due.length === 0) return
+
+    const titleFor = (a: Tables<"assets">) => `${a.name} 지원종료(EOS) 180일 전 알림`
+    const supabase = createClient()
+    supabase
+      .from("notifications")
+      .select("title")
+      .in("title", due.map(titleFor))
+      .then(({ data }) => {
+        const existing = new Set((data ?? []).map((n) => n.title))
+        const toInsert = due
+          .filter((a) => !existing.has(titleFor(a)))
+          .map((a) => ({
+            category: "security" as const,
+            title: titleFor(a),
+            description: `${a.name} (${a.server}) 자산의 지원종료(EOS) 예정일이 ${a.eos}로, 180일 이내입니다. 교체·업그레이드 계획을 검토해주세요.`,
+            asset: `${a.name} ${a.version}`,
+            owner: a.owner,
+            status: "확인필요" as const,
+            urgent: false,
+            link_view: "eos",
+            link_label: "EOS 로드맵에서 보기",
+          }))
+        if (toInsert.length > 0) {
+          supabase.from("notifications").insert(toInsert).then()
+        }
+      })
+  }, [policy?.eos_alert_180d, assets])
+
+  useEffect(() => {
     const supabase = createClient()
     supabase
       .from("sw_masters")
