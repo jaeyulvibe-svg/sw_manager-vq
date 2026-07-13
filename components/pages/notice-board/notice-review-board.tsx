@@ -1,7 +1,7 @@
 // components/pages/notice-board/notice-review-board.tsx
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   ExternalLink,
   Link2,
@@ -27,6 +27,7 @@ import type { ViewKey } from "@/components/portal/nav"
 import { useNoticeData, sevRisk, formatCollected, type Vulnerability } from "./use-notice-data"
 import { approveNotice, rejectNotice } from "./notice-actions"
 import { cn } from "@/lib/utils"
+import { createClient } from "@/lib/supabase/client"
 
 type Severity = Vulnerability["severity"]
 type Status = Vulnerability["approval"]
@@ -68,6 +69,19 @@ export function NoticeReviewBoard({
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("전체")
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [criticalUrgentAlert, setCriticalUrgentAlert] = useState(true)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from("admin_policies")
+      .select("critical_urgent_alert")
+      .eq("id", "default")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setCriticalUrgentAlert(data.critical_urgent_alert)
+      })
+  }, [])
 
   const filtered = vulns.filter((v) => {
     const count = matchMap.get(v.id)?.length ?? 0
@@ -86,7 +100,7 @@ export function NoticeReviewBoard({
     if (busyId) return
     setBusyId(v.id)
     const matched = matchMap.get(v.id) ?? []
-    const { notifiedCount } = await approveNotice(v, matched)
+    const { notifiedCount } = await approveNotice(v, matched, { criticalUrgentAlert })
 
     setVulns((prev) =>
       prev.map((x) => (x.id === v.id ? { ...x, approval: "승인완료", mapped_assets: matched.length } : x)),
