@@ -8,6 +8,7 @@ import {
   CalendarRange,
   CircleCheck,
   AlertTriangle,
+  Search,
 } from "lucide-react"
 import {
   Bar,
@@ -26,9 +27,12 @@ import {
   StatusBadge,
   ProgressBar,
   TableShell,
-  Th,
   Td,
   ExportExcelButton,
+  SortTh,
+  ColumnVisibilityMenu,
+  loadColumnVisibility,
+  TABLE_ROW_CELL_H,
   usePagination,
   Pagination,
   type RiskLevel,
@@ -69,6 +73,36 @@ function riskFromDays(days: number): Risk {
 
 const actionLabel: Record<Risk, string> = {
   Critical: "긴급 검토", High: "업그레이드 검토", Medium: "패치 계획", Low: "정상",
+}
+
+/* ---- EOS 위험 자산 표: 컬럼 정의 + 정렬/검색 (조회 전용 — 편집 기능 없음) ---- */
+type EosColKey =
+  | "name" | "version" | "vendor" | "server" | "owner"
+  | "eos" | "remain" | "remainPct" | "risk" | "action"
+
+const EOS_ALL_COLS: { key: EosColKey; label: string }[] = [
+  { key: "name", label: "제품명" },
+  { key: "version", label: "현재 버전" },
+  { key: "vendor", label: "벤더" },
+  { key: "server", label: "설치 서버" },
+  { key: "owner", label: "담당자" },
+  { key: "eos", label: "EOS 날짜" },
+  { key: "remain", label: "남은 기간" },
+  { key: "remainPct", label: "잔여 수명" },
+  { key: "risk", label: "영향도" },
+  { key: "action", label: "조치 상태" },
+]
+const EOS_FACTORY_VISIBLE: EosColKey[] = EOS_ALL_COLS.map((c) => c.key)
+const EOS_LS_KEY = "eos_view_columns"
+
+type EosSortKey = EosColKey | "none"
+
+function eosSortValue(it: EosRow, key: EosSortKey): string | number {
+  if (key === "risk") return riskLevelMap[it.risk]
+  if (key === "remain") return it.days
+  if (key === "remainPct") return it.remainPct
+  if (key === "none") return 0
+  return it[key]
 }
 
 function enrichAsset(a: Asset & { eos: string }): EosRow {
@@ -166,7 +200,44 @@ export function EosView() {
         .sort((a, b) => a.days - b.days),
     [assets],
   )
-  const pagination = usePagination(eosRows)
+
+  const [query, setQuery] = useState("")
+  const [sortKey, setSortKey] = useState<EosSortKey>("remain")
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
+  const [visible, setVisible] = useState<EosColKey[]>(() =>
+    loadColumnVisibility(EOS_LS_KEY, EOS_FACTORY_VISIBLE),
+  )
+
+  function handleSort(col: EosSortKey) {
+    if (sortKey === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
+    else {
+      setSortKey(col)
+      setSortDir("asc")
+    }
+  }
+
+  const filteredRows = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return eosRows
+      .filter((it) => {
+        if (!q) return true
+        return [it.name, it.vendor, it.version, it.owner, it.server].some((f) =>
+          f.toLowerCase().includes(q),
+        )
+      })
+      .sort((a, b) => {
+        const va = eosSortValue(a, sortKey)
+        const vb = eosSortValue(b, sortKey)
+        const d =
+          typeof va === "number" && typeof vb === "number"
+            ? va - vb
+            : String(va).localeCompare(String(vb), "ko")
+        return sortDir === "asc" ? d : -d
+      })
+  }, [eosRows, query, sortKey, sortDir])
+
+  const show = (key: EosColKey) => visible.includes(key)
+  const pagination = usePagination(filteredRows)
 
   return (
     <div className="flex flex-col gap-6">
@@ -210,22 +281,40 @@ export function EosView() {
         subtitle="지원 종료 임박 자산 조치 현황"
         icon={AlertTriangle}
         action={
-          <ExportExcelButton
-            rows={eosRows}
-            filename="EOS_위험_자산"
-            columns={[
-              { label: "제품명", value: (it: EosRow) => it.name },
-              { label: "설치 서버", value: (it: EosRow) => it.server },
-              { label: "벤더", value: (it: EosRow) => it.vendor },
-              { label: "현재 버전", value: (it: EosRow) => it.version },
-              { label: "담당자", value: (it: EosRow) => it.owner },
-              { label: "EOS 날짜", value: (it: EosRow) => it.eos },
-              { label: "남은 기간", value: (it: EosRow) => it.remain },
-              { label: "잔여 수명(%)", value: (it: EosRow) => it.remainPct },
-              { label: "영향도", value: (it: EosRow) => riskLabel[it.risk] },
-              { label: "조치 상태", value: (it: EosRow) => it.action },
-            ]}
-          />
+          <div className="flex items-center gap-1.5">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); pagination.setPage(1) }}
+                placeholder="제품명, 벤더, 버전, 담당자, 서버명 검색"
+                className="w-48 rounded-lg border border-border/60 bg-background/50 py-1.5 pl-8 pr-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none"
+              />
+            </div>
+            <ExportExcelButton
+              rows={filteredRows}
+              filename="EOS_위험_자산"
+              columns={[
+                { label: "제품명", value: (it: EosRow) => it.name },
+                { label: "현재 버전", value: (it: EosRow) => it.version },
+                { label: "벤더", value: (it: EosRow) => it.vendor },
+                { label: "설치 서버", value: (it: EosRow) => it.server },
+                { label: "담당자", value: (it: EosRow) => it.owner },
+                { label: "EOS 날짜", value: (it: EosRow) => it.eos },
+                { label: "남은 기간", value: (it: EosRow) => it.remain },
+                { label: "잔여 수명(%)", value: (it: EosRow) => it.remainPct },
+                { label: "영향도", value: (it: EosRow) => riskLabel[it.risk] },
+                { label: "조치 상태", value: (it: EosRow) => it.action },
+              ]}
+            />
+            <ColumnVisibilityMenu
+              allCols={EOS_ALL_COLS}
+              visible={visible}
+              onChange={setVisible}
+              factoryDefault={EOS_FACTORY_VISIBLE}
+              storageKey={EOS_LS_KEY}
+            />
+          </div>
         }
       >
         {loading ? (
@@ -233,19 +322,19 @@ export function EosView() {
         ) : eosRows.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">EOS 날짜가 등록된 자산이 없습니다.</p>
         ) : (
-          <TableShell>
+          <TableShell scrollHint>
             <thead>
               <tr>
-                <Th>제품명</Th>
-                <Th>설치 서버</Th>
-                <Th>벤더</Th>
-                <Th>현재 버전</Th>
-                <Th>담당자</Th>
-                <Th>EOS 날짜</Th>
-                <Th>남은 기간</Th>
-                <Th className="min-w-40">잔여 수명</Th>
-                <Th>영향도</Th>
-                <Th>조치 상태</Th>
+                {show("name") && <SortTh col="name" label="제품명" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+                {show("version") && <SortTh col="version" label="현재 버전" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+                {show("vendor") && <SortTh col="vendor" label="벤더" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+                {show("server") && <SortTh col="server" label="설치 서버" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+                {show("owner") && <SortTh col="owner" label="담당자" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+                {show("eos") && <SortTh col="eos" label="EOS 날짜" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+                {show("remain") && <SortTh col="remain" label="남은 기간" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+                {show("remainPct") && <SortTh col="remainPct" label="잔여 수명" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="min-w-40" />}
+                {show("risk") && <SortTh col="risk" label="영향도" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+                {show("action") && <SortTh col="action" label="조치 상태" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
               </tr>
             </thead>
             <tbody>
@@ -253,59 +342,79 @@ export function EosView() {
                 const soon = it.remainPct <= 35
                 return (
                   <tr key={it.id} className="transition-colors hover:bg-accent/40">
-                    <Td className="font-semibold">
-                      <span className="flex items-center gap-1.5">
-                        {soon ? (
-                          <AlertTriangle className="h-3.5 w-3.5 text-eos" />
-                        ) : (
-                          <CircleCheck className="h-3.5 w-3.5 text-success" />
-                        )}
-                        {it.name}
-                      </span>
-                    </Td>
-                    <Td className="text-muted-foreground">{it.server}</Td>
-                    <Td className="text-muted-foreground">{it.vendor}</Td>
-                    <Td className="font-mono text-xs">{it.version}</Td>
-                    <Td>{it.owner}</Td>
-                    <Td>
-                      <StatusBadge accent="eos">{it.eos}</StatusBadge>
-                    </Td>
-                    <Td className={cn("font-mono text-xs", soon && "font-bold text-eos")}>
-                      {it.remain}
-                    </Td>
-                    <Td>
-                      <div className="flex items-center gap-2">
-                        <ProgressBar
-                          value={it.remainPct}
-                          risk={
-                            it.remainPct <= 20
-                              ? 5
-                              : it.remainPct <= 35
-                                ? 4
-                                : it.remainPct <= 50
-                                  ? 3
-                                  : it.remainPct <= 70
-                                    ? 2
-                                    : 1
-                          }
-                          className="w-24"
-                        />
-                        <span className="font-mono text-xs text-muted-foreground">{it.remainPct}%</span>
-                      </div>
-                    </Td>
-                    <Td>
-                      <StatusBadge risk={riskLevelMap[it.risk]} pulse={it.risk === "Critical"}>
-                        {riskLabel[it.risk]}
-                      </StatusBadge>
-                    </Td>
-                    <Td className="text-sm">{it.action}</Td>
+                    {show("name") && (
+                      <Td className={cn("font-semibold", TABLE_ROW_CELL_H)}>
+                        <span className="flex items-center gap-1.5">
+                          {soon ? (
+                            <AlertTriangle className="h-3.5 w-3.5 text-eos" />
+                          ) : (
+                            <CircleCheck className="h-3.5 w-3.5 text-success" />
+                          )}
+                          {it.name}
+                        </span>
+                      </Td>
+                    )}
+                    {show("version") && <Td className={cn("font-mono text-xs", TABLE_ROW_CELL_H)}>{it.version}</Td>}
+                    {show("vendor") && <Td className={cn("text-muted-foreground", TABLE_ROW_CELL_H)}>{it.vendor}</Td>}
+                    {show("server") && <Td className={cn("text-muted-foreground", TABLE_ROW_CELL_H)}>{it.server}</Td>}
+                    {show("owner") && <Td className={TABLE_ROW_CELL_H}>{it.owner}</Td>}
+                    {show("eos") && (
+                      <Td className={TABLE_ROW_CELL_H}>
+                        <StatusBadge accent="eos">{it.eos}</StatusBadge>
+                      </Td>
+                    )}
+                    {show("remain") && (
+                      <Td className={cn("font-mono text-xs", TABLE_ROW_CELL_H, soon && "font-bold text-eos")}>
+                        {it.remain}
+                      </Td>
+                    )}
+                    {show("remainPct") && (
+                      <Td className={TABLE_ROW_CELL_H}>
+                        <div className="flex items-center gap-2">
+                          <ProgressBar
+                            value={it.remainPct}
+                            risk={
+                              it.remainPct <= 20
+                                ? 5
+                                : it.remainPct <= 35
+                                  ? 4
+                                  : it.remainPct <= 50
+                                    ? 3
+                                    : it.remainPct <= 70
+                                      ? 2
+                                      : 1
+                            }
+                            className="w-24"
+                          />
+                          <span className="font-mono text-xs text-muted-foreground">{it.remainPct}%</span>
+                        </div>
+                      </Td>
+                    )}
+                    {show("risk") && (
+                      <Td className={TABLE_ROW_CELL_H}>
+                        <StatusBadge risk={riskLevelMap[it.risk]} pulse={it.risk === "Critical"}>
+                          {riskLabel[it.risk]}
+                        </StatusBadge>
+                      </Td>
+                    )}
+                    {show("action") && <Td className={cn("text-sm", TABLE_ROW_CELL_H)}>{it.action}</Td>}
                   </tr>
                 )
               })}
+              {filteredRows.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={visible.length}
+                    className="border-b border-border/40 px-3 py-8 text-center text-sm text-muted-foreground"
+                  >
+                    검색 조건에 맞는 자산이 없습니다.
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </TableShell>
         )}
-        {!loading && eosRows.length > 0 && (
+        {!loading && filteredRows.length > 0 && (
           <div className="mt-3">
             <Pagination
               page={pagination.page}
