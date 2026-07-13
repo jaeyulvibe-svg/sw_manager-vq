@@ -232,6 +232,12 @@ type NoticeType = Tables<"vulnerabilities">["notice_type"]
 const MANUAL_VULN_SEVERITIES: VulnSeverity[] = ["Critical", "High", "Medium", "Low"]
 const MANUAL_VULN_NOTICE_TYPES: NoticeType[] = ["CVE", "Patch", "EOS"]
 
+type SourceType = Tables<"vulnerabilities">["source_type"]
+const MANUAL_VULN_SOURCE_TYPES: { value: SourceType; label: string }[] = [
+  { value: "kisa", label: "KISA" },
+  { value: "vendor", label: "제조사" },
+]
+
 type ManualVulnFormValues = {
   cve: string
   title: string
@@ -239,6 +245,7 @@ type ManualVulnFormValues = {
   product: string
   source: string
   source_url: string
+  source_type: SourceType
   notice_type: NoticeType
 }
 
@@ -249,6 +256,7 @@ const EMPTY_MANUAL_VULN: ManualVulnFormValues = {
   product: "",
   source: "",
   source_url: "",
+  source_type: "vendor",
   notice_type: "CVE",
 }
 
@@ -330,6 +338,22 @@ function ManualVulnFormPanel({
           placeholder="예: KISA 보안공지"
           className={inputCls}
         />
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">출처 유형</span>
+        <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-background/50 px-3 py-1.5">
+          {MANUAL_VULN_SOURCE_TYPES.map((opt) => (
+            <label key={opt.value} className="flex items-center gap-1.5 text-xs text-foreground">
+              <input
+                type="radio"
+                name="manual-vuln-source-type"
+                checked={values.source_type === opt.value}
+                onChange={() => setValues((v) => ({ ...v, source_type: opt.value }))}
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
       </label>
       <label className="flex flex-col gap-1 text-xs sm:col-span-2 lg:col-span-1">
         <span className="font-medium text-muted-foreground">출처 URL (선택)</span>
@@ -722,6 +746,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
       product: values.product.trim(),
       source: values.source.trim(),
       source_url: values.source_url.trim() || null,
+      source_type: values.source_type,
       notice_type: values.notice_type,
       approval: "승인대기",
     }
@@ -733,7 +758,12 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
     }
     toast({
       title: "취약점/패치 공지가 등록되었습니다",
-      description: "KISA 취약점 공지 화면에서 검토·승인해주세요.",
+      description:
+        values.notice_type === "EOS"
+          ? "EOS 공지 화면에서 검토·승인해주세요."
+          : values.source_type === "kisa"
+            ? "KISA 취약점 공지 화면에서 검토·승인해주세요."
+            : "제조사 취약점 공지 화면에서 검토·승인해주세요.",
       tone: "success",
     })
     return true
@@ -1077,7 +1107,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
         >
           <ManualVulnFormPanel onSubmit={submitManualVuln} submitting={manualVulnSubmitting} />
           <p className="mt-3 text-[11px] text-muted-foreground">
-            등록된 공지는 &apos;승인대기&apos; 상태로 KISA 취약점 공지 화면에 나타납니다. 그곳에서 검토 후 승인하면 전사 패치 모니터링에 반영됩니다.
+            등록된 공지는 &apos;승인대기&apos; 상태로 공지 유형에 맞는 화면(EOS는 &apos;EOS 공지&apos;, 그 외는 출처 유형에 따라 &apos;KISA 취약점 공지&apos; 또는 &apos;제조사 취약점 공지&apos;)에 나타납니다. 그곳에서 검토 후 승인하면 승인된 취약점 공지에 반영됩니다.
           </p>
         </SectionCard>
 

@@ -1,26 +1,21 @@
+// components/pages/patch-view.tsx
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { Fragment, useMemo, useState } from "react"
 import {
   ShieldCheck,
-  ShieldAlert,
   Search,
-  Eye,
-  BellRing,
-  Wrench,
   ListChecks,
   Flame,
   AlertTriangle,
-  ClipboardList,
+  PackageX,
   ArrowRight,
-  Filter,
+  Server,
   ChevronUp,
   ChevronDown,
   RotateCcw,
   X,
 } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
-import type { Tables } from "@/lib/supabase/types"
 import {
   PageHeader,
   StatCard,
@@ -38,79 +33,34 @@ import {
   TABLE_ROW_CELL_H,
   usePagination,
   Pagination,
-  type RiskLevel,
+  type Accent,
 } from "@/components/portal/ui"
-import { AssetSlideover, type AssetDetail } from "@/components/portal/asset-slideover"
-import { useToast } from "@/components/portal/toast"
+import { useNoticeData, sevRisk, formatCollected, type Vulnerability } from "@/components/pages/notice-board/use-notice-data"
 import type { ViewKey } from "@/components/portal/nav"
-import { matchVulnerabilities } from "@/lib/vuln-match"
 import { cn } from "@/lib/utils"
 
-type Asset = Tables<"assets">
-type Vulnerability = Tables<"vulnerabilities">
-type Vuln = Asset["vuln"]
-type Category = Asset["category"] | "전체"
+type Severity = Vulnerability["severity"]
+type SourceType = Vulnerability["source_type"]
+type NoticeType = Vulnerability["notice_type"]
 
-const severityRank: Record<Vuln, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
+const sourceTypeLabel: Record<SourceType, string> = { kisa: "KISA", vendor: "제조사" }
+const noticeTypeAccent: Record<NoticeType, Accent> = { CVE: "destructive", Patch: "warning", EOS: "eos" }
+const sourceTypeAccent: Record<SourceType, Accent> = { kisa: "primary", vendor: "muted" }
 
-// 자산명과 실제 매칭되는 제조사 공지(vulnerabilities)를 찾아 패치 요약을 만든다.
-// 매칭되는 공지가 없으면 제조사 최신 버전 안내로 대체.
-function advisoryFor(a: Asset, vulns: Vulnerability[]) {
-  const matches = matchVulnerabilities(a, vulns).filter((v) => v.approval === "승인완료")
-  const best = [...matches].sort((x, y) => severityRank[x.severity] - severityRank[y.severity])[0]
-  if (best) return { cve: best.cve, summary: best.title, approval: best.approval }
-  return {
-    cve: "제조사 공지 확인 필요",
-    summary: `${a.vendor} 최신 보안 패치(${a.latest_version ?? "최신 버전"}) 적용 여부 확인 필요`,
-    approval: null as Vulnerability["approval"] | null,
-  }
-}
+const SEVERITIES: (Severity | "전체")[] = ["전체", "Critical", "High", "Medium", "Low"]
+const SOURCE_TYPES: (SourceType | "전체")[] = ["전체", "kisa", "vendor"]
+const NOTICE_TYPES: (NoticeType | "전체")[] = ["전체", "CVE", "Patch", "EOS"]
 
-const vulnRisk: Record<Vuln, RiskLevel> = {
-  Critical: 5,
-  High: 4,
-  Medium: 3,
-  Low: 2,
-}
-const vulnLabel: Record<Vuln, string> = {
-  Critical: "긴급",
-  High: "높음",
-  Medium: "보통",
-  Low: "낮음",
-}
-const patchRisk: Record<Asset["patch"], RiskLevel> = {
-  "Patch Required": 4,
-  "Patch Available": 3,
-  "Up to Date": 1,
-}
-const patchLabel: Record<Asset["patch"], string> = {
-  "Patch Required": "패치 필요",
-  "Patch Available": "패치 가능",
-  "Up to Date": "최신",
-}
-const approvalRisk: Record<Asset["approval"], RiskLevel> = {
-  승인대기: 3,
-  확인필요: 4,
-  승인완료: 1,
-  긴급: 5,
-}
-
-const CATEGORIES: Category[] = ["전체", "OS", "WEB", "WAS", "DB", "Middleware", "Security"]
-const SEVERITIES: (Vuln | "전체")[] = ["전체", "Critical", "High", "Medium", "Low"]
-const REVIEW_FILTERS = ["전체", "확인 필요", "승인대기", "긴급", "처리완료"] as const
-
-type ColKey =
-  | "vuln" | "name" | "server" | "owner" | "version" | "patch" | "eos" | "approval"
-
+type ColKey = "severity" | "cve" | "title" | "noticeType" | "sourceType" | "source" | "product" | "mapped"
 const ALL_COLS: { key: ColKey; label: string }[] = [
-  { key: "vuln", label: "심각도" },
-  { key: "name", label: "자산" },
-  { key: "server", label: "설치 서버" },
-  { key: "owner", label: "담당자" },
-  { key: "version", label: "현재 → 권고 버전" },
-  { key: "patch", label: "패치 상태" },
-  { key: "eos", label: "EOS" },
-  { key: "approval", label: "검토 상태" },
+  { key: "severity", label: "심각도" },
+  { key: "cve", label: "CVE" },
+  { key: "title", label: "제목" },
+  { key: "noticeType", label: "공지 유형" },
+  { key: "sourceType", label: "출처 유형" },
+  { key: "source", label: "출처" },
+  { key: "product", label: "영향 제품" },
+  { key: "mapped", label: "매핑 자산 수" },
 ]
 const FACTORY_VISIBLE: ColKey[] = ALL_COLS.map((c) => c.key)
 const LS_KEY = "patch_view_columns"
@@ -118,64 +68,56 @@ const LS_KEY = "patch_view_columns"
 type SortKey = ColKey | "none"
 type SortDir = "asc" | "desc"
 
-const patchOrder: Record<Asset["patch"], number> = {
-  "Patch Required": 0,
-  "Patch Available": 1,
-  "Up to Date": 2,
-}
-const approvalOrder: Record<Asset["approval"], number> = {
-  긴급: 0,
-  확인필요: 1,
-  승인대기: 2,
-  승인완료: 3,
-}
-
-function sortValue(a: Asset, key: SortKey): string | number {
-  if (key === "vuln") return severityRank[a.vuln]
-  if (key === "patch") return patchOrder[a.patch]
-  if (key === "eos") return a.eos ? new Date(a.eos).getTime() : 0
-  if (key === "approval") return approvalOrder[a.approval]
-  if (key === "none") return 0
-  return String(a[key])
-}
-
-function needsReview(a: Asset) {
-  return a.approval === "확인필요" || a.approval === "승인대기" || a.approval === "긴급"
-}
-function isEosSoon(eos: string | null) {
-  if (!eos) return false
-  return new Date(eos).getTime() - Date.now() < 1000 * 60 * 60 * 24 * 200
-}
-function daysUntil(date: string | null) {
-  if (!date) return 0
-  return Math.round((new Date(date).getTime() - Date.now()) / 86400000)
-}
-function toDetail(a: Asset): AssetDetail {
-  return {
-    id: a.id, name: a.name, vendor: a.vendor, category: a.category,
-    version: a.version, latest: a.latest_version ?? a.version,
-    server: a.server, owner: a.owner, vuln: a.vuln,
-    patch: patchLabel[a.patch], patchRisk: patchRisk[a.patch],
-    vulnRisk: vulnRisk[a.vuln], eos: a.eos ?? "-",
-    eosDaysLeft: daysUntil(a.eos), approval: a.approval,
-    approvalRisk: approvalRisk[a.approval],
-  }
-}
-
 export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void }) {
-  const { toast } = useToast()
-  const [assets, setAssets] = useState<Asset[]>([])
-  const [vulns, setVulns] = useState<Vulnerability[]>([])
-  const [loading, setLoading] = useState(true)
+  const { vulns, matchMap, loading } = useNoticeData()
   const [query, setQuery] = useState("")
-  const [cat, setCat] = useState<Category>("전체")
   const [severity, setSeverity] = useState<(typeof SEVERITIES)[number]>("전체")
-  const [review, setReview] = useState<(typeof REVIEW_FILTERS)[number]>("전체")
-  const [selected, setSelected] = useState<AssetDetail | null>(null)
-  const [sortKey, setSortKey] = useState<SortKey>("vuln")
+  const [sourceType, setSourceType] = useState<(typeof SOURCE_TYPES)[number]>("전체")
+  const [noticeType, setNoticeType] = useState<(typeof NOTICE_TYPES)[number]>("전체")
+  const [sortKey, setSortKey] = useState<SortKey>("severity")
   const [sortDir, setSortDir] = useState<SortDir>("asc")
   const [visible, setVisible] = useState<ColKey[]>(() => loadColumnVisibility(LS_KEY, FACTORY_VISIBLE))
   const [detailFiltersOpen, setDetailFiltersOpen] = useState(false)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  const approved = useMemo(() => vulns.filter((v) => v.approval === "승인완료"), [vulns])
+
+  const stats = useMemo(() => {
+    const critical = approved.filter((v) => v.severity === "Critical").length
+    const high = approved.filter((v) => v.severity === "High").length
+    const unmapped = approved.filter((v) => (matchMap.get(v.id)?.length ?? 0) === 0).length
+    return { total: approved.length, critical, high, unmapped }
+  }, [approved, matchMap])
+
+  const filteredSorted = useMemo(() => {
+    function sortValue(v: Vulnerability, key: SortKey): string | number {
+      if (key === "severity") return sevRisk[v.severity]
+      if (key === "mapped") return matchMap.get(v.id)?.length ?? 0
+      if (key === "sourceType") return sourceTypeLabel[v.source_type]
+      if (key === "noticeType") return v.notice_type
+      if (key === "none") return 0
+      return String(v[key as "cve" | "title" | "source" | "product"])
+    }
+
+    return [...approved]
+      .filter((v) => {
+        const q = query.trim().toLowerCase()
+        const matchesQuery =
+          !q || [v.title, v.cve, v.product, v.source].some((f) => f.toLowerCase().includes(q))
+        const matchesSeverity = severity === "전체" || v.severity === severity
+        const matchesSourceType = sourceType === "전체" || v.source_type === sourceType
+        const matchesNoticeType = noticeType === "전체" || v.notice_type === noticeType
+        return matchesQuery && matchesSeverity && matchesSourceType && matchesNoticeType
+      })
+      .sort((a, b) => {
+        const va = sortValue(a, sortKey)
+        const vb = sortValue(b, sortKey)
+        const d = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb), "ko")
+        return sortDir === "asc" ? d : -d
+      })
+  }, [approved, query, severity, sourceType, noticeType, sortKey, sortDir, matchMap])
+
+  const pagination = usePagination(filteredSorted)
 
   function handleSort(col: SortKey) {
     if (sortKey === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
@@ -186,73 +128,26 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
     pagination.setPage(1)
   }
 
-  useEffect(() => {
-    const supabase = createClient()
-    Promise.all([
-      supabase.from("assets").select("*"),
-      supabase.from("vulnerabilities").select("*"),
-    ]).then(([assetRes, vulnRes]) => {
-      if (assetRes.data) setAssets(assetRes.data)
-      if (vulnRes.data) setVulns(vulnRes.data)
-      setLoading(false)
-    })
-  }, [])
-
-  // 제조사 패치 권고 대상: 취약점이 있거나 패치가 필요/가능한 자산만 모니터링 대상으로 집계
-  const matched = useMemo(
-    () => assets.filter((a) => a.vuln !== "Low" || a.patch !== "Up to Date"),
-    [assets],
-  )
-
-  const stats = useMemo(() => {
-    const critical = matched.filter((a) => a.vuln === "Critical").length
-    const high = matched.filter((a) => a.vuln === "High").length
-    const reviewNeeded = matched.filter(needsReview).length
-    return { total: matched.length, critical, high, reviewNeeded }
-  }, [matched])
-
-  const filtered = useMemo(() => {
-    return [...matched]
-      .filter((a) => {
-        const q = query.trim().toLowerCase()
-        const adv = advisoryFor(a, vulns)
-        const matchesQuery =
-          !q ||
-          [a.name, a.vendor, a.owner, a.server, adv.cve].some((f) =>
-            f.toLowerCase().includes(q),
-          )
-        const matchesCat = cat === "전체" || a.category === cat
-        const matchesSeverity = severity === "전체" || a.vuln === severity
-        const matchesReview =
-          review === "전체" ||
-          (review === "확인 필요" && a.approval === "확인필요") ||
-          (review === "승인대기" && a.approval === "승인대기") ||
-          (review === "긴급" && a.approval === "긴급") ||
-          (review === "처리완료" && a.approval === "승인완료")
-        return matchesQuery && matchesCat && matchesSeverity && matchesReview
-      })
-      .sort((a, b) => {
-        const va = sortValue(a, sortKey)
-        const vb = sortValue(b, sortKey)
-        const d = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb), "ko")
-        return sortDir === "asc" ? d : -d
-      })
-  }, [matched, query, cat, severity, review, vulns, sortKey, sortDir])
-
   const show = (key: ColKey) => visible.includes(key)
-  const pagination = usePagination(filtered)
 
-  const detailFilterCount = [cat, severity, review].filter((v) => v !== "전체").length
   const filterChips: { key: string; label: string; onRemove: () => void }[] = []
-  if (cat !== "전체") filterChips.push({ key: "cat", label: cat, onRemove: () => setCat("전체") })
-  if (severity !== "전체") filterChips.push({ key: "severity", label: vulnLabel[severity], onRemove: () => setSeverity("전체") })
-  if (review !== "전체") filterChips.push({ key: "review", label: review, onRemove: () => setReview("전체") })
+  if (severity !== "전체") filterChips.push({ key: "severity", label: severity, onRemove: () => setSeverity("전체") })
+  if (sourceType !== "전체") {
+    filterChips.push({
+      key: "sourceType",
+      label: sourceTypeLabel[sourceType as SourceType],
+      onRemove: () => setSourceType("전체"),
+    })
+  }
+  if (noticeType !== "전체") {
+    filterChips.push({ key: "noticeType", label: noticeType, onRemove: () => setNoticeType("전체") })
+  }
 
   function resetFilters() {
     setQuery("")
-    setCat("전체")
     setSeverity("전체")
-    setReview("전체")
+    setSourceType("전체")
+    setNoticeType("전체")
     pagination.setPage(1)
   }
 
@@ -260,45 +155,50 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
     <div className="flex flex-col gap-6">
       <PageHeader
         icon={ShieldCheck}
-        title="제조사 패치 권고 및 전사 취약점 모니터링"
-        description="승인된 제조사 패치 권고를 기준으로 전사 SW 자산의 취약점·패치 현황을 모니터링합니다. 신규 미승인 공지는 'KISA 취약점 공지'에서 검토·승인하세요."
+        title="승인된 취약점 공지"
+        description="KISA·제조사에서 승인 완료된 취약점·EOS 공지를 전사 자산 매핑 기준으로 조회합니다. 신규 미승인 공지는 KISA/제조사/EOS 공지 화면에서 검토·승인하세요."
         action={
           onNavigate ? (
-            <MiniButton accent="primary" onClick={() => onNavigate("kisa")}>
-              KISA 취약점 공지 바로가기<ArrowRight className="h-3 w-3" />
-            </MiniButton>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <MiniButton accent="primary" onClick={() => onNavigate("kisa")}>
+                KISA 취약점 공지 바로가기<ArrowRight className="h-3 w-3" />
+              </MiniButton>
+              <MiniButton accent="primary" onClick={() => onNavigate("vendor")}>
+                제조사 취약점 공지 바로가기<ArrowRight className="h-3 w-3" />
+              </MiniButton>
+              <MiniButton accent="eos" onClick={() => onNavigate("eos-notice")}>
+                EOS 공지 바로가기<ArrowRight className="h-3 w-3" />
+              </MiniButton>
+            </div>
           ) : undefined
         }
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="전체 건수" value={stats.total} icon={ListChecks} accent="primary" delay={80} />
+        <StatCard label="전체 승인 건수" value={stats.total} icon={ListChecks} accent="primary" delay={80} />
         <StatCard label="CRITICAL" value={stats.critical} icon={Flame} risk={5} delay={180} />
         <StatCard label="HIGH" value={stats.high} icon={AlertTriangle} risk={4} delay={280} />
-        <StatCard label="검토 필요" value={stats.reviewNeeded} icon={ClipboardList} accent="eos" delay={380} />
+        <StatCard label="미매핑" value={stats.unmapped} icon={PackageX} accent="eos" delay={380} />
       </div>
 
       <SectionCard
-        title="패치 대상 자산 목록"
-        subtitle="보유 자산 중 제조사 패치 권고와 매핑되는 항목입니다"
-        icon={ShieldAlert}
+        title="승인된 공지 목록"
+        subtitle="승인 완료된 취약점·EOS 공지와 매핑된 자산 현황입니다"
+        icon={ShieldCheck}
         action={
           <div className="flex items-center gap-1.5">
             <ExportExcelButton
-              rows={filtered}
-              filename="패치_취약점_모니터링"
+              rows={filteredSorted}
+              filename="승인된_취약점_공지"
               columns={[
-                { label: "심각도", value: (a: Asset) => vulnLabel[a.vuln] },
-                { label: "자산", value: (a: Asset) => a.name },
-                { label: "설치 서버", value: (a: Asset) => a.server },
-                { label: "담당자", value: (a: Asset) => a.owner },
-                { label: "현재 버전", value: (a: Asset) => a.version },
-                { label: "권고 버전", value: (a: Asset) => a.latest_version ?? "-" },
-                { label: "패치 상태", value: (a: Asset) => patchLabel[a.patch] },
-                { label: "패치 요약", value: (a: Asset) => advisoryFor(a, vulns).summary },
-                { label: "CVE", value: (a: Asset) => advisoryFor(a, vulns).cve },
-                { label: "EOS", value: (a: Asset) => a.eos ?? "-" },
-                { label: "검토 상태", value: (a: Asset) => a.approval },
+                { label: "심각도", value: (v: Vulnerability) => v.severity },
+                { label: "CVE", value: (v: Vulnerability) => v.cve },
+                { label: "제목", value: (v: Vulnerability) => v.title },
+                { label: "공지 유형", value: (v: Vulnerability) => v.notice_type },
+                { label: "출처 유형", value: (v: Vulnerability) => sourceTypeLabel[v.source_type] },
+                { label: "출처", value: (v: Vulnerability) => v.source },
+                { label: "영향 제품", value: (v: Vulnerability) => v.product },
+                { label: "매핑 자산 수", value: (v: Vulnerability) => matchMap.get(v.id)?.length ?? 0 },
               ]}
             />
             <ColumnVisibilityMenu
@@ -311,55 +211,32 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
           </div>
         }
       >
-        {/* 검색 + 필터 */}
         <div className="mb-4 flex flex-col gap-3 border-b border-border/50 pb-4">
-          {/* 기본 검색 한 줄 */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative min-w-[220px] flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={query}
                 onChange={(e) => { setQuery(e.target.value); pagination.setPage(1) }}
-                placeholder="제품명, 벤더, 담당자, 서버, CVE 검색"
+                placeholder="제목, CVE, 제품명, 출처 검색"
                 className="w-full rounded-lg border border-border/60 bg-background/50 py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
-
             <MiniButton
               onClick={() => setDetailFiltersOpen((v) => !v)}
               className={cn(detailFiltersOpen && "border-primary/50 bg-primary/10 text-primary")}
             >
-              <Filter className="h-3.5 w-3.5" />
-              상세 필터{detailFilterCount > 0 ? ` (${detailFilterCount})` : ""}
+              상세 필터{filterChips.length > 0 ? ` (${filterChips.length})` : ""}
               {detailFiltersOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             </MiniButton>
-
             <MiniButton onClick={resetFilters}>
               <RotateCcw className="h-3 w-3" />
               초기화
             </MiniButton>
           </div>
 
-          {/* 상세 필터 아코디언 */}
           {detailFiltersOpen ? (
             <div className="animate-rise flex flex-col gap-3 border-t border-border/50 pt-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="w-16 shrink-0 text-xs font-medium text-muted-foreground">분류</span>
-                {CATEGORIES.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => { setCat(c); pagination.setPage(1) }}
-                    className={cn(
-                      "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                      cat === c ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-
               <div className="flex flex-wrap items-center gap-2">
                 <span className="w-16 shrink-0 text-xs font-medium text-muted-foreground">심각도</span>
                 {SEVERITIES.map((s) => (
@@ -372,28 +249,42 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
                       severity === s ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground",
                     )}
                   >
-                    {s === "전체" ? s : vulnLabel[s]}
+                    {s}
                   </button>
                 ))}
               </div>
-
               <div className="flex flex-wrap items-center gap-2">
-                <span className="w-16 shrink-0 text-xs font-medium text-muted-foreground">검토 상태</span>
-                {REVIEW_FILTERS.map((r) => (
+                <span className="w-16 shrink-0 text-xs font-medium text-muted-foreground">출처 유형</span>
+                {SOURCE_TYPES.map((s) => (
                   <button
-                    key={r}
+                    key={s}
                     type="button"
-                    onClick={() => { setReview(r); pagination.setPage(1) }}
+                    onClick={() => { setSourceType(s); pagination.setPage(1) }}
                     className={cn(
                       "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
-                      review === r ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground",
+                      sourceType === s ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground",
                     )}
                   >
-                    {r}
+                    {s === "전체" ? s : sourceTypeLabel[s]}
                   </button>
                 ))}
               </div>
-
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="w-16 shrink-0 text-xs font-medium text-muted-foreground">공지 유형</span>
+                {NOTICE_TYPES.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => { setNoticeType(t); pagination.setPage(1) }}
+                    className={cn(
+                      "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
+                      noticeType === t ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
               {filterChips.length > 0 ? (
                 <div className="flex flex-wrap items-center gap-1.5 border-t border-border/50 pt-3">
                   <span className="text-[11px] text-muted-foreground">적용된 조건</span>
@@ -420,108 +311,86 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
         </div>
 
         <p className="mb-3 text-sm text-muted-foreground">
-          총 <span className="font-mono font-semibold text-foreground">{filtered.length}</span>건
+          총 <span className="font-mono font-semibold text-foreground">{filteredSorted.length}</span>건
           {loading && <span className="ml-2 text-xs">불러오는 중…</span>}
         </p>
 
         <TableShell scrollHint>
           <thead>
             <tr>
-              {show("vuln") && <SortTh col="vuln" label="심각도" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
-              {show("name") && <SortTh col="name" label="자산" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
-              {show("server") && <SortTh col="server" label="설치 서버" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
-              {show("owner") && <SortTh col="owner" label="담당자" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
-              {show("version") && <SortTh col="version" label="현재 → 권고 버전" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
-              {show("patch") && <SortTh col="patch" label="패치 상태" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
-              <Th className={cn("min-w-64", TABLE_HEADER_CELL_H)}>패치 요약 (CVE)</Th>
-              {show("eos") && <SortTh col="eos" label="EOS" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
-              {show("approval") && <SortTh col="approval" label="검토 상태" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {show("severity") && <SortTh col="severity" label="심각도" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {show("cve") && <SortTh col="cve" label="CVE" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {show("title") && <SortTh col="title" label="제목" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {show("noticeType") && <SortTh col="noticeType" label="공지 유형" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {show("sourceType") && <SortTh col="sourceType" label="출처 유형" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {show("source") && <SortTh col="source" label="출처" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {show("product") && <SortTh col="product" label="영향 제품" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {show("mapped") && <SortTh col="mapped" label="매핑 자산 수" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
               <Th className={TABLE_HEADER_CELL_H}>작업</Th>
             </tr>
           </thead>
           <tbody>
-            {pagination.pageItems.map((a) => {
-              const adv = advisoryFor(a, vulns)
+            {pagination.pageItems.map((v) => {
+              const matched = matchMap.get(v.id) ?? []
+              const expanded = expandedId === v.id
               return (
-                <tr key={a.id} className="transition-colors hover:bg-accent/40">
-                  {show("vuln") && (
+                <Fragment key={v.id}>
+                  <tr className="transition-colors hover:bg-accent/40">
+                    {show("severity") && (
+                      <Td className={TABLE_ROW_CELL_H}>
+                        <StatusBadge risk={sevRisk[v.severity]} pulse={v.severity === "Critical"}>{v.severity}</StatusBadge>
+                      </Td>
+                    )}
+                    {show("cve") && <Td className={cn("font-mono text-xs", TABLE_ROW_CELL_H)}>{v.cve}</Td>}
+                    {show("title") && <Td className={cn("whitespace-normal text-xs", TABLE_ROW_CELL_H)}>{v.title}</Td>}
+                    {show("noticeType") && (
+                      <Td className={TABLE_ROW_CELL_H}>
+                        <StatusBadge accent={noticeTypeAccent[v.notice_type]}>{v.notice_type}</StatusBadge>
+                      </Td>
+                    )}
+                    {show("sourceType") && (
+                      <Td className={TABLE_ROW_CELL_H}>
+                        <StatusBadge accent={sourceTypeAccent[v.source_type]}>
+                          {sourceTypeLabel[v.source_type]}
+                        </StatusBadge>
+                      </Td>
+                    )}
+                    {show("source") && <Td className={cn("text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{v.source}</Td>}
+                    {show("product") && <Td className={cn("text-xs", TABLE_ROW_CELL_H)}>{v.product}</Td>}
+                    {show("mapped") && <Td className={TABLE_ROW_CELL_H}>{matched.length}대</Td>}
                     <Td className={TABLE_ROW_CELL_H}>
-                      <StatusBadge risk={vulnRisk[a.vuln]} pulse={a.vuln === "Critical"}>
-                        {vulnLabel[a.vuln]}
-                      </StatusBadge>
-                    </Td>
-                  )}
-                  {show("name") && (
-                    <Td className={TABLE_ROW_CELL_H}>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-xs font-semibold text-foreground">{a.name}</span>
-                        <span className="text-[11px] text-muted-foreground">{a.vendor} · {a.category}</span>
-                      </div>
-                    </Td>
-                  )}
-                  {show("server") && <Td className={cn("text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{a.server}</Td>}
-                  {show("owner") && <Td className={TABLE_ROW_CELL_H}>{a.owner}</Td>}
-                  {show("version") && (
-                    <Td className={cn("font-mono text-xs", TABLE_ROW_CELL_H)}>
-                      {a.version} → <span className="font-semibold text-primary">{a.latest_version ?? "-"}</span>
-                    </Td>
-                  )}
-                  {show("patch") && (
-                    <Td className={TABLE_ROW_CELL_H}>
-                      <StatusBadge risk={patchRisk[a.patch]}>{patchLabel[a.patch]}</StatusBadge>
-                    </Td>
-                  )}
-                  <Td className={cn("whitespace-normal text-xs", TABLE_ROW_CELL_H)}>
-                    <p className="text-foreground">{adv.summary}</p>
-                    <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">{adv.cve}</p>
-                  </Td>
-                  {show("eos") && <Td className={cn("font-mono text-xs", TABLE_ROW_CELL_H, isEosSoon(a.eos) && "text-eos")}>{a.eos ?? "-"}</Td>}
-                  {show("approval") && (
-                    <Td className={TABLE_ROW_CELL_H}>
-                      <StatusBadge risk={approvalRisk[a.approval]} pulse={a.approval === "긴급"}>
-                        {a.approval}
-                      </StatusBadge>
-                    </Td>
-                  )}
-                  <Td className={TABLE_ROW_CELL_H}>
-                    <div className="flex items-center gap-1.5">
-                      <MiniButton accent="primary" onClick={() => setSelected(toDetail(a))}>
-                        <Eye className="h-3 w-3" />상세
+                      <MiniButton accent="primary" onClick={() => setExpandedId(expanded ? null : v.id)}>
+                        <Server className="h-3 w-3" />
+                        매핑 자산{expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                       </MiniButton>
-                      <MiniButton
-                        accent="warning"
-                        onClick={() =>
-                          toast({
-                            tone: "info",
-                            title: "담당자 알림 발송",
-                            description: `${a.owner} 담당자에게 ${a.name} 패치 권고를 전송했습니다.`,
-                          })
-                        }
-                      >
-                        <BellRing className="h-3 w-3" />알림
-                      </MiniButton>
-                      <MiniButton
-                        accent="success"
-                        onClick={() =>
-                          toast({
-                            tone: "success",
-                            title: "패치 작업 등록",
-                            description: `${a.name} (${a.server}) 패치 작업이 등록되었습니다.`,
-                          })
-                        }
-                      >
-                        <Wrench className="h-3 w-3" />패치 요청
-                      </MiniButton>
-                    </div>
-                  </Td>
-                </tr>
+                    </Td>
+                  </tr>
+                  {expanded ? (
+                    <tr>
+                      <td colSpan={visible.length + 1} className="border-b border-border/40 bg-background/40 px-3 py-3">
+                        {matched.length > 0 ? (
+                          <ul className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                            {matched.map((a) => (
+                              <li key={a.id} className="rounded-md border border-border/60 bg-card px-2.5 py-1.5">
+                                <span className="font-mono">{a.id}</span> · {a.name} · {a.server} · {a.owner}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">매칭되는 자산이 없습니다.</p>
+                        )}
+                        <p className="mt-2 text-[11px] text-muted-foreground">수집 일시: {formatCollected(v.collected_at)}</p>
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
               )
             })}
-            {!loading && filtered.length === 0 && (
+            {!loading && pagination.pageItems.length === 0 && (
               <tr>
-                <Td className="py-8 text-center text-muted-foreground">
-                  <span className="block w-full">검색 조건에 맞는 항목이 없습니다.</span>
-                </Td>
+                <td colSpan={visible.length + 1} className="py-8 text-center text-muted-foreground">
+                  검색 조건에 맞는 항목이 없습니다.
+                </td>
               </tr>
             )}
           </tbody>
@@ -537,8 +406,6 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
           />
         </div>
       </SectionCard>
-
-      <AssetSlideover asset={selected} onClose={() => setSelected(null)} />
     </div>
   )
 }

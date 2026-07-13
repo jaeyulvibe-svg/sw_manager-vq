@@ -22,6 +22,8 @@ export type ViewKey =
   | "request"
   | "approval"
   | "kisa"
+  | "vendor"
+  | "eos-notice"
   | "patch"
   | "admin-master"
   | "admin-servers"
@@ -68,8 +70,17 @@ export const NAV_ITEMS: NavEntry[] = [
   { key: "eos", label: "EOS 로드맵", icon: CalendarClock },
   { key: "request", label: "신규 자산 요청", icon: FilePlus2, userOnly: true },
   { key: "approval", label: "신규 자산 요청 승인", icon: ClipboardCheck, adminOnly: true },
-  { key: "kisa", label: "KISA 취약점 공지", icon: ShieldAlert },
-  { key: "patch", label: "패치&취약점 모니터링", icon: ShieldCheck },
+  {
+    groupKey: "vuln-notice",
+    label: "취약점 공지",
+    icon: ShieldAlert,
+    children: [
+      { key: "kisa", label: "KISA 취약점 공지", icon: ShieldAlert },
+      { key: "vendor", label: "제조사 취약점 공지", icon: ShieldAlert },
+      { key: "eos-notice", label: "EOS 공지", icon: CalendarClock },
+      { key: "patch", label: "승인된 취약점 공지", icon: ShieldCheck },
+    ],
+  },
   {
     groupKey: "admin",
     label: "관리자 페이지",

@@ -105,6 +105,7 @@ export type Database = {
           product: string
           source: string
           source_url: string | null
+          source_type: "kisa" | "vendor"
           mapped_assets: number
           approval: "승인대기" | "검토중" | "승인완료" | "반려"
           notice_type: "CVE" | "Patch" | "EOS"
@@ -119,6 +120,7 @@ export type Database = {
           product: string
           source: string
           source_url?: string | null
+          source_type?: "kisa" | "vendor"
           mapped_assets?: number
           approval?: "승인대기" | "검토중" | "승인완료" | "반려"
           notice_type?: "CVE" | "Patch" | "EOS"
@@ -132,6 +134,7 @@ export type Database = {
           product?: string
           source?: string
           source_url?: string | null
+          source_type?: "kisa" | "vendor"
           mapped_assets?: number
           approval?: "승인대기" | "검토중" | "승인완료" | "반려"
           notice_type?: "CVE" | "Patch" | "EOS"

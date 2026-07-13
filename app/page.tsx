@@ -19,6 +19,8 @@ import { EosView } from "@/components/pages/eos-view"
 import { RequestView } from "@/components/pages/request-view"
 import { ApprovalView } from "@/components/pages/approval-view"
 import { KisaView } from "@/components/pages/kisa-view"
+import { VendorView } from "@/components/pages/vendor-view"
+import { EosNoticeView } from "@/components/pages/eos-notice-view"
 import { PatchView } from "@/components/pages/patch-view"
 import { AdminView } from "@/components/pages/admin-view"
 import { SwMasterView } from "@/components/pages/sw-master-view"
@@ -69,6 +71,10 @@ function Portal({ onLogout }: { onLogout: () => void }) {
         return <ApprovalView />
       case "kisa":
         return <KisaView onNavigate={setActive} />
+      case "vendor":
+        return <VendorView onNavigate={setActive} />
+      case "eos-notice":
+        return <EosNoticeView onNavigate={setActive} />
       case "patch":
         return <PatchView onNavigate={setActive} />
       case "admin-master":
