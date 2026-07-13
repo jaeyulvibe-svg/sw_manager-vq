@@ -347,6 +347,45 @@ async function collectRedHat(): Promise<FoundNotice[]> {
   })
 }
 
+// oracle.com/security-alerts/ 의 HTML은 분기별 CPU 날짜만 나열되어 있어 구조화된 추출이
+// 어렵다(확인됨). 대신 공식 RSS를 사용한다. 분기별 배포 단위 공지이므로 CVE 단위가 아니라
+// notice_type: "Patch"로 분류한다.
+async function collectOracle(): Promise<FoundNotice[]> {
+  const url = "https://www.oracle.com/ocom/groups/public/@otn/documents/webcontent/rss-otn-sec.xml"
+  const xml = await fetchHtml(url)
+  const $ = cheerio.load(xml, { xmlMode: true })
+  const notices: FoundNotice[] = []
+
+  $("item")
+    .slice(0, 10)
+    .each((_, itemEl) => {
+      const title = $(itemEl).find("title").text().trim()
+      const link = $(itemEl).find("link").text().trim()
+      const pubDateText = $(itemEl).find("pubDate").text().trim()
+      if (!title) return
+
+      let collectedAt = pubDateText ? new Date(pubDateText) : new Date()
+      if (isNaN(collectedAt.getTime())) collectedAt = new Date()
+
+      const key = `ORACLE-CPU-${collectedAt.getFullYear()}-${String(collectedAt.getMonth() + 1).padStart(2, "0")}`
+
+      notices.push({
+        cve: key,
+        title,
+        severity: "High",
+        product: "Oracle Database",
+        source: "Oracle 보안 경고(Security Alerts)",
+        source_url: link || url,
+        source_type: "vendor",
+        notice_type: "Patch",
+        mapped_assets: 0,
+        collected_at: collectedAt.toISOString(),
+      })
+    })
+
+  return notices
+}
+
 // www.tmaxsoft.com/kr/developer/notice/list: 공식 기술공지 게시판.
 // <tr onclick="fnView('./view','SEQ')"> 행마다 제목/등록일이 들어있다.
 async function collectTmaxSoft(product: "JEUS" | "WebtoB"): Promise<FoundNotice[]> {
