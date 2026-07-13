@@ -14,7 +14,7 @@ export type ApprovalPolicy = {
  */
 export async function flagMatchedAssetsAndNotify(
   supabase: SupabaseClient<Database>,
-  notice: Pick<Vulnerability, "title" | "cve" | "severity" | "notice_type">,
+  notice: Pick<Vulnerability, "id" | "title" | "cve" | "severity" | "notice_type">,
   matched: Asset[],
   policy: ApprovalPolicy,
 ): Promise<{ notifiedCount: number }> {
@@ -26,6 +26,15 @@ export async function flagMatchedAssetsAndNotify(
   if (toFlag.length > 0) {
     await supabase.from("assets").update({ approval: "확인필요" }).in("id", toFlag)
   }
+
+  await supabase.from("patch_tasks").upsert(
+    matched.map((a) => ({
+      vulnerability_id: notice.id,
+      asset_id: a.id,
+      owner: a.owner,
+    })),
+    { onConflict: "vulnerability_id,asset_id", ignoreDuplicates: true },
+  )
 
   if (notice.severity === "Critical" && !policy.criticalUrgentAlert) {
     return { notifiedCount: 0 }
