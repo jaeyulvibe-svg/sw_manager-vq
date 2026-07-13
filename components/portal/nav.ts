@@ -13,6 +13,7 @@ import {
   UsersRound,
   Server,
   Megaphone,
+  ListChecks,
   type LucideIcon,
 } from "lucide-react"
 
@@ -27,6 +28,7 @@ export type ViewKey =
   | "vendor"
   | "eos-notice"
   | "patch"
+  | "patch-tasks"
   | "admin-master"
   | "admin-servers"
   | "admin-collect"
@@ -82,6 +84,7 @@ export const NAV_ITEMS: NavEntry[] = [
       { key: "vendor", label: "제조사 취약점 공지", icon: ShieldAlert },
       { key: "eos-notice", label: "EOS 공지", icon: CalendarClock },
       { key: "patch", label: "승인된 취약점 공지", icon: ShieldCheck },
+      { key: "patch-tasks", label: "내 조치 업무", icon: ListChecks },
     ],
   },
   {

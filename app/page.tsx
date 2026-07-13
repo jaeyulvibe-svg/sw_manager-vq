@@ -23,6 +23,7 @@ import { KisaView } from "@/components/pages/kisa-view"
 import { VendorView } from "@/components/pages/vendor-view"
 import { EosNoticeView } from "@/components/pages/eos-notice-view"
 import { PatchView } from "@/components/pages/patch-view"
+import { PatchTasksView } from "@/components/pages/patch-tasks-view"
 import { AdminView } from "@/components/pages/admin-view"
 import { SwMasterView } from "@/components/pages/sw-master-view"
 import { ServersView } from "@/components/pages/servers-view"
@@ -80,6 +81,8 @@ function Portal({ onLogout }: { onLogout: () => void }) {
         return <EosNoticeView onNavigate={setActive} />
       case "patch":
         return <PatchView onNavigate={setActive} />
+      case "patch-tasks":
+        return <PatchTasksView />
       case "admin-master":
         return <SwMasterView key={active} />
       case "admin-servers":
