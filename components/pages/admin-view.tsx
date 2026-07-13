@@ -43,7 +43,7 @@ import {
 import { useRole } from "@/components/portal/role-context"
 import { useToast } from "@/components/portal/toast"
 import { createClient } from "@/lib/supabase/client"
-import type { Tables, TablesInsert } from "@/lib/supabase/types"
+import type { Tables, TablesInsert, TablesUpdate } from "@/lib/supabase/types"
 import { cn } from "@/lib/utils"
 
 /* ---- Shared input style for inline add/edit forms ---- */
@@ -624,13 +624,16 @@ function FontSizeControl({
 function Toggle({
   label,
   desc,
-  defaultOn = false,
+  checked,
+  onChange,
+  disabled = false,
 }: {
   label: string
   desc: string
-  defaultOn?: boolean
+  checked: boolean
+  onChange: (next: boolean) => void
+  disabled?: boolean
 }) {
-  const [on, setOn] = useState(defaultOn)
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-background/40 px-3 py-3">
       <div className="min-w-0">
@@ -640,17 +643,18 @@ function Toggle({
       <button
         type="button"
         role="switch"
-        aria-checked={on}
-        onClick={() => setOn((v) => !v)}
+        aria-checked={checked}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
         className={cn(
-          "relative h-6 w-11 shrink-0 rounded-full transition-colors",
-          on ? "bg-primary" : "bg-muted",
+          "relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+          checked ? "bg-primary" : "bg-muted",
         )}
       >
         <span
           className={cn(
             "absolute top-0.5 h-5 w-5 rounded-full bg-background transition-[left]",
-            on ? "left-[22px]" : "left-0.5",
+            checked ? "left-[22px]" : "left-0.5",
           )}
         />
       </button>
@@ -676,6 +680,32 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
   const [fontScale, setFontScale] = useState(FONT_SCALE_DEFAULT)
   const { isAdmin } = useRole()
   const { toast } = useToast()
+
+  const [policy, setPolicy] = useState<Tables<"admin_policies"> | null>(null)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from("admin_policies")
+      .select("*")
+      .eq("id", "default")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setPolicy(data)
+      })
+  }, [])
+
+  async function updatePolicy(patch: Partial<TablesUpdate<"admin_policies">>) {
+    if (!policy) return
+    const previous = policy
+    setPolicy({ ...policy, ...patch })
+    const supabase = createClient()
+    const { error } = await supabase.from("admin_policies").update(patch).eq("id", "default")
+    if (error) {
+      setPolicy(previous)
+      toast({ title: "설정 저장 실패", description: error.message, tone: "danger" })
+    }
+  }
 
   const [sources, setSources] = useState<Source[]>([])
   const [sourcePanel, setSourcePanel] = useState<"add" | string | null>(null)
@@ -1287,16 +1317,27 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
           }
         >
           <div className="flex flex-col gap-3">
-            <Toggle label="자동 수집 스케줄러" desc="공식 Source 주기적 자동 수집" defaultOn />
+            <Toggle
+              label="자동 수집 스케줄러"
+              desc="공식 Source 주기적 자동 수집 (설정값만 저장 — 이 앱은 서버 스케줄러가 없어 실제 주기 실행은 수동 '즉시 수집'으로 대체됩니다)"
+              checked={policy?.auto_collect_enabled ?? true}
+              disabled={!policy}
+              onChange={(next) => updatePolicy({ auto_collect_enabled: next })}
+            />
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-background/40 px-3 py-3">
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground">수집 주기</p>
-                <p className="text-xs text-muted-foreground">기본 수집 인터벌</p>
+                <p className="text-xs text-muted-foreground">기본 수집 인터벌 (설정값만 저장)</p>
               </div>
-              <select className="shrink-0 rounded-lg border border-border/60 bg-background/50 px-3 py-1.5 text-xs text-foreground focus:border-primary/60 focus:outline-none">
-                <option>1시간</option>
-                <option>6시간</option>
-                <option>일 1회</option>
+              <select
+                value={policy?.collect_interval ?? "일 1회"}
+                disabled={!policy}
+                onChange={(e) => updatePolicy({ collect_interval: e.target.value as Tables<"admin_policies">["collect_interval"] })}
+                className="shrink-0 rounded-lg border border-border/60 bg-background/50 px-3 py-1.5 text-xs text-foreground focus:border-primary/60 focus:outline-none"
+              >
+                <option value="1시간">1시간</option>
+                <option value="6시간">6시간</option>
+                <option value="일 1회">일 1회</option>
               </select>
             </div>
 
