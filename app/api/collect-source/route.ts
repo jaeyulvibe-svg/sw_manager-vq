@@ -306,6 +306,47 @@ async function collectOpenSSL(): Promise<FoundNotice[]> {
   return notices
 }
 
+type RedHatCveEntry = {
+  CVE: string
+  severity: string
+  public_date: string
+  bugzilla_description: string
+}
+
+const REDHAT_SEVERITY_MAP: Record<string, FoundNotice["severity"]> = {
+  critical: "Critical",
+  important: "High",
+  moderate: "Medium",
+  low: "Low",
+}
+
+// access.redhat.com/security/security-updates 는 React SPA라 HTML 스크래핑으로는 CVE
+// 데이터를 얻을 수 없다(확인됨). 대신 공식 Security Data REST API를 직접 호출한다.
+async function collectRedHat(): Promise<FoundNotice[]> {
+  const after = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const url = `https://access.redhat.com/hydra/rest/securitydata/cve.json?product=Red%20Hat%20Enterprise%20Linux&after=${after}`
+  const res = await fetch(url, { headers: { "User-Agent": UA }, cache: "no-store" })
+  if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${url}`)
+  const entries = (await res.json()) as RedHatCveEntry[]
+
+  return entries.slice(0, 30).map((entry) => {
+    const severityWord = entry.severity?.toLowerCase() ?? ""
+    const collectedAt = entry.public_date ? new Date(entry.public_date) : new Date()
+    return {
+      cve: entry.CVE,
+      title: entry.bugzilla_description || entry.CVE,
+      severity: REDHAT_SEVERITY_MAP[severityWord] ?? "Medium",
+      product: "Red Hat Enterprise Linux",
+      source: "Red Hat Security Data API",
+      source_url: `https://access.redhat.com/security/cve/${entry.CVE}`,
+      source_type: "vendor",
+      notice_type: "CVE",
+      mapped_assets: 0,
+      collected_at: isNaN(collectedAt.getTime()) ? new Date().toISOString() : collectedAt.toISOString(),
+    }
+  })
+}
+
 // www.tmaxsoft.com/kr/developer/notice/list: 공식 기술공지 게시판.
 // <tr onclick="fnView('./view','SEQ')"> 행마다 제목/등록일이 들어있다.
 async function collectTmaxSoft(product: "JEUS" | "WebtoB"): Promise<FoundNotice[]> {
