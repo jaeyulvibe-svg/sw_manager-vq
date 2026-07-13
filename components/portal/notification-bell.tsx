@@ -6,21 +6,18 @@ import {
   useNotifications,
   CATEGORY_META,
   STATUS_RISK,
-  type NotifCategory,
   type Notification,
 } from "./notifications-context"
 import { StatusBadge, riskText, type RiskLevel } from "./ui"
 import { type ViewKey } from "./nav"
 import { cn } from "@/lib/utils"
 
-type FilterKey = "all" | "unread" | "urgent" | "asset" | "security"
+type FilterKey = "all" | "unread" | "urgent"
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "전체" },
   { key: "unread", label: "읽지 않음" },
   { key: "urgent", label: "긴급" },
-  { key: "asset", label: "자산" },
-  { key: "security", label: "보안" },
 ]
 
 function matchesFilter(n: Notification, filter: FilterKey): boolean {
@@ -31,8 +28,6 @@ function matchesFilter(n: Notification, filter: FilterKey): boolean {
       return !n.read
     case "urgent":
       return !!n.urgent
-    default:
-      return n.category === (filter as NotifCategory)
   }
 }
 

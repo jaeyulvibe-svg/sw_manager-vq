@@ -215,6 +215,7 @@ export function EosView() {
             filename="EOS_위험_자산"
             columns={[
               { label: "제품명", value: (it: EosRow) => it.name },
+              { label: "설치 서버", value: (it: EosRow) => it.server },
               { label: "벤더", value: (it: EosRow) => it.vendor },
               { label: "현재 버전", value: (it: EosRow) => it.version },
               { label: "담당자", value: (it: EosRow) => it.owner },
@@ -236,6 +237,7 @@ export function EosView() {
             <thead>
               <tr>
                 <Th>제품명</Th>
+                <Th>설치 서버</Th>
                 <Th>벤더</Th>
                 <Th>현재 버전</Th>
                 <Th>담당자</Th>
@@ -261,6 +263,7 @@ export function EosView() {
                         {it.name}
                       </span>
                     </Td>
+                    <Td className="text-muted-foreground">{it.server}</Td>
                     <Td className="text-muted-foreground">{it.vendor}</Td>
                     <Td className="font-mono text-xs">{it.version}</Td>
                     <Td>{it.owner}</Td>
