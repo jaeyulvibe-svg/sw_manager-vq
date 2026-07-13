@@ -744,7 +744,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
   const { toast } = useToast()
 ```
 
-Add policy state right after `const { toast } = useToast()`:
+Add policy state right after `const { toast } = useToast()`. Add `TablesUpdate` to the existing `import type { Tables, TablesInsert } from "@/lib/supabase/types"` line (it becomes `import type { Tables, TablesInsert, TablesUpdate } from "@/lib/supabase/types"`) — `updatePolicy`'s parameter must be typed as `Partial<TablesUpdate<"admin_policies">>`, not `Partial<Tables<"admin_policies">>`: the Row shape (`Tables`) includes `id`, which the generated `Update` type structurally rejects, so the `Tables` version does not typecheck.
 
 ```ts
   const [policy, setPolicy] = useState<Tables<"admin_policies"> | null>(null)
@@ -761,7 +761,7 @@ Add policy state right after `const { toast } = useToast()`:
       })
   }, [])
 
-  async function updatePolicy(patch: Partial<Tables<"admin_policies">>) {
+  async function updatePolicy(patch: Partial<TablesUpdate<"admin_policies">>) {
     if (!policy) return
     const previous = policy
     setPolicy({ ...policy, ...patch })
