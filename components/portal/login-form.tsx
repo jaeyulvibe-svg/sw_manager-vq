@@ -47,7 +47,7 @@ export function LoginForm({ onLogin }: { onLogin: (remember: boolean) => void })
 
   const form = useForm<LoginSchema>({
     resolver: loginResolver,
-    defaultValues: { username: "", password: "", remember: false },
+    defaultValues: { username: "", password: "" },
   })
 
   const {
@@ -57,10 +57,10 @@ export function LoginForm({ onLogin }: { onLogin: (remember: boolean) => void })
   } = form
 
   // 데모용 로그인 — 실제 인증 없이 아이디/비밀번호만 채우면 통과시킨다
-  async function onSubmit(values: LoginSchema) {
+  async function onSubmit() {
     await new Promise((resolve) => setTimeout(resolve, 900))
     setSuccess(true)
-    setTimeout(() => onLogin(values.remember ?? false), 500)
+    setTimeout(() => onLogin(true), 500)
   }
 
   return (
@@ -68,7 +68,7 @@ export function LoginForm({ onLogin }: { onLogin: (remember: boolean) => void })
       variants={container}
       initial="hidden"
       animate="show"
-      className="w-full max-w-md rounded-3xl border border-border bg-card/70 p-8 shadow-2xl shadow-black/40 backdrop-blur-xl sm:p-10"
+      className="w-full rounded-3xl border border-border bg-card/70 p-8 shadow-2xl shadow-black/40 backdrop-blur-xl"
     >
       <motion.div variants={item} className="mb-8">
         <h2 className="text-2xl font-bold tracking-tight text-foreground">
@@ -142,28 +142,6 @@ export function LoginForm({ onLogin }: { onLogin: (remember: boolean) => void })
           <FieldError message={errors.password?.message} />
         </motion.div>
 
-        {/* Remember + forgot */}
-        <motion.div
-          variants={item}
-          className="flex items-center justify-between text-sm"
-        >
-          <label className="flex cursor-pointer items-center gap-2 text-muted-foreground">
-            <input
-              type="checkbox"
-              className="size-4 rounded border-border bg-secondary/40 text-primary accent-primary focus:ring-primary/40"
-              {...register("remember")}
-            />
-            로그인 상태 유지
-          </label>
-          <a
-            href="#"
-            onClick={(e) => e.preventDefault()}
-            className="font-medium text-primary transition hover:text-primary/80"
-          >
-            비밀번호 찾기
-          </a>
-        </motion.div>
-
         {/* Submit */}
         <motion.button
           variants={item}
@@ -209,20 +187,6 @@ export function LoginForm({ onLogin }: { onLogin: (remember: boolean) => void })
           </AnimatePresence>
         </motion.button>
       </form>
-
-      <motion.p
-        variants={item}
-        className="mt-6 text-center text-sm text-muted-foreground"
-      >
-        계정이 없으신가요?{" "}
-        <a
-          href="#"
-          onClick={(e) => e.preventDefault()}
-          className="font-medium text-primary transition hover:text-primary/80"
-        >
-          관리자에게 문의
-        </a>
-      </motion.p>
     </motion.div>
   )
 }
