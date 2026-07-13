@@ -367,7 +367,13 @@ async function collectOracle(): Promise<FoundNotice[]> {
       let collectedAt = pubDateText ? new Date(pubDateText) : new Date()
       if (isNaN(collectedAt.getTime())) collectedAt = new Date()
 
-      const key = `ORACLE-CPU-${collectedAt.getFullYear()}-${String(collectedAt.getMonth() + 1).padStart(2, "0")}`
+      // 링크의 페이지 슬러그로 고유 키를 만든다(예: cspujun2026, alert-cve-2026-35273).
+      // 이 피드는 분기별 CPU 번들과 개별 CVE 알림이 섞여 있어, 같은 달에 둘 다 나오면
+      // 연-월만으로 키를 만들 경우 충돌해 한쪽이 배치 내 중복 제거로 유실된다.
+      const slugMatch = link.match(/\/([a-z0-9-]+)\.html/i)
+      const key = slugMatch
+        ? `ORACLE-${slugMatch[1].toUpperCase()}`
+        : `ORACLE-CPU-${collectedAt.getFullYear()}-${String(collectedAt.getMonth() + 1).padStart(2, "0")}`
 
       notices.push({
         cve: key,
