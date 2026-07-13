@@ -585,7 +585,11 @@ function Toggle({
 
 type CollectLogEntry = { product: string; ok: boolean; newCount: number; error?: string }
 
-const REAL_COLLECT_PRODUCTS = ["Apache Tomcat", "JEUS", "WebtoB"] as const
+const REAL_COLLECT_PRODUCTS = [
+  "Apache Tomcat", "JEUS", "WebtoB",
+  "Nginx", "PostgreSQL", "OpenSSL", "Red Hat Enterprise Linux", "Oracle Database",
+  "KISA",
+] as const
 
 /* ---- Admin page tabs — navigated via the sidebar's "관리자 페이지" submenu ---- */
 export type AdminTab = "collect" | "policy" | "users"
