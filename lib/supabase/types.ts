@@ -437,7 +437,7 @@ export type Database = {
           vulnerability_id: string
           asset_id: string
           owner: string
-          status: "배정됨" | "조치예정" | "조치지연" | "조치완료"
+          status: "배정됨" | "조치예정" | "조치지연" | "조치완료" | "예외요청" | "예외승인"
           due_date: string | null
           note: string | null
           completed_at: string | null
@@ -449,7 +449,7 @@ export type Database = {
           vulnerability_id: string
           asset_id: string
           owner: string
-          status?: "배정됨" | "조치예정" | "조치지연" | "조치완료"
+          status?: "배정됨" | "조치예정" | "조치지연" | "조치완료" | "예외요청" | "예외승인"
           due_date?: string | null
           note?: string | null
           completed_at?: string | null
@@ -457,7 +457,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          status?: "배정됨" | "조치예정" | "조치지연" | "조치완료"
+          status?: "배정됨" | "조치예정" | "조치지연" | "조치완료" | "예외요청" | "예외승인"
           due_date?: string | null
           note?: string | null
           completed_at?: string | null
