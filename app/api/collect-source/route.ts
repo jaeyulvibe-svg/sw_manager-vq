@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import * as cheerio from "cheerio"
 import { createClient } from "@supabase/supabase-js"
 import type { Database, TablesInsert } from "@/lib/supabase/types"
+import { classifyNoticeType } from "@/lib/notice-classify"
 
 export type CollectProduct = "Apache Tomcat" | "JEUS" | "WebtoB"
 
@@ -132,16 +133,8 @@ async function collectTmaxSoft(product: "JEUS" | "WebtoB"): Promise<FoundNotice[
   const relevant = rows.filter((r) => r.title.includes(product))
 
   for (const row of relevant) {
-    let noticeType: FoundNotice["notice_type"] | null = null
-    if (row.title.includes("EOL") || row.title.includes("EOS") || row.title.includes("단종")) {
-      noticeType = "EOS"
-    } else if (row.title.includes("취약점") || row.title.includes("보안")) {
-      noticeType = "CVE"
-    } else if (row.title.includes("패치")) {
-      noticeType = "Patch"
-    } else {
-      continue // 호환성 테스트 결과 등 관련 없는 공지는 제외
-    }
+    const noticeType = classifyNoticeType(row.title)
+    if (!noticeType) continue // 호환성 테스트 결과 등 관련 없는 공지는 제외
 
     const cveMatch = row.title.match(/CVE-\d{4}-\d+/)
     const key = cveMatch ? cveMatch[0] : `TMAX-${row.seq}`
