@@ -1430,10 +1430,34 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
       {activeTab === "policy" && (
       <SectionCard title="승인 정책 관리" subtitle="자동 알림 및 승인 규칙" icon={ShieldCheck}>
         <div className="flex flex-col gap-3">
-          <Toggle label="Critical 자동 긴급 알림" desc="Critical 취약점 발견 시 즉시 알림" defaultOn />
-          <Toggle label="High 이상 관리자 승인 필수" desc="High 등급 이상 패치는 관리자 승인" defaultOn />
-          <Toggle label="EOS 180일 전 알림" desc="지원 종료 180일 전 담당자 알림" defaultOn />
-          <Toggle label="패치 공지 수집 후 승인 대기 등록" desc="수집된 공지를 자동으로 승인 대기 큐에 등록" />
+          <Toggle
+            label="Critical 자동 긴급 알림"
+            desc="Critical 취약점 승인 시 담당자에게 즉시 알림 (끄면 Critical 승인 시 알림을 생성하지 않습니다)"
+            checked={policy?.critical_urgent_alert ?? true}
+            disabled={!policy}
+            onChange={(next) => updatePolicy({ critical_urgent_alert: next })}
+          />
+          <Toggle
+            label="High 이상 관리자 승인 필수"
+            desc="켜면(기본) 모든 등급이 수동 승인 필요. 끄면 즉시 수집으로 들어온 Medium/Low 공지는 자동 승인됩니다(High/Critical은 항상 수동 승인)"
+            checked={policy?.high_requires_approval ?? true}
+            disabled={!policy}
+            onChange={(next) => updatePolicy({ high_requires_approval: next })}
+          />
+          <Toggle
+            label="EOS 180일 전 알림"
+            desc="지원 종료 180일 이내 자산을 관리자 페이지 접속 시 확인해 담당자에게 1회 알림"
+            checked={policy?.eos_alert_180d ?? true}
+            disabled={!policy}
+            onChange={(next) => updatePolicy({ eos_alert_180d: next })}
+          />
+          <Toggle
+            label="패치 공지 수집 후 승인 대기 등록"
+            desc="켜면(기본) 즉시 수집 결과가 승인 대기 큐로 들어감. 끄면 심각도 무관 즉시 승인완료 처리(수동 등록은 영향 없음)"
+            checked={policy?.queue_after_collect ?? true}
+            disabled={!policy}
+            onChange={(next) => updatePolicy({ queue_after_collect: next })}
+          />
         </div>
       </SectionCard>
       )}
