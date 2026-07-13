@@ -431,6 +431,40 @@ export type Database = {
         }
         Relationships: []
       }
+      patch_tasks: {
+        Row: {
+          id: string
+          vulnerability_id: string
+          asset_id: string
+          owner: string
+          status: "배정됨" | "조치예정" | "조치지연" | "조치완료"
+          due_date: string | null
+          note: string | null
+          completed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          vulnerability_id: string
+          asset_id: string
+          owner: string
+          status?: "배정됨" | "조치예정" | "조치지연" | "조치완료"
+          due_date?: string | null
+          note?: string | null
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          status?: "배정됨" | "조치예정" | "조치지연" | "조치완료"
+          due_date?: string | null
+          note?: string | null
+          completed_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
