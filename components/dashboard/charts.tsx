@@ -153,7 +153,7 @@ export function SeverityDonut({ assets }: { assets: Asset[] }) {
   return (
     <ChartCard
       title="위험도별 분포"
-      subtitle={`미조치 취약점 ${unresolved}건`}
+      subtitle={`수집된 취약점·보안공지의 위험 수준 · 미조치 ${unresolved}건`}
       icon={PieIcon}
     >
       <div className="relative h-64 w-full">
