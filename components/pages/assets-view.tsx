@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import {
-  Boxes, Search, Eye, Pencil, RefreshCw,
+  Boxes, Search, Eye, Pencil,
   Filter, ChevronUp, ChevronDown, RotateCcw, X,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
@@ -50,12 +50,6 @@ const FACTORY_VISIBLE: ColKey[] = [
   "server", "owner", "vuln", "patch", "eos", "checked_at",
 ]
 const LS_KEY = "sw_manager_col_visible"
-
-/* ── 자동 수집 추적 대상 제품 (app/api/collect-source/route.ts와 동일 목록, KISA 제외) ── */
-const TRACKED_COLLECT_PRODUCTS = new Set([
-  "Apache Tomcat", "JEUS", "WebtoB", "Nginx",
-  "PostgreSQL", "OpenSSL", "Red Hat Enterprise Linux", "Oracle Database",
-])
 
 /* ── 필터 옵션 ──────────────────────────────────────────── */
 const CATEGORIES: (Category | "전체")[] = ["전체", "OS", "WEB", "WAS", "DB", "Middleware", "Security"]
@@ -202,7 +196,6 @@ export function AssetsView() {
   const [selected, setSelected] = useState<AssetDetail | null>(null)
   const [detailFiltersOpen, setDetailFiltersOpen] = useState(false)
   const [editPanel, setEditPanel] = useState<string | null>(null)
-  const [collectingId, setCollectingId] = useState<string | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -226,48 +219,6 @@ export function AssetsView() {
     setAssets((prev) => prev.map((a) => (a.id === assetId ? { ...a, ...values } : a)))
     setEditPanel(null)
     toast({ tone: "success", title: "자산 정보가 수정되었습니다" })
-  }
-
-  async function collectAsset(asset: Asset) {
-    if (collectingId) return
-    if (!TRACKED_COLLECT_PRODUCTS.has(asset.name)) {
-      toast({
-        tone: "info",
-        title: "자동 수집 대상 제품이 아닙니다",
-        description: `${asset.name}은(는) 자동 수집 추적 대상 제품 목록에 없습니다.`,
-      })
-      return
-    }
-    setCollectingId(asset.id)
-    try {
-      const res = await fetch("/api/collect-source", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ products: [asset.name] }),
-      })
-      const data = await res.json()
-      const result = (data.results ?? [])[0]
-      const supabase = createClient()
-      const nowIso = new Date().toISOString()
-      const { error } = await supabase.from("assets").update({ checked_at: nowIso }).eq("id", asset.id)
-      if (error) {
-        toast({ tone: "danger", title: "확인일 갱신 실패", description: error.message })
-        return
-      }
-      setAssets((prev) => prev.map((a) => (a.id === asset.id ? { ...a, checked_at: nowIso } : a)))
-      toast({
-        tone: "success",
-        title: "자산 정보 수집 완료",
-        description:
-          result?.ok
-            ? `${asset.name} 신규 공지 ${result.newCount}건 확인, 확인일이 갱신되었습니다.`
-            : `${asset.name} 수집 중 오류가 발생했지만 확인일은 갱신되었습니다.`,
-      })
-    } catch {
-      toast({ tone: "danger", title: "수집 실패", description: "네트워크 오류로 수집에 실패했습니다." })
-    } finally {
-      setCollectingId(null)
-    }
   }
 
   function handleSort(col: SortKey) {
@@ -534,17 +485,11 @@ export function AssetsView() {
                       <MiniButton accent="primary" onClick={() => setSelected(toDetail(a))}>
                         <Eye className="h-3 w-3" />상세
                       </MiniButton>
-                      <MiniButton accent="muted" onClick={() => setEditPanel(a.id)}>
-                        <Pencil className="h-3 w-3" />수정
-                      </MiniButton>
-                      <MiniButton
-                        accent="success"
-                        disabled={collectingId === a.id}
-                        onClick={() => collectAsset(a)}
-                      >
-                        <RefreshCw className={cn("h-3 w-3", collectingId === a.id && "animate-spin")} />
-                        {collectingId === a.id ? "수집 중…" : "수집"}
-                      </MiniButton>
+                      {isAdmin && (
+                        <MiniButton accent="muted" onClick={() => setEditPanel(a.id)}>
+                          <Pencil className="h-3 w-3" />수정
+                        </MiniButton>
+                      )}
                     </div>
                   </Td>
                 </tr>

@@ -12,12 +12,9 @@ import {
   CalendarClock,
   CheckCircle2,
   Clock,
-  Download,
-  BellRing,
 } from "lucide-react"
 import { StatusBadge, ProgressBar, riskText, type Accent, type RiskLevel } from "./ui"
 import { Sparkline } from "./sparkline"
-import { useToast } from "./toast"
 import { cn } from "@/lib/utils"
 
 export type AssetDetail = {
@@ -92,8 +89,6 @@ export function AssetSlideover({
   asset: AssetDetail | null
   onClose: () => void
 }) {
-  const { toast } = useToast()
-
   useEffect(() => {
     if (!asset) return
     const onKey = (e: KeyboardEvent) => {
@@ -260,52 +255,6 @@ export function AssetSlideover({
               ))}
             </ul>
           </div>
-        </div>
-
-        {/* Footer actions */}
-        <div className="flex items-center gap-2 border-t border-border/60 px-5 py-4">
-          <button
-            type="button"
-            onClick={() =>
-              toast({
-                tone: "success",
-                title: "패치 작업 등록 완료",
-                description: `${asset.name} 패치 작업이 담당자에게 배정되었습니다.`,
-              })
-            }
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5"
-          >
-            <PackageCheck className="h-4 w-4" />
-            패치 작업 등록
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              toast({
-                tone: "info",
-                title: "담당자 알림 전송",
-                description: `${asset.owner} 담당자에게 알림을 발송했습니다.`,
-              })
-            }
-            className="flex items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-card px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:border-primary/40"
-          >
-            <BellRing className="h-4 w-4" />
-            알림
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              toast({
-                tone: "info",
-                title: "리포트 내보내기",
-                description: "자산 상세 리포트(PDF) 생성을 시작했습니다.",
-              })
-            }
-            className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-lg border border-border/60 bg-card text-foreground transition-colors hover:border-primary/40"
-            aria-label="리포트 내보내기"
-          >
-            <Download className="h-4 w-4" />
-          </button>
         </div>
       </aside>
     </div>
