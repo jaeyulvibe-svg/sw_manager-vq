@@ -231,9 +231,11 @@ const SEVERITY_FILTERS: (Severity | "전체")[] = [
 export function SecurityNoticeBoard({
   assets,
   vulns,
+  onNavigate,
 }: {
   assets: Asset[]
   vulns: Vulnerability[]
+  onNavigate?: (view: ViewKey) => void
 }) {
   const { toast } = useToast()
   const [query, setQuery] = useState("")
@@ -348,7 +350,26 @@ export function SecurityNoticeBoard({
         </thead>
         <tbody>
           {pagination.pageItems.map((s) => (
-            <tr key={s.id} className="transition-colors hover:bg-accent/40">
+            <tr
+              key={s.id}
+              role={onNavigate ? "button" : undefined}
+              tabIndex={onNavigate ? 0 : undefined}
+              onClick={onNavigate ? () => onNavigate("patch") : undefined}
+              onKeyDown={
+                onNavigate
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault()
+                        onNavigate("patch")
+                      }
+                    }
+                  : undefined
+              }
+              className={cn(
+                "transition-colors hover:bg-accent/40",
+                onNavigate && "cursor-pointer outline-none focus-visible:bg-accent/60",
+              )}
+            >
               <Td>
                 <StatusBadge
                   risk={severityRisk[s.severity]}
@@ -370,13 +391,14 @@ export function SecurityNoticeBoard({
               <Td>
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={(e) => {
+                    e.stopPropagation()
                     toast({
                       tone: "info",
                       title: "수집 Source 확인",
                       description: `${s.source} · ${s.source_url ?? "공식 URL 미등록"}`,
                     })
-                  }
+                  }}
                   className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-primary"
                 >
                   <Link2 className="h-3 w-3" />

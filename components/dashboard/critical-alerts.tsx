@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 import type { Tables } from "@/lib/supabase/types"
 import { matchAssets } from "@/lib/vuln-match"
 import { usePagination, Pagination } from "@/components/portal/ui"
+import type { ViewKey } from "@/components/portal/nav"
 
 type Asset = Tables<"assets">
 type Vulnerability = Tables<"vulnerabilities">
@@ -28,9 +29,11 @@ const severityStyles: Record<
 export function CriticalAlerts({
   assets,
   vulns,
+  onNavigate,
 }: {
   assets: Asset[]
   vulns: Vulnerability[]
+  onNavigate?: (view: ViewKey) => void
 }) {
   const alerts = vulns
     .filter((v) => v.approval === "승인완료")
@@ -73,7 +76,23 @@ export function CriticalAlerts({
             return (
               <li
                 key={alert.id}
-                className="group relative flex items-center gap-3 overflow-hidden rounded-xl border border-border/60 bg-background/40 p-3 transition-colors hover:border-risk-5/40"
+                role={onNavigate ? "button" : undefined}
+                tabIndex={onNavigate ? 0 : undefined}
+                onClick={onNavigate ? () => onNavigate("patch") : undefined}
+                onKeyDown={
+                  onNavigate
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault()
+                          onNavigate("patch")
+                        }
+                      }
+                    : undefined
+                }
+                className={cn(
+                  "group relative flex items-center gap-3 overflow-hidden rounded-xl border border-border/60 bg-background/40 p-3 transition-colors hover:border-risk-5/40",
+                  onNavigate && "cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+                )}
               >
                 <span className={cn("h-11 w-1 rounded-full", s.bar)} />
                 <div className="min-w-0 flex-1">

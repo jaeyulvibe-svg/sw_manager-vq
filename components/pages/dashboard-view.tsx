@@ -46,9 +46,15 @@ const accentIconColor: Record<Accent, string> = {
   muted: "text-muted-foreground",
 }
 
-function RecentUpdates() {
-  const { notifications, loading } = useNotifications()
+function RecentUpdates({ onNavigate }: { onNavigate?: (view: ViewKey) => void }) {
+  const { notifications, loading, markRead } = useNotifications()
   const recent = notifications.slice(0, 5)
+
+  function handleGo(n: (typeof recent)[number]) {
+    if (!onNavigate) return
+    markRead(n.id)
+    onNavigate(n.link.view)
+  }
 
   return (
     <SectionCard
@@ -71,7 +77,26 @@ function RecentUpdates() {
           {recent.map((n, i) => {
             const meta = CATEGORY_META[n.category]
             return (
-              <li key={n.id} className="relative flex gap-3 pb-4 last:pb-0">
+              <li
+                key={n.id}
+                role={onNavigate ? "button" : undefined}
+                tabIndex={onNavigate ? 0 : undefined}
+                onClick={() => handleGo(n)}
+                onKeyDown={
+                  onNavigate
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault()
+                          handleGo(n)
+                        }
+                      }
+                    : undefined
+                }
+                className={cn(
+                  "relative flex gap-3 rounded-lg pb-4 last:pb-0",
+                  onNavigate && "cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+                )}
+              >
                 {i !== recent.length - 1 ? (
                   <span className="absolute left-[15px] top-8 h-full w-px bg-border/60" />
                 ) : null}
@@ -159,12 +184,12 @@ function SecurityDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey) =>
     ),
     alerts: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <CriticalAlerts assets={assets} vulns={vulns} />
-        <RecentUpdates />
+        <CriticalAlerts assets={assets} vulns={vulns} onNavigate={onNavigate} />
+        <RecentUpdates onNavigate={onNavigate} />
       </div>
     ),
     notices: <NoticeBoard onNavigate={onNavigate} />,
-    "security-notices": <SecurityNoticeBoard assets={assets} vulns={vulns} />,
+    "security-notices": <SecurityNoticeBoard assets={assets} vulns={vulns} onNavigate={onNavigate} />,
   }
 
   return (
