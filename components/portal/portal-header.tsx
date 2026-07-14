@@ -2,7 +2,7 @@
 
 import { LogOut, Menu, Search } from "lucide-react"
 import { LiveClock } from "./live-clock"
-import { RoleToggle } from "./role-toggle"
+import { UserSwitcher } from "./user-switcher"
 import { ThemeToggle } from "./theme-toggle"
 import { NotificationBell } from "./notification-bell"
 import { NAV_ITEMS, EXTRA_VIEW_META, isNavGroup, type ViewKey } from "./nav"
@@ -62,7 +62,7 @@ export function PortalHeader({
             <span className="text-[11px]">⌘</span>K
           </kbd>
         </button>
-        <RoleToggle />
+        <UserSwitcher />
         <ThemeToggle />
         <NotificationBell
           onNavigate={onNavigate}

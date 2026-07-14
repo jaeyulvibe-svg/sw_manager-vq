@@ -3,13 +3,8 @@
 import { useEffect, useRef, useState } from "react"
 import { ChevronDown, ChevronsLeft, ChevronsRight, ShieldCheck, UserCog, X } from "lucide-react"
 import { visibleNavItems, isNavGroup, type ViewKey } from "./nav"
-import { useRole, type Role } from "./role-context"
+import { useRole } from "./role-context"
 import { cn } from "@/lib/utils"
-
-const CURRENT_USER: Record<Role, { name: string; label: string }> = {
-  admin: { name: "김관리", label: "관리자" },
-  owner: { name: "정재율", label: "사용자" },
-}
 
 export function Sidebar({
   active,
@@ -26,9 +21,8 @@ export function Sidebar({
   collapsed: boolean
   onToggleCollapsed: () => void
 }) {
-  const { role, isAdmin } = useRole()
+  const { currentUser, isAdmin } = useRole()
   const items = visibleNavItems(isAdmin)
-  const currentUser = CURRENT_USER[role]
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
   const groupRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
@@ -262,10 +256,10 @@ export function Sidebar({
             </div>
             <div className={cn("min-w-0 flex-1", collapsed && "lg:hidden")}>
               <p className="truncate text-xs font-semibold text-white">
-                {currentUser.name}
+                {currentUser?.name ?? "-"}
               </p>
               <p className="truncate text-[11px] text-slate-300/80">
-                {currentUser.label}로 접속 중
+                {currentUser ? `${currentUser.role}로 접속 중` : "불러오는 중…"}
               </p>
             </div>
           </div>
