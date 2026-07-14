@@ -148,27 +148,26 @@ export function CategoryDistribution({ assets }: { assets: Asset[] }) {
 
 /* ---------------- EOS 도래 현황 ---------------- */
 
-const EOS_BUCKETS = ["만료됨", "90일 이내", "91~180일", "181일~1년", "1년 초과", "정보 없음"] as const
+const EOS_BUCKETS = ["만료됨", "90일 이내", "91~180일", "181일~1년", "1년 이상"] as const
 
 const eosBucketColor: Record<string, string> = {
   만료됨: "var(--risk-5)",
   "90일 이내": "var(--risk-4)",
   "91~180일": "var(--risk-3)",
   "181일~1년": "var(--risk-2)",
-  "1년 초과": "var(--risk-1)",
-  "정보 없음": "var(--muted-foreground)",
+  "1년 이상": "var(--risk-1)",
 }
 
-function eosBucketOf(eos: string | null): (typeof EOS_BUCKETS)[number] {
-  if (!eos) return "정보 없음"
+function eosBucketOf(eos: string | null): (typeof EOS_BUCKETS)[number] | null {
+  if (!eos) return null
   const t = new Date(eos).getTime()
-  if (Number.isNaN(t)) return "정보 없음"
+  if (Number.isNaN(t)) return null
   const days = Math.floor((t - NOW) / 86400000)
   if (days < 0) return "만료됨"
   if (days <= 90) return "90일 이내"
   if (days <= 180) return "91~180일"
   if (days <= 365) return "181일~1년"
-  return "1년 초과"
+  return "1년 이상"
 }
 
 export function EosTimeline({ assets }: { assets: Asset[] }) {
@@ -189,7 +188,7 @@ export function EosTimeline({ assets }: { assets: Asset[] }) {
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-            <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} interval={0} angle={-20} textAnchor="end" height={50} />
+            <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} interval={0} />
             <YAxis allowDecimals={false} stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
             <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--primary)", fillOpacity: 0.08 }} />
             <Bar dataKey="value" name="자산 수" radius={[6, 6, 0, 0]} maxBarSize={40} animationDuration={1500}>
