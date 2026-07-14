@@ -24,7 +24,7 @@ This is a **single-page app** — Next.js routing is not used. All navigation is
 - `visibleNavItems(isAdmin)` — filters items by role
 - `isViewAllowed(key, isAdmin)` — used in `page.tsx` to fallback unauthorized views to dashboard
 
-Role state lives in `RoleProvider` (`components/portal/role-context.tsx`). Currently defaults to `"admin"` and is toggled via `RoleToggle` in the header — no real auth.
+Role state lives in `RoleProvider` (`components/portal/role-context.tsx`) — it now sources `currentUser`/`users` live from the `app_users` table (`active=true`, sorted 관리자→승인자→담당자→조회 사용자 then by name). The header's `UserSwitcher` (`components/portal/user-switcher.tsx`) lets the operator pick any of these people to simulate being logged in as them; the choice persists via `localStorage["sw-manager-current-user-id"]`. `isAdmin` derives from `currentUser?.role === "관리자"` (승인자 does NOT get admin nav). Still no real auth — separate from the password-based `AuthGate` in `app/page.tsx`.
 
 ### Component layers
 
@@ -45,14 +45,14 @@ Supabase is **live and wired up**, but the migration off mock arrays is partial 
 
 `lib/notice-approval.ts`: shared (non-`"use client"`) module holding the "flag matched assets as `확인필요` + upsert a `patch_tasks` row per matched asset + insert owner notifications" side effect, reused by both the manual approve button (`notice-board/notice-actions.ts`, browser client) and the server-side auto-collect route (`app/api/collect-source/route.ts`, service-role client) so the two approval paths can't drift apart.
 
-`patch-tasks-view.tsx` ("내 조치 업무" nav entry, `patch_tasks` table): 공지 승인 시 매칭 자산마다 자동 생성되는 조치 티켓 목록 — 담당자가 조치예정/조치지연/조치완료/예외요청 + 기한/메모를 등록(조치예정은 기한 필수, 예외요청은 메모(사유) 필수 — 비어있으면 저장 차단). 실제 로그인이 없어(`role-context.tsx`) "본인 건만"은 `app_users`(역할=담당자) 기반 담당자 드롭다운으로 시뮬레이션하며, 그 이름을 고른 담당자 역할에서만 행별 "조치 등록" 버튼이 열림 — 관리자는 `예외요청` 상태인 행에 한해 승인(→`예외승인`으로 종결)/반려(→`조치예정`으로 복귀, 메모는 보존) 버튼을 사용할 수 있고 그 외 행은 이 화면에서 조회만 가능(담당자변경·완료확인은 여전히 미구현). `patch-view.tsx`(승인된 취약점 공지)의 매핑 자산 펼침 목록에도 자산별 조치 상태 배지와 "내 조치 업무 바로가기" 버튼이 추가됨.
+`patch-tasks-view.tsx` ("내 조치 업무" nav entry, `patch_tasks` table): 공지 승인 시 매칭 자산마다 자동 생성되는 조치 티켓 목록 — 담당자가 조치예정/조치지연/조치완료/예외요청 + 기한/메모를 등록(조치예정은 기한 필수, 예외요청은 메모(사유) 필수 — 비어있으면 저장 차단). "본인 건만"은 헤더의 `UserSwitcher`로 고른 로그인 사용자(`role-context.tsx`의 `currentUser`)가 `role === "담당자"`일 때 `task.owner === currentUser.name`으로 자동 필터되며, 그 상태에서만 행별 "조치 등록" 버튼이 열림 — 관리자는 `예외요청` 상태인 행에 한해 승인(→`예외승인`으로 종결)/반려(→`조치예정`으로 복귀, 메모는 보존) 버튼을 사용할 수 있고 그 외 행은 이 화면에서 조회만 가능(담당자변경·완료확인은 여전히 미구현). `patch-view.tsx`(승인된 취약점 공지)의 매핑 자산 펼침 목록에도 자산별 조치 상태 배지와 "내 조치 업무 바로가기" 버튼이 추가됨.
 
 `demo-data-view.tsx` ("DEMO 데이터 설정" nav entry, `demo_snapshots` table + `save_demo_snapshot()`/`reset_demo_data()` Postgres RPC functions) — 시연용 샘플 데이터를 저장된 기준 상태로 즉시 복원하는 관리자 전용 화면. `assets`/`servers`/`vulnerabilities`/`asset_requests`/`notifications`/`notices`/`licenses`/`sw_masters`/`sources`/`app_users`/`patch_tasks` 11개 테이블만 대상이며 `admin_policies`는 운영 설정으로 보고 제외; "초기화"는 `reset_demo_data()` RPC 한 번으로 11개 테이블을 원자적으로 delete+insert한 뒤 전체 페이지를 새로고침, "현재 데이터를 새 기준으로 저장"은 `save_demo_snapshot()` RPC로 기준 스냅샷을 갱신.
 
 The three React contexts provided at the root:
-- `RoleProvider` — current role (admin/owner), still mock — no real auth
+- `RoleProvider` — current logged-in demo user (`app_users` row) + derived `isAdmin`, still simulated — no real auth
 - `ToastProvider` — imperative toast API (`useToast().toast({...})`), in-memory only
-- `NotificationsProvider` — Supabase-backed: reads/writes the `notifications` table (read/unread state persists)
+- `NotificationsProvider` — Supabase-backed: reads/writes the `notifications` table (read/unread state persists). The list and its badge counts are scoped to `notifications.owner === currentUser?.name` unless `isAdmin` (approximate string match — `owner` is not a real recipient FK).
 
 ### Design system conventions
 
