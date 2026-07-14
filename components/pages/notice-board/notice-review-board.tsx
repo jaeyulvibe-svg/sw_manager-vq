@@ -326,10 +326,26 @@ export function NoticeReviewBoard({
                       ["CVE ID", selected.cve],
                       ["영향 제품", selected.product],
                       ["수집 일시", formatCollected(selected.collected_at)],
+                      ...(selected.notice_type === "EOS"
+                        ? [["EOS 일자", selected.eos_date ?? "정보 없음 (원문 확인 필요)"]]
+                        : []),
                     ].map(([k, v]) => (
-                      <div key={k} className="min-w-0 rounded-lg border border-border/60 bg-background/40 p-2.5">
+                      <div
+                        key={k}
+                        className={cn(
+                          "min-w-0 rounded-lg border border-border/60 bg-background/40 p-2.5",
+                          k === "EOS 일자" && "border-eos/40 bg-eos/10",
+                        )}
+                      >
                         <dt className="text-muted-foreground">{k}</dt>
-                        <dd className="mt-0.5 break-words font-medium text-foreground">{v}</dd>
+                        <dd
+                          className={cn(
+                            "mt-0.5 break-words font-medium",
+                            k === "EOS 일자" ? "text-eos" : "text-foreground",
+                          )}
+                        >
+                          {v}
+                        </dd>
                       </div>
                     ))}
                   </dl>

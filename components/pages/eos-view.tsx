@@ -9,6 +9,8 @@ import {
   CircleCheck,
   AlertTriangle,
   Search,
+  RefreshCw,
+  Loader2,
 } from "lucide-react"
 import {
   Bar,
@@ -40,6 +42,8 @@ import {
 import { createClient } from "@/lib/supabase/client"
 import type { Tables } from "@/lib/supabase/types"
 import { cn } from "@/lib/utils"
+import { useRole } from "@/components/portal/role-context"
+import { useToast } from "@/components/portal/toast"
 
 type Asset = Tables<"assets">
 type Risk = "Critical" | "High" | "Medium" | "Low"
@@ -175,11 +179,22 @@ function TooltipBox({ active, payload, label }: any) {
   )
 }
 
+type EosSyncResult = {
+  product: string
+  ok: boolean
+  updatedAssets: number
+  unmatchedAssets: string[]
+  error?: string
+}
+
 export function EosView() {
   const [assets, setAssets] = useState<Asset[]>([])
   const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
+  const { isAdmin } = useRole()
+  const { toast } = useToast()
 
-  useEffect(() => {
+  function loadAssets() {
     const supabase = createClient()
     supabase
       .from("assets")
@@ -188,7 +203,49 @@ export function EosView() {
         if (data) setAssets(data)
         setLoading(false)
       })
+  }
+
+  useEffect(() => {
+    loadAssets()
   }, [])
+
+  async function syncEosInfo() {
+    if (syncing) return
+    setSyncing(true)
+    try {
+      const res = await fetch("/api/eos-sync", { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) {
+        toast({ tone: "danger", title: "EOS 정보 동기화 실패", description: data.error ?? "알 수 없는 오류" })
+        return
+      }
+      const results: EosSyncResult[] = data.results ?? []
+      const succeeded = results.filter((r) => r.ok)
+      const failed = results.filter((r) => !r.ok)
+      const totalUpdated = succeeded.reduce((sum, r) => sum + r.updatedAssets, 0)
+      const totalUnmatched = results.reduce((sum, r) => sum + r.unmatchedAssets.length, 0)
+
+      loadAssets()
+
+      if (failed.length === 0) {
+        toast({
+          tone: "success",
+          title: "EOS 정보 동기화 완료",
+          description: `대상 제품 ${results.length}개 · 갱신된 자산 ${totalUpdated}건${totalUnmatched > 0 ? ` · 매칭 실패 ${totalUnmatched}건` : ""}`,
+        })
+      } else {
+        toast({
+          tone: succeeded.length > 0 ? "info" : "danger",
+          title: succeeded.length > 0 ? "EOS 정보 동기화 일부 실패" : "EOS 정보 동기화 전체 실패",
+          description: failed.map((f) => `${f.product}: ${f.error}`).join(" / "),
+        })
+      }
+    } catch {
+      toast({ tone: "danger", title: "EOS 정보 동기화 중 오류가 발생했습니다" })
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const { expired, within3m, within6m, within12m } = useMemo(() => countByEosWindow(assets), [assets])
   const timeline = useMemo(() => buildMonthlyBuckets(assets), [assets])
@@ -245,6 +302,19 @@ export function EosView() {
         icon={CalendarClock}
         title="EOS 로드맵"
         description="SW 자산별 EOS/EOL 일정을 월별로 추적하고 지원 종료 위험을 사전에 관리합니다."
+        action={
+          isAdmin ? (
+            <button
+              type="button"
+              onClick={syncEosInfo}
+              disabled={syncing}
+              className="glow-card inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/15 px-3 py-1.5 text-xs font-semibold text-primary transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              {syncing ? "동기화 중…" : "EOS 정보 동기화"}
+            </button>
+          ) : undefined
+        }
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

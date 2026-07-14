@@ -302,6 +302,8 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           deactivated_at: string | null
+          eos_source: string | null
+          eos_source_product_key: string | null
           created_at: string
           updated_at: string
         }
@@ -318,6 +320,8 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           deactivated_at?: string | null
+          eos_source?: string | null
+          eos_source_product_key?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -333,6 +337,8 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           deactivated_at?: string | null
+          eos_source?: string | null
+          eos_source_product_key?: string | null
           updated_at?: string
         }
         Relationships: []
