@@ -134,7 +134,7 @@ function SecurityDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey) =>
 
   const blocks: Record<string, React.ReactNode> = {
     hero: <ScanHero />,
-    kpi: <KpiCards assets={assets} vulns={vulns} patchTasks={patchTasks} loading={loading} />,
+    kpi: <KpiCards assets={assets} vulns={vulns} patchTasks={patchTasks} loading={loading} onNavigate={onNavigate} />,
     charts: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <VulnerabilityApprovalStatus vulns={vulns} />

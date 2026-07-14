@@ -4,15 +4,16 @@ import {
   ShieldAlert,
   ShieldX,
   Wrench,
-  FileClock,
   ClipboardList,
   AlarmClockOff,
   type LucideIcon,
 } from "lucide-react"
 import type { Tables } from "@/lib/supabase/types"
 import type { RiskLevel } from "@/components/portal/ui"
+import type { ViewKey } from "@/components/portal/nav"
 import { cn } from "@/lib/utils"
 import { useCountUp } from "@/hooks/use-count-up"
+import { useClickableCard } from "@/hooks/use-clickable-card"
 
 type Asset = Tables<"assets">
 type Vulnerability = Tables<"vulnerabilities">
@@ -32,6 +33,7 @@ type KpiData = {
   subLabel?: string
   accent: KpiAccent
   delay: number
+  onClick?: () => void
 }
 
 const accentBg: Record<KpiAccent, string> = {
@@ -49,11 +51,17 @@ function KpiCard({ kpi }: { kpi: KpiData }) {
     delay: kpi.delay,
     duration: 1800,
   })
+  const clickable = useClickableCard(kpi.onClick)
 
   return (
     <div
+      role={clickable.role}
+      tabIndex={clickable.tabIndex}
+      onClick={clickable.onClick}
+      onKeyDown={clickable.onKeyDown}
       className={cn(
         "glow-card animate-rise group relative min-w-0 overflow-hidden rounded-2xl border border-border/60 bg-card p-5 transition-transform duration-300 hover:-translate-y-1",
+        clickable.clickableClassName,
       )}
       style={{ animationDelay: `${kpi.delay}ms` }}
     >
@@ -88,16 +96,18 @@ export function KpiCards({
   vulns = [],
   patchTasks = [],
   loading = false,
+  onNavigate,
 }: {
   assets: Asset[]
   vulns?: Vulnerability[]
   patchTasks?: PatchTask[]
   loading?: boolean
+  onNavigate?: (view: ViewKey) => void
 }) {
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        {[0, 1, 2, 3, 4, 5].map((i) => (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        {[0, 1, 2, 3, 4].map((i) => (
           <div key={i} className="h-36 animate-pulse rounded-2xl border border-border/60 bg-card" />
         ))}
       </div>
@@ -110,10 +120,6 @@ export function KpiCards({
   const highCount = assets.filter((a) => a.vuln === "High").length
   const patchNeededCount = assets.filter((a) => a.patch === "Patch Required").length
   const patchAvailableCount = assets.filter((a) => a.patch === "Patch Available").length
-
-  const pendingNotices = vulns.filter((v) => v.approval === "승인대기" || v.approval === "검토중")
-  const pendingCriticalNotices = pendingNotices.filter((v) => v.severity === "Critical").length
-  const pendingHighNotices = pendingNotices.filter((v) => v.severity === "High").length
 
   const incompleteTasks = patchTasks.filter(
     (t) => t.status !== "조치완료" && t.status !== "예외승인",
@@ -141,6 +147,7 @@ export function KpiCards({
       subLabel: totalAssets > 0 ? `전체 자산 중 ${vulnAffectedCount}개` : undefined,
       accent: 4,
       delay: 80,
+      onClick: onNavigate ? () => onNavigate("assets") : undefined,
     },
     {
       label: "Critical·High 위험 자산",
@@ -149,6 +156,7 @@ export function KpiCards({
       subLabel: `Critical ${criticalCount} · High ${highCount}`,
       accent: 5,
       delay: 160,
+      onClick: onNavigate ? () => onNavigate("assets") : undefined,
     },
     {
       label: "패치 필요 자산",
@@ -157,14 +165,7 @@ export function KpiCards({
       subLabel: `패치 필요 ${patchNeededCount} · 패치 가능 ${patchAvailableCount}`,
       accent: 3,
       delay: 240,
-    },
-    {
-      label: "승인 대기 보안공지",
-      value: pendingNotices.length,
-      icon: FileClock,
-      subLabel: `Critical ${pendingCriticalNotices} · High ${pendingHighNotices}`,
-      accent: 3,
-      delay: 320,
+      onClick: onNavigate ? () => onNavigate("patch") : undefined,
     },
     {
       label: "미완료 조치 업무",
@@ -172,7 +173,8 @@ export function KpiCards({
       icon: ClipboardList,
       subLabel: `진행 중 ${inProgressTasks} · 배정 대기 ${waitingTasks}`,
       accent: 2,
-      delay: 400,
+      delay: 320,
+      onClick: onNavigate ? () => onNavigate("patch-tasks") : undefined,
     },
     {
       label: "조치 기한 초과 업무",
@@ -180,12 +182,13 @@ export function KpiCards({
       icon: AlarmClockOff,
       subLabel: overdueTasks.length > 0 ? `최장 지연 ${maxOverdueDays}일` : undefined,
       accent: 5,
-      delay: 480,
+      delay: 400,
+      onClick: onNavigate ? () => onNavigate("patch-tasks") : undefined,
     },
   ]
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       {kpis.map((kpi) => (
         <KpiCard key={kpi.label} kpi={kpi} />
       ))}

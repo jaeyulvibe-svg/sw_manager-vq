@@ -20,6 +20,7 @@ import {
   Trash2,
 } from "lucide-react"
 import { useCountUp } from "@/hooks/use-count-up"
+import { useClickableCard } from "@/hooks/use-clickable-card"
 import { exportRowsToExcel } from "@/lib/export-excel"
 import { cn } from "@/lib/utils"
 
@@ -220,6 +221,7 @@ export function StatCard({
   trendLabel,
   delay = 0,
   className,
+  onClick,
 }: {
   label: string
   value: number
@@ -232,15 +234,22 @@ export function StatCard({
   trendLabel?: string
   delay?: number
   className?: string
+  onClick?: () => void
 }) {
   const animated = useCountUp(value, { decimals, delay, duration: 1600 })
   const positive = (trend ?? 0) >= 0
   const TrendIcon = positive ? TrendingUp : TrendingDown
+  const clickable = useClickableCard(onClick)
 
   return (
     <div
+      role={clickable.role}
+      tabIndex={clickable.tabIndex}
+      onClick={clickable.onClick}
+      onKeyDown={clickable.onKeyDown}
       className={cn(
         "glow-card animate-rise group relative min-w-0 overflow-hidden rounded-2xl border border-border/60 bg-card p-5 transition-transform duration-300 hover:-translate-y-1",
+        clickable.clickableClassName,
         className,
       )}
       style={{ animationDelay: `${delay}ms` }}
