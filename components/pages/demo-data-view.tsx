@@ -62,6 +62,11 @@ export function DemoDataView() {
 
   useEffect(() => {
     loadSnapshot()
+    if (sessionStorage.getItem("demo-data-reset-success")) {
+      sessionStorage.removeItem("demo-data-reset-success")
+      toast({ tone: "success", title: "샘플 데이터가 기준 상태로 초기화되었습니다" })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function handleSave() {
@@ -88,7 +93,7 @@ export function DemoDataView() {
       toast({ tone: "danger", title: "초기화 실패", description: error.message })
       return
     }
-    toast({ tone: "success", title: "샘플 데이터가 기준 상태로 초기화되었습니다" })
+    sessionStorage.setItem("demo-data-reset-success", "1")
     window.location.reload()
   }
 
