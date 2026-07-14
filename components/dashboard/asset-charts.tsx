@@ -107,7 +107,7 @@ export function CategoryDistribution({ assets }: { assets: Asset[] }) {
       title="카테고리별 자산 구성"
       subtitle={`전체 ${total}개 자산 구성 · OS/WEB/WAS/DB/기타`}
       icon={BarChart3}
-      className="lg:col-span-2"
+      className="h-full"
     >
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
@@ -183,7 +183,7 @@ export function EosTimeline({ assets }: { assets: Asset[] }) {
   }).length
 
   return (
-    <ChartCard title="EOS 도래 현황" subtitle={`180일 이내 도래 ${within180}건`} icon={CalendarClock}>
+    <ChartCard title="EOS 도래 현황" subtitle={`180일 이내 도래 ${within180}건`} icon={CalendarClock} className="h-full">
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>

@@ -10,7 +10,6 @@ import {
   Table as TableIcon,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-import { cn } from "@/lib/utils"
 import type { Tables } from "@/lib/supabase/types"
 import {
   StatCard,
@@ -180,16 +179,12 @@ function CategorySummary({ assets }: { assets: Asset[] }) {
 
 const ASSET_DASHBOARD_BLOCKS = [
   "kpi",
-  "chart-category",
-  "chart-eos",
+  "chart-category-eos",
   "chart-product",
   "chart-vendor",
   "summary",
   "boards",
 ]
-
-// Blocks that should sit two-per-row on large screens instead of taking the full width.
-const HALF_WIDTH_BLOCKS = new Set(["chart-category", "chart-eos"])
 
 const PENDING_APPROVALS: AssetRequest["approval"][] = ["승인대기", "검토중"]
 
@@ -250,6 +245,7 @@ export function AssetDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey
           accent="primary"
           trendLabel={loading ? "불러오는 중…" : "등록된 전체 SW 자산"}
           delay={80}
+          onClick={onNavigate ? () => onNavigate("assets") : undefined}
         />
         <StatCard
           label="관리 서버 수"
@@ -258,6 +254,7 @@ export function AssetDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey
           accent="primary"
           trendLabel="설치 서버 기준 중복 제거"
           delay={160}
+          onClick={onNavigate && isAdmin ? () => onNavigate("admin-servers") : undefined}
         />
         <StatCard
           label="제품 종류 수"
@@ -266,6 +263,7 @@ export function AssetDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey
           accent="primary"
           trendLabel="제품명+제조사 기준 중복 제거"
           delay={240}
+          onClick={onNavigate && isAdmin ? () => onNavigate("admin-master") : undefined}
         />
         <StatCard
           label="EOS 180일 이내 자산"
@@ -274,6 +272,7 @@ export function AssetDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey
           accent="eos"
           trendLabel={`만료됨 ${eosExpired}건 · 180일 이내 ${eosWithin180}건`}
           delay={320}
+          onClick={onNavigate ? () => onNavigate("eos") : undefined}
         />
         <StatCard
           label="변경 요청 대기"
@@ -282,11 +281,16 @@ export function AssetDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey
           accent="warning"
           trendLabel="승인대기·검토중 상태"
           delay={400}
+          onClick={onNavigate ? () => onNavigate(isAdmin ? "approval" : "request") : undefined}
         />
       </div>
     ),
-    "chart-category": <CategoryDistribution assets={assets} />,
-    "chart-eos": <EosTimeline assets={assets} />,
+    "chart-category-eos": (
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <CategoryDistribution assets={assets} />
+        <EosTimeline assets={assets} />
+      </div>
+    ),
     "chart-product": <ProductVersionBreakdown assets={assets} />,
     "chart-vendor": <VendorDistribution assets={assets} />,
     summary: <CategorySummary assets={assets} />,
@@ -330,7 +334,7 @@ export function AssetDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey
             }}
             onMoveUp={() => moveByOffset(id, -1)}
             onMoveDown={() => moveByOffset(id, 1)}
-            className={cn("w-full", HALF_WIDTH_BLOCKS.has(id) && "lg:w-[calc(50%-0.75rem)]")}
+            className="w-full"
           >
             {blocks[id]}
           </DashboardSection>
