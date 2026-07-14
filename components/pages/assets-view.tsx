@@ -32,10 +32,10 @@ type ColKey =
 
 const ALL_COLS: { key: ColKey; label: string }[] = [
   { key: "id",         label: "자산 ID"    },
-  { key: "name",       label: "제품명"     },
-  { key: "vendor",     label: "벤더"       },
   { key: "category",   label: "분류"       },
+  { key: "name",       label: "제품명"     },
   { key: "version",    label: "현재 버전"  },
+  { key: "vendor",     label: "벤더"       },
   { key: "server",     label: "설치 서버"  },
   { key: "owner",      label: "담당자"     },
   { key: "vuln",       label: "취약점"     },
@@ -46,7 +46,7 @@ const ALL_COLS: { key: ColKey; label: string }[] = [
 ]
 
 const FACTORY_VISIBLE: ColKey[] = [
-  "id", "name", "vendor", "category", "version",
+  "id", "category", "name", "version", "vendor",
   "server", "owner", "vuln", "patch", "eos", "checked_at",
 ]
 const LS_KEY = "sw_manager_col_visible"
@@ -384,10 +384,10 @@ export function AssetsView() {
           <thead>
             <tr>
               {show("id")         && <SortTh col="id"         label="자산 ID"   {...stProps} />}
-              {show("name")       && <SortTh col="name"       label="제품명"    {...stProps} />}
-              {show("vendor")     && <SortTh col="vendor"     label="벤더"      {...stProps} />}
               {show("category")   && <SortTh col="category"   label="분류"      {...stProps} />}
+              {show("name")       && <SortTh col="name"       label="제품명"    {...stProps} />}
               {show("version")    && <SortTh col="version"    label="현재 버전" {...stProps} />}
+              {show("vendor")     && <SortTh col="vendor"     label="벤더"      {...stProps} />}
               {show("server")     && <SortTh col="server"     label="설치 서버" {...stProps} />}
               {show("owner")      && <SortTh col="owner"      label="담당자"    {...stProps} />}
               {show("vuln")       && <SortTh col="vuln"       label="취약점"    {...stProps} />}
@@ -418,10 +418,10 @@ export function AssetsView() {
               return (
                 <tr key={a.id} className="transition-colors hover:bg-accent/40">
                   {show("id")       && <Td className={cn("font-mono text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{a.id}</Td>}
-                  {show("name")     && <Td className={cn("font-semibold", TABLE_ROW_CELL_H)}>{a.name}</Td>}
-                  {show("vendor")   && <Td className={cn("text-muted-foreground", TABLE_ROW_CELL_H)}>{a.vendor}</Td>}
                   {show("category") && <Td className={TABLE_ROW_CELL_H}><StatusBadge accent="primary">{a.category}</StatusBadge></Td>}
+                  {show("name")     && <Td className={cn("font-semibold", TABLE_ROW_CELL_H)}>{a.name}</Td>}
                   {show("version")  && <Td className={cn("font-mono text-xs", TABLE_ROW_CELL_H)}>{a.version}</Td>}
+                  {show("vendor")   && <Td className={cn("text-muted-foreground", TABLE_ROW_CELL_H)}>{a.vendor}</Td>}
                   {show("server")   && (
                     <Td className={TABLE_ROW_CELL_H}>
                       <div className="flex flex-col gap-0.5">
