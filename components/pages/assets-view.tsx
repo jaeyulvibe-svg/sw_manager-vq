@@ -86,20 +86,21 @@ function formatChecked(ts: string | null) {
   if (days === 1) return "어제"
   return `${days}일 전`
 }
-function excelValue(a: Asset, key: ColKey): string | number {
+function excelValue(a: Asset, key: ColKey, servers: Server[]): string | number {
   switch (key) {
     case "vuln": return vulnLabel[a.vuln]
     case "patch": return patchLabel[a.patch]
     case "checked_at": return formatChecked(a.checked_at)
     case "eos": return a.eos ?? "-"
+    case "server": return servers.find((s) => s.id === a.server || s.name === a.server)?.name ?? a.server
     default: return a[key] ?? ""
   }
 }
-function toDetail(a: Asset): AssetDetail {
+function toDetail(a: Asset, serverLabel: string): AssetDetail {
   return {
     id: a.id, name: a.name, vendor: a.vendor, category: a.category,
     version: a.version, latest: a.latest_version ?? a.version,
-    server: a.server, owner: a.owner, vuln: a.vuln,
+    server: serverLabel, owner: a.owner, vuln: a.vuln,
     patch: patchLabel[a.patch], patchRisk: patchRisk[a.patch],
     vulnRisk: vulnRisk[a.vuln], eos: a.eos ?? "-",
     eosDaysLeft: daysUntil(a.eos), approval: a.approval,
@@ -217,7 +218,8 @@ export function AssetsView() {
   const filtered = useMemo(() => {
     const base = assets.filter((a) => {
       const q = query.trim().toLowerCase()
-      const matchesQuery = !q || [a.name, a.vendor, a.version, a.owner, a.server].some((f) => f.toLowerCase().includes(q))
+      const serverLabel = servers.find((s) => s.id === a.server || s.name === a.server)?.name ?? a.server
+      const matchesQuery = !q || [a.name, a.vendor, a.version, a.owner, serverLabel].some((f) => f.toLowerCase().includes(q))
       const matchesCat   = cat === "전체" || a.category === cat
       const matchesStatus =
         status === "전체" ||
@@ -241,7 +243,7 @@ export function AssetsView() {
       const vb = String(b[sortKey as keyof Asset] ?? "")
       return sortDir === "asc" ? va.localeCompare(vb, "ko") : vb.localeCompare(va, "ko")
     })
-  }, [assets, query, cat, status, sortKey, sortDir])
+  }, [assets, servers, query, cat, status, sortKey, sortDir])
 
   const show = (key: ColKey) => visible.includes(key)
   const stProps = { sortKey, sortDir, onSort: handleSort }
@@ -367,7 +369,7 @@ export function AssetsView() {
               filename="자산_목록"
               columns={ALL_COLS.filter((c) => show(c.key)).map((c) => ({
                 label: c.label,
-                value: (a: Asset) => excelValue(a, c.key),
+                value: (a: Asset) => excelValue(a, c.key, servers),
               }))}
             />
             <ColumnVisibilityMenu
@@ -400,13 +402,13 @@ export function AssetsView() {
           </thead>
           <tbody>
             {pagination.pageItems.map((a) => {
-              const sv = servers.find((s) => s.name === a.server)
+              const sv = servers.find((s) => s.id === a.server || s.name === a.server)
               if (editPanel === a.id) {
                 return (
                   <tr key={a.id}>
                     <td colSpan={visible.length + 1} className="border-b border-border/40 p-0">
                       <AssetEditFormPanel
-                        initial={{ owner: a.owner, server: a.server }}
+                        initial={{ owner: a.owner, server: sv?.name ?? a.server }}
                         servers={servers}
                         onCancel={() => setEditPanel(null)}
                         onSubmit={(values) => saveAssetEdit(a.id, values)}
@@ -425,7 +427,7 @@ export function AssetsView() {
                   {show("server")   && (
                     <Td className={TABLE_ROW_CELL_H}>
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-xs font-medium text-foreground">{a.server}</span>
+                        <span className="text-xs font-medium text-foreground">{sv?.name ?? a.server}</span>
                         {sv && (
                           <span className="font-mono text-[11px] text-muted-foreground">
                             {sv.hostname} · {sv.ip}
@@ -469,7 +471,7 @@ export function AssetsView() {
                   )}
                   <Td className={TABLE_ROW_CELL_H}>
                     <div className="flex items-center gap-1.5">
-                      <MiniButton accent="primary" onClick={() => setSelected(toDetail(a))}>
+                      <MiniButton accent="primary" onClick={() => setSelected(toDetail(a, sv?.name ?? a.server))}>
                         <Eye className="h-3 w-3" />상세
                       </MiniButton>
                       {isAdmin && (
