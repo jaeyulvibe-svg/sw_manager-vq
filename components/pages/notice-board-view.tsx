@@ -42,12 +42,6 @@ type NoticeStatus = Notice["status"]
 const NOTICE_CATEGORIES = ["시스템", "운영", "승인", "보고서"] as const
 const NOTICE_STATUSES: NoticeStatus[] = ["일반", "중요", "긴급"]
 
-const categoryAccent: Record<string, Accent> = {
-  시스템: "primary",
-  운영: "success",
-  승인: "eos",
-  보고서: "muted",
-}
 const statusRisk: Record<NoticeStatus, RiskLevel | undefined> = {
   일반: undefined,
   중요: 3,
@@ -158,9 +152,8 @@ function NoticeFormPanel({
 }
 
 /* ---- 컬럼 정의 + 정렬 ---- */
-type NoticeColKey = "category" | "title" | "author" | "created_at" | "views" | "status"
+type NoticeColKey = "title" | "author" | "created_at" | "views" | "status"
 const NOTICE_ALL_COLS: { key: NoticeColKey; label: string }[] = [
-  { key: "category", label: "구분" },
   { key: "title", label: "제목" },
   { key: "author", label: "작성자" },
   { key: "created_at", label: "등록일" },
@@ -219,17 +212,22 @@ export function NoticeBoardView() {
     }
   }
 
-  const filtered = notices
-    .filter((n) => {
-      const q = query.trim().toLowerCase()
-      return !q || [n.title, n.author, n.category].some((f) => f.toLowerCase().includes(q))
-    })
-    .sort((a, b) => {
-      const va = noticeSortValue(a, sortKey)
-      const vb = noticeSortValue(b, sortKey)
-      const d = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb), "ko")
-      return sortDir === "asc" ? d : -d
-    })
+  const searched = notices.filter((n) => {
+    const q = query.trim().toLowerCase()
+    return !q || [n.title, n.author].some((f) => f.toLowerCase().includes(q))
+  })
+
+  const noRank = new Map<string, number>()
+  ;[...searched]
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .forEach((n, i) => noRank.set(n.id, i + 1))
+
+  const filtered = [...searched].sort((a, b) => {
+    const va = noticeSortValue(a, sortKey)
+    const vb = noticeSortValue(b, sortKey)
+    const d = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb), "ko")
+    return sortDir === "asc" ? d : -d
+  })
 
   const show = (key: NoticeColKey) => visible.includes(key)
   const pagination = usePagination(filtered)
@@ -296,7 +294,8 @@ export function NoticeBoardView() {
     setSelectedIds(new Set())
   }
 
-  const colSpan = visible.length + 1 + (isAdmin ? 1 : 0)
+  // +1 은 NO 컬럼, +1 은 관리 컬럼(Task 2에서 제목 컬럼으로 대체되지만 개수는 그대로 +2 유지)
+  const colSpan = visible.length + 2 + (isAdmin ? 1 : 0)
 
   return (
     <div className="flex flex-col gap-6">
@@ -322,7 +321,7 @@ export function NoticeBoardView() {
                 <input
                   value={query}
                   onChange={(e) => { setQuery(e.target.value); pagination.setPage(1) }}
-                  placeholder="제목, 작성자, 구분 검색"
+                  placeholder="제목, 작성자 검색"
                   className="w-48 rounded-lg border border-border/60 bg-background/50 py-1.5 pl-8 pr-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none"
                 />
               </div>
@@ -330,7 +329,7 @@ export function NoticeBoardView() {
                 rows={filtered}
                 filename="공지사항"
                 columns={[
-                  { label: "구분", value: (n: Notice) => n.category },
+                  { label: "NO", value: (n: Notice) => noRank.get(n.id) ?? "" },
                   { label: "제목", value: (n: Notice) => n.title },
                   { label: "작성자", value: (n: Notice) => n.author },
                   { label: "등록일", value: (n: Notice) => new Date(n.created_at).toLocaleDateString("ko-KR") },
@@ -377,7 +376,7 @@ export function NoticeBoardView() {
                   />
                 </Th>
               ) : null}
-              {show("category") && <SortTh col="category" label="구분" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              <Th className={cn("w-12", TABLE_HEADER_CELL_H)}>NO</Th>
               {show("title") && <SortTh col="title" label="제목" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
               {show("author") && <SortTh col="author" label="작성자" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
               {show("created_at") && <SortTh col="created_at" label="등록일" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
@@ -426,11 +425,9 @@ export function NoticeBoardView() {
                           />
                         </Td>
                       ) : null}
-                      {show("category") && (
-                        <Td className={TABLE_ROW_CELL_H}>
-                          <StatusBadge accent={categoryAccent[n.category] ?? "muted"}>{n.category}</StatusBadge>
-                        </Td>
-                      )}
+                      <Td className={cn("font-mono text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>
+                        {noRank.get(n.id) ?? "-"}
+                      </Td>
                       {show("title") && <Td className={cn("max-w-xs whitespace-normal font-medium line-clamp-2", TABLE_ROW_CELL_H)}>{n.title}</Td>}
                       {show("author") && <Td className={cn("text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{n.author}</Td>}
                       {show("created_at") && (
