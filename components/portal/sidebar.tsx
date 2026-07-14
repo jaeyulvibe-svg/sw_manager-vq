@@ -128,7 +128,7 @@ export function Sidebar({
         </button>
 
         {/* Nav */}
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+        <nav className="flex-1 space-y-1 overflow-y-auto scrollbar-none px-3 py-4">
           {items.map((entry) => {
             if (isNavGroup(entry)) {
               const expanded = openGroups.has(entry.groupKey)

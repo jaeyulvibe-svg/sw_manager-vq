@@ -433,6 +433,15 @@
   }
   .animate-palette { animation: palette-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
+  /* Scrollable area without a visible scrollbar (e.g. sidebar nav) */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Sparkline dash draw-in */
   @keyframes spark-draw {
     from { stroke-dashoffset: var(--spark-len, 240); }
