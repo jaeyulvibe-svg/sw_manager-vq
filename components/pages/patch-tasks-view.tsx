@@ -35,7 +35,6 @@ import { cn } from "@/lib/utils"
 
 type PatchTask = Tables<"patch_tasks">
 type PatchTaskStatus = PatchTask["status"]
-type AppUser = Tables<"app_users">
 type Asset = Tables<"assets">
 
 const STATUS_FILTERS: ("전체" | PatchTaskStatus)[] = ["전체", "배정됨", "조치예정", "조치지연", "조치완료", "예외요청", "예외승인"]
@@ -121,14 +120,12 @@ function EditPanel({
 }
 
 export function PatchTasksView() {
-  const { isAdmin } = useRole()
+  const { isAdmin, currentUser } = useRole()
   const { toast } = useToast()
   const { vulns, assets, loading: noticeLoading } = useNoticeData()
   const [tasks, setTasks] = useState<PatchTask[]>([])
-  const [owners, setOwners] = useState<AppUser[]>([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState("")
-  const [ownerFilter, setOwnerFilter] = useState("전체")
   const [statusFilter, setStatusFilter] = useState<"전체" | PatchTaskStatus>("전체")
   const [severityFilter, setSeverityFilter] = useState<"전체" | Vulnerability["severity"]>("전체")
   const [editId, setEditId] = useState<string | null>(null)
@@ -142,15 +139,6 @@ export function PatchTasksView() {
       .then(({ data }) => {
         if (data) setTasks(data)
         setLoading(false)
-      })
-    supabase
-      .from("app_users")
-      .select("*")
-      .eq("role", "담당자")
-      .eq("active", true)
-      .order("name")
-      .then(({ data }) => {
-        if (data) setOwners(data)
       })
   }, [])
 
@@ -170,7 +158,7 @@ export function PatchTasksView() {
   const filtered = rows.filter(({ task, vulnerability }) => {
     const q = query.trim().toLowerCase()
     if (q && ![vulnerability.title, vulnerability.cve].some((f) => f.toLowerCase().includes(q))) return false
-    if (ownerFilter !== "전체" && task.owner !== ownerFilter) return false
+    if (currentUser?.role === "담당자" && task.owner !== currentUser.name) return false
     if (statusFilter !== "전체" && task.status !== statusFilter) return false
     if (severityFilter !== "전체" && vulnerability.severity !== severityFilter) return false
     return true
@@ -266,24 +254,13 @@ export function PatchTasksView() {
               />
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="w-16 shrink-0 text-xs font-medium text-muted-foreground">담당자</span>
-            <select
-              value={ownerFilter}
-              onChange={(e) => { setOwnerFilter(e.target.value); pagination.setPage(1) }}
-              className="rounded-lg border border-border/60 bg-background/50 px-3 py-1.5 text-xs text-foreground focus:border-primary/60 focus:outline-none"
-            >
-              <option value="전체">전체</option>
-              {owners.map((o) => (
-                <option key={o.id} value={o.name}>{o.name}</option>
-              ))}
-            </select>
-            {!isAdmin ? (
+          {currentUser?.role === "담당자" ? (
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-[11px] text-muted-foreground">
-                실제 로그인이 없어 본인 이름을 선택하면 "조치 등록" 버튼이 활성화됩니다.
+                담당자: <span className="font-medium text-foreground">{currentUser.name}</span> 님의 조치 건만 표시됩니다.
               </span>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-16 shrink-0 text-xs font-medium text-muted-foreground">상태</span>
             {STATUS_FILTERS.map((s) => (
@@ -339,7 +316,7 @@ export function PatchTasksView() {
           </thead>
           <tbody>
             {pagination.pageItems.map(({ task, vulnerability, asset }) => {
-              const canEdit = !isAdmin && ownerFilter !== "전체"
+              const canEdit = currentUser?.role === "담당자"
               if (editId === task.id) {
                 return (
                   <tr key={task.id}>
