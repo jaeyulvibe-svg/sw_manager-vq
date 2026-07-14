@@ -8,6 +8,7 @@ import {
   Pencil,
   Save,
   Check,
+  Trash2,
 } from "lucide-react"
 import {
   PageHeader,
@@ -165,6 +166,7 @@ function NoticeDetailPanel({
   onCancelEdit,
   onSave,
   onClose,
+  onDeleteRequest,
 }: {
   notice: Notice
   isAdmin: boolean
@@ -176,6 +178,7 @@ function NoticeDetailPanel({
   onCancelEdit: () => void
   onSave: () => void
   onClose: () => void
+  onDeleteRequest: () => void
 }) {
   const view: NoticeDraft =
     editMode && draft ? draft : { title: notice.title, content: notice.content, status: notice.status }
@@ -275,6 +278,16 @@ function NoticeDetailPanel({
               <Check className="h-3 w-3" />
               확인
             </button>
+            {isAdmin ? (
+              <button
+                type="button"
+                onClick={onDeleteRequest}
+                className="ml-auto inline-flex items-center gap-1 rounded-lg border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
+              >
+                <Trash2 className="h-3 w-3" />
+                삭제
+              </button>
+            ) : null}
           </>
         )}
       </div>
@@ -433,6 +446,14 @@ export function NoticeBoardView() {
     setDraft(null)
   }
 
+  function requestDeleteNotice(n: Notice) {
+    setDeleteRequest({
+      ids: [n.id],
+      title: `"${n.title}"을(를) 삭제할까요?`,
+      confirmLabel: "삭제",
+    })
+  }
+
   function requestDeleteSelected() {
     if (selectedIds.size === 0) return
     setDeleteRequest({
@@ -451,6 +472,11 @@ export function NoticeBoardView() {
       return
     }
     toast({ title: `공지 ${deleteRequest.ids.length}건이 삭제되었습니다`, tone: "info" })
+    if (openId && deleteRequest.ids.includes(openId)) {
+      setOpenId(null)
+      setEditMode(false)
+      setDraft(null)
+    }
     setSelectedIds(new Set())
     setDeleteRequest(null)
     loadNotices()
@@ -634,6 +660,7 @@ export function NoticeBoardView() {
                             onCancelEdit={handleCancelEdit}
                             onSave={handleSave}
                             onClose={handleClosePanel}
+                            onDeleteRequest={() => requestDeleteNotice(n)}
                           />
                         </td>
                       </tr>
