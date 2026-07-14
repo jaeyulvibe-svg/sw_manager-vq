@@ -465,9 +465,38 @@ export type Database = {
         }
         Relationships: []
       }
+      demo_snapshots: {
+        Row: {
+          id: string
+          data: Json
+          captured_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          data: Json
+          captured_at?: string
+          updated_at?: string
+        }
+        Update: {
+          data?: Json
+          captured_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      save_demo_snapshot: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      reset_demo_data: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+    }
     Enums: Record<string, never>
   }
 }
