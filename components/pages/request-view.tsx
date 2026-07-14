@@ -44,23 +44,30 @@ const approvalRisk: Record<AssetRequest["approval"], RiskLevel> = {
   승인완료: 1,
 }
 
+type RequestMode = "existing" | "new"
+
 type FormState = {
+  mode: RequestMode
   category: MasterCategory | ""
   productName: string
   masterId: string
+  // "신규" 모드 전용 — SW 마스터에 없는 제품을 직접 기입한다.
+  newProductName: string
+  newVendor: string
+  newVersion: string
   server: string
-  dept: string
-  owner: string
   reason: string
 }
 
 const EMPTY_FORM: FormState = {
+  mode: "existing",
   category: "",
   productName: "",
   masterId: "",
+  newProductName: "",
+  newVendor: "",
+  newVersion: "",
   server: "",
-  dept: "",
-  owner: "",
   reason: "",
 }
 
@@ -97,7 +104,7 @@ const inputCls =
 
 export function RequestView() {
   const { toast } = useToast()
-  const { isAdmin } = useRole()
+  const { isAdmin, currentUser } = useRole()
   const { refresh: refreshNotifications } = useNotifications()
 
   const [requests, setRequests] = useState<AssetRequest[]>([])
@@ -164,6 +171,18 @@ export function RequestView() {
     setForm((prev) => ({ ...prev, productName: next, masterId: "" }))
   }
 
+  function handleModeChange(next: RequestMode) {
+    setForm((prev) => ({
+      ...prev,
+      mode: next,
+      productName: "",
+      masterId: "",
+      newProductName: "",
+      newVendor: "",
+      newVersion: "",
+    }))
+  }
+
   const counts = {
     pending: requests.filter((r) => r.approval === "승인대기" || r.approval === "검토중").length,
     approved: requests.filter((r) => r.approval === "승인완료").length,
@@ -177,21 +196,54 @@ export function RequestView() {
 
   async function handleSubmit() {
     if (submitting) return
-    if (!selectedMaster) {
-      toast({
-        tone: "danger",
-        title: "제품을 선택해주세요",
-        description: "SW 마스터에 등록된 제품 중에서만 신규 자산을 요청할 수 있습니다.",
-      })
+
+    if (!currentUser) {
+      toast({ tone: "danger", title: "로그인 사용자 정보를 불러오지 못했습니다" })
       return
     }
-    const requiredText: (keyof FormState)[] = ["server", "dept", "owner", "reason"]
+
+    if (!form.category) {
+      toast({ tone: "danger", title: "분류를 선택해주세요" })
+      return
+    }
+
+    let name: string
+    let vendor: string
+    let version: string
+
+    if (form.mode === "existing") {
+      if (!selectedMaster) {
+        toast({
+          tone: "danger",
+          title: "제품을 선택해주세요",
+          description: "SW 마스터에 등록된 제품 중에서만 신규 자산을 요청할 수 있습니다.",
+        })
+        return
+      }
+      name = selectedMaster.name
+      vendor = selectedMaster.vendor
+      version = selectedMaster.std_version
+    } else {
+      if (!form.newProductName.trim() || !form.newVendor.trim() || !form.newVersion.trim()) {
+        toast({
+          tone: "danger",
+          title: "필수 항목 누락",
+          description: "제품명·제조사·버전은 필수 입력 항목입니다.",
+        })
+        return
+      }
+      name = form.newProductName.trim()
+      vendor = form.newVendor.trim()
+      version = form.newVersion.trim()
+    }
+
+    const requiredText: (keyof FormState)[] = ["server", "reason"]
     const missing = requiredText.some((key) => !form[key].trim())
     if (missing) {
       toast({
         tone: "danger",
         title: "필수 항목 누락",
-        description: "설치 서버·사용 부서·담당자·요청 사유는 필수 입력 항목입니다.",
+        description: "설치 서버·요청 사유는 필수 입력 항목입니다.",
       })
       return
     }
@@ -199,14 +251,14 @@ export function RequestView() {
     setSubmitting(true)
     const supabase = createClient()
     const { error } = await supabase.from("asset_requests").insert({
-      name: selectedMaster.name,
-      vendor: selectedMaster.vendor,
-      category: selectedMaster.category,
-      version: selectedMaster.std_version,
+      name,
+      vendor,
+      category: form.category,
+      version,
       server: form.server,
-      owner: form.owner,
-      requester: form.owner,
-      requester_dept: form.dept,
+      owner: currentUser.name,
+      requester: currentUser.name,
+      requester_dept: currentUser.dept,
       reason: form.reason,
     })
     setSubmitting(false)
@@ -223,9 +275,9 @@ export function RequestView() {
     await supabase.from("notifications").insert({
       category: "asset",
       title: "신규 SW 자산 등록 요청",
-      description: `${selectedMaster.name} 자산 등록 요청이 접수되었습니다.`,
-      asset: selectedMaster.name,
-      owner: form.owner,
+      description: `${name} 자산 등록 요청이 접수되었습니다.`,
+      asset: name,
+      owner: currentUser.name,
       status: "승인대기",
       urgent: false,
       link_view: "approval",
@@ -236,7 +288,7 @@ export function RequestView() {
     toast({
       tone: "success",
       title: "요청 등록 완료",
-      description: `${selectedMaster.name} 신규 자산 등록 요청이 접수되었습니다. 관리자 승인 후 반영됩니다.`,
+      description: `${name} 신규 자산 등록 요청이 접수되었습니다. 관리자 승인 후 반영됩니다.`,
     })
     setForm(EMPTY_FORM)
     loadRequests()
@@ -264,6 +316,28 @@ export function RequestView() {
         {/* Form */}
         <div className="lg:col-span-3">
           <SectionCard title="신규 자산 등록 요청서" subtitle="필수 항목을 입력해 주세요" icon={FilePlus2}>
+            <div className="mb-4 flex items-center gap-1 self-start rounded-xl border border-border/60 bg-background/40 p-1">
+              {([
+                { key: "existing", label: "기존" },
+                { key: "new", label: "신규" },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => handleModeChange(opt.key)}
+                  aria-pressed={form.mode === opt.key}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-semibold transition-all duration-200",
+                    form.mode === opt.key
+                      ? "bg-primary/15 text-primary"
+                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="분류" required>
                 <select
@@ -277,42 +351,73 @@ export function RequestView() {
                   ))}
                 </select>
               </Field>
-              <Field label="등록 제품" required>
-                <select
-                  className={inputCls}
-                  value={form.productName}
-                  onChange={(e) => handleProductChange(e.target.value)}
-                  disabled={!form.category}
-                >
-                  <option value="">
-                    {!form.category
-                      ? "먼저 분류를 선택하세요"
-                      : mastersLoading
-                        ? "불러오는 중..."
-                        : productNames.length === 0
-                          ? "해당 분류에 등록된 제품이 없습니다"
-                          : "SW 마스터에 등록된 제품을 선택하세요"}
-                  </option>
-                  {productNames.map((name) => (
-                    <option key={name} value={name}>{name}</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="버전" required>
-                <select
-                  className={inputCls}
-                  value={form.masterId}
-                  onChange={(e) => update("masterId", e.target.value)}
-                  disabled={!form.productName}
-                >
-                  <option value="">
-                    {!form.productName ? "먼저 등록 제품을 선택하세요" : "버전을 선택하세요"}
-                  </option>
-                  {versionOptions.map((m) => (
-                    <option key={m.id} value={m.id}>{m.std_version}</option>
-                  ))}
-                </select>
-              </Field>
+              {form.mode === "existing" ? (
+                <>
+                  <Field label="등록 제품" required>
+                    <select
+                      className={inputCls}
+                      value={form.productName}
+                      onChange={(e) => handleProductChange(e.target.value)}
+                      disabled={!form.category}
+                    >
+                      <option value="">
+                        {!form.category
+                          ? "먼저 분류를 선택하세요"
+                          : mastersLoading
+                            ? "불러오는 중..."
+                            : productNames.length === 0
+                              ? "해당 분류에 등록된 제품이 없습니다"
+                              : "SW 마스터에 등록된 제품을 선택하세요"}
+                      </option>
+                      {productNames.map((name) => (
+                        <option key={name} value={name}>{name}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="버전" required>
+                    <select
+                      className={inputCls}
+                      value={form.masterId}
+                      onChange={(e) => update("masterId", e.target.value)}
+                      disabled={!form.productName}
+                    >
+                      <option value="">
+                        {!form.productName ? "먼저 등록 제품을 선택하세요" : "버전을 선택하세요"}
+                      </option>
+                      {versionOptions.map((m) => (
+                        <option key={m.id} value={m.id}>{m.std_version}</option>
+                      ))}
+                    </select>
+                  </Field>
+                </>
+              ) : (
+                <>
+                  <Field label="제품명" required>
+                    <input
+                      className={inputCls}
+                      placeholder="예: Redis"
+                      value={form.newProductName}
+                      onChange={(e) => update("newProductName", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="제조사" required>
+                    <input
+                      className={inputCls}
+                      placeholder="예: Redis Ltd."
+                      value={form.newVendor}
+                      onChange={(e) => update("newVendor", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="버전" required>
+                    <input
+                      className={inputCls}
+                      placeholder="예: 7.4.0"
+                      value={form.newVersion}
+                      onChange={(e) => update("newVersion", e.target.value)}
+                    />
+                  </Field>
+                </>
+              )}
               <Field label="설치 서버" required>
                 <select
                   className={inputCls}
@@ -333,20 +438,13 @@ export function RequestView() {
                   ))}
                 </select>
               </Field>
-              <Field label="담당자" required>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    className={inputCls}
-                    placeholder="부서 (예: WAS운영팀)"
-                    value={form.dept}
-                    onChange={(e) => update("dept", e.target.value)}
-                  />
-                  <input
-                    className={inputCls}
-                    placeholder="이름 (예: 홍길동)"
-                    value={form.owner}
-                    onChange={(e) => update("owner", e.target.value)}
-                  />
+              <Field label="담당자">
+                <div className={cn(inputCls, "flex items-center gap-2 bg-muted/40 text-foreground")}>
+                  {currentUser ? (
+                    <span>{currentUser.dept} · {currentUser.name}</span>
+                  ) : (
+                    <span className="text-muted-foreground">로그인 사용자 정보를 불러오는 중...</span>
+                  )}
                 </div>
               </Field>
             </div>
