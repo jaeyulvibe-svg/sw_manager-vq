@@ -70,7 +70,7 @@ export function NotificationsView({
     <div className="flex flex-col gap-6">
       <PageHeader
         icon={Bell}
-        title="알림 센터"
+        title="알림"
         description="SW 자산관리, EOS, 패치, 보안공지, 승인 요청 등 전사 이벤트를 한 곳에서 확인하고 관련 메뉴로 바로 이동합니다."
         action={
           <div className="flex items-center gap-2">

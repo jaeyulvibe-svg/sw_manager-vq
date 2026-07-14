@@ -518,7 +518,7 @@ export function NoticeBoardView() {
     <div className="flex flex-col gap-6">
       <PageHeader
         icon={Megaphone}
-        title="공지사항"
+        title="보안 공지"
         description={
           isAdmin
             ? "시스템 운영·점검·자산 등록 기준·패치 승인 절차 등을 안내하는 공지사항을 관리합니다."

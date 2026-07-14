@@ -669,8 +669,27 @@ const REAL_COLLECT_PRODUCTS = [
   "KISA",
 ] as const
 
-/* ---- Admin page tabs — navigated via the sidebar's "관리자 페이지" submenu ---- */
+/* ---- Admin page tabs — navigated via the sidebar's "시스템 관리" submenu ---- */
 export type AdminTab = "collect" | "policy" | "users"
+
+// nav.ts의 admin-collect/admin-policy/admin-users leaf label·아이콘과 일치시킨다.
+const ADMIN_TAB_META: Record<AdminTab, { title: string; description: string; icon: typeof Settings }> = {
+  collect: {
+    title: "수집 관리",
+    description: "공식 Source URL과 자동수집 스케줄러를 관리하고, 제품별 수동 수집을 실행합니다.",
+    icon: RefreshCw,
+  },
+  policy: {
+    title: "정책 설정",
+    description: "취약점 승인·알림 정책과 EOS 알림 기준을 설정합니다.",
+    icon: ShieldCheck,
+  },
+  users: {
+    title: "사용자 관리",
+    description: "사용자 계정과 권한(관리자·승인자·담당자·조회 사용자)을 관리합니다.",
+    icon: UsersRound,
+  },
+}
 
 export function AdminView({ initialTab }: { initialTab: AdminTab }) {
   const activeTab = initialTab
@@ -1188,13 +1207,15 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
     }
   }
 
+  const tabMeta = ADMIN_TAB_META[activeTab]
+
   if (!isAdmin) {
     return (
       <div className="flex flex-col gap-6">
         <PageHeader
-          icon={Settings}
-          title="관리자 페이지"
-          description="관리자는 SW 마스터 데이터, Source URL, 자동수집 정책, 승인 프로세스, 사용자 권한을 통합 관리합니다."
+          icon={tabMeta.icon}
+          title={tabMeta.title}
+          description={tabMeta.description}
         />
         <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-border/60 bg-card px-6 py-16 text-center glow-card">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-eos/15 text-eos">
@@ -1213,9 +1234,9 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        icon={Settings}
-        title="관리자 페이지"
-        description="관리자는 SW 마스터 데이터, Source URL, 자동수집 정책, 승인 프로세스, 사용자 권한을 통합 관리합니다."
+        icon={tabMeta.icon}
+        title={tabMeta.title}
+        description={tabMeta.description}
         action={<FontSizeControl scale={fontScale} onChange={updateFontScale} />}
       />
 

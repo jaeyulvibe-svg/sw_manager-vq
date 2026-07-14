@@ -5,7 +5,22 @@ import { LiveClock } from "./live-clock"
 import { UserSwitcher } from "./user-switcher"
 import { ThemeToggle } from "./theme-toggle"
 import { NotificationBell } from "./notification-bell"
+import type { LucideIcon } from "lucide-react"
 import { NAV_ITEMS, isNavGroup, type ViewKey } from "./nav"
+
+/** Returns the top-level nav entry for a view: its parent group if nested, or itself. */
+function topLevelEntryFor(active: ViewKey): { label: string; icon: LucideIcon } | undefined {
+  for (const entry of NAV_ITEMS) {
+    if (isNavGroup(entry)) {
+      if (entry.children.some((c) => c.key === active)) {
+        return { label: entry.label, icon: entry.icon }
+      }
+    } else if (entry.key === active) {
+      return { label: entry.label, icon: entry.icon }
+    }
+  }
+  return undefined
+}
 
 export function PortalHeader({
   active,
@@ -22,9 +37,7 @@ export function PortalHeader({
   onOpenNotifications: () => void
   onLogout: () => void
 }) {
-  const current = NAV_ITEMS.flatMap((entry) =>
-    isNavGroup(entry) ? entry.children : [entry],
-  ).find((n) => n.key === active)
+  const current = topLevelEntryFor(active)
 
   return (
     <header className="sticky top-0 z-30 flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border/60 bg-background/70 px-4 py-3 backdrop-blur-xl sm:px-6">
