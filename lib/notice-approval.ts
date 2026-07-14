@@ -14,7 +14,7 @@ export type ApprovalPolicy = {
  */
 export async function flagMatchedAssetsAndNotify(
   supabase: SupabaseClient<Database>,
-  notice: Pick<Vulnerability, "id" | "title" | "cve" | "severity" | "notice_type">,
+  notice: Pick<Vulnerability, "id" | "title" | "cve" | "severity" | "notice_type" | "eos_date">,
   matched: Asset[],
   policy: ApprovalPolicy,
 ): Promise<{ notifiedCount: number }> {
@@ -25,6 +25,13 @@ export async function flagMatchedAssetsAndNotify(
     .map((a) => a.id)
   if (toFlag.length > 0) {
     await supabase.from("assets").update({ approval: "확인필요" }).in("id", toFlag)
+  }
+
+  // EOS 공지 승인 시 매칭 자산의 EOS 날짜를 바로 반영한다 —
+  // 그렇지 않으면 관리자 페이지의 "즉시 수집"(endoflife.date 실시간 조회) 버튼을
+  // 별도로 눌러야만 자산 목록/EOS 로드맵에 날짜가 채워져 승인 직후에는 반영이 안 된 것처럼 보인다.
+  if (notice.notice_type === "EOS" && notice.eos_date) {
+    await supabase.from("assets").update({ eos: notice.eos_date }).in("id", matched.map((a) => a.id))
   }
 
   await supabase.from("patch_tasks").upsert(
@@ -63,7 +70,7 @@ export async function flagMatchedAssetsAndNotify(
 /** 이미 존재하는 공지 행을 승인 처리 (수동 승인 버튼 경로). */
 export async function applyNoticeApproval(
   supabase: SupabaseClient<Database>,
-  v: Pick<Vulnerability, "id" | "title" | "cve" | "severity" | "notice_type">,
+  v: Pick<Vulnerability, "id" | "title" | "cve" | "severity" | "notice_type" | "eos_date">,
   matched: Asset[],
   policy: ApprovalPolicy,
 ): Promise<{ notifiedCount: number }> {
