@@ -314,7 +314,7 @@ export function PatchTasksView() {
               <Th>담당자</Th>
               <Th>상태</Th>
               <Th>기한</Th>
-              <Th>메모</Th>
+              <Th>조치현황</Th>
               <Th>관리</Th>
             </tr>
           </thead>
