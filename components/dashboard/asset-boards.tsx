@@ -14,6 +14,7 @@ import { SectionCard, StatusBadge, MiniButton, type Accent, type RiskLevel } fro
 import { createClient } from "@/lib/supabase/client"
 import type { Tables } from "@/lib/supabase/types"
 import type { ViewKey } from "@/components/portal/nav"
+import { useRole } from "@/components/portal/role-context"
 import { cn } from "@/lib/utils"
 
 /* ---------------- 공지사항 ---------------- */
@@ -102,9 +103,10 @@ const requestApprovalRisk: Record<AssetRequest["approval"], RiskLevel> = {
   승인완료: 1,
 }
 
-function ChangeRequestPanel() {
+function ChangeRequestPanel({ onNavigate }: { onNavigate?: (view: ViewKey) => void }) {
   const [requests, setRequests] = useState<AssetRequest[]>([])
   const [loading, setLoading] = useState(true)
+  const { isAdmin } = useRole()
 
   useEffect(() => {
     const supabase = createClient()
@@ -124,6 +126,13 @@ function ChangeRequestPanel() {
       title="SW 자산 변경 요청"
       subtitle="등록·변경·폐기 요청 현황"
       icon={FileEdit}
+      action={
+        onNavigate ? (
+          <MiniButton accent="primary" onClick={() => onNavigate(isAdmin ? "approval" : "request")}>
+            더보기<ArrowRight className="h-3 w-3" />
+          </MiniButton>
+        ) : undefined
+      }
     >
       {loading ? (
         <div className="flex flex-col gap-2.5">
@@ -196,7 +205,7 @@ function formatCollected(iso: string) {
   return `${d.toLocaleDateString("ko-KR", { month: "long", day: "numeric" })} ${time}`
 }
 
-function FeedPanel() {
+function FeedPanel({ onNavigate }: { onNavigate?: (view: ViewKey) => void }) {
   const [vulns, setVulns] = useState<Vulnerability[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -218,6 +227,13 @@ function FeedPanel() {
       title="EOS·패치·보안공지 피드"
       subtitle="자산 연계 실시간 수집 이벤트"
       icon={Rss}
+      action={
+        onNavigate ? (
+          <MiniButton accent="primary" onClick={() => onNavigate("patch")}>
+            더보기<ArrowRight className="h-3 w-3" />
+          </MiniButton>
+        ) : undefined
+      }
     >
       {loading ? (
         <div className="flex flex-col gap-2.5">
@@ -270,8 +286,8 @@ export function AssetBoards({ onNavigate }: { onNavigate?: (view: ViewKey) => vo
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <NoticePanel onNavigate={onNavigate} />
-      <ChangeRequestPanel />
-      <FeedPanel />
+      <ChangeRequestPanel onNavigate={onNavigate} />
+      <FeedPanel onNavigate={onNavigate} />
     </div>
   )
 }
