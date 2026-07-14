@@ -109,6 +109,7 @@ export type Database = {
           mapped_assets: number
           approval: "승인대기" | "검토중" | "승인완료" | "반려"
           notice_type: "CVE" | "Patch" | "EOS"
+          eos_date: string | null
           collected_at: string
           created_at: string
         }
@@ -124,6 +125,7 @@ export type Database = {
           mapped_assets?: number
           approval?: "승인대기" | "검토중" | "승인완료" | "반려"
           notice_type?: "CVE" | "Patch" | "EOS"
+          eos_date?: string | null
           collected_at?: string
           created_at?: string
         }
@@ -138,6 +140,7 @@ export type Database = {
           mapped_assets?: number
           approval?: "승인대기" | "검토중" | "승인완료" | "반려"
           notice_type?: "CVE" | "Patch" | "EOS"
+          eos_date?: string | null
           collected_at?: string
         }
         Relationships: []

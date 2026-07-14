@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server"
 import * as cheerio from "cheerio"
 import { createClient } from "@supabase/supabase-js"
-import type { Database, TablesInsert, Tables } from "@/lib/supabase/types"
+import type { Database, TablesInsert } from "@/lib/supabase/types"
 import { classifyNoticeType } from "@/lib/notice-classify"
-import { matchAssets } from "@/lib/vuln-match"
-import { flagMatchedAssetsAndNotify, type ApprovalPolicy } from "@/lib/notice-approval"
 
 export type CollectProduct =
   | "Apache Tomcat"
@@ -42,40 +40,6 @@ function supabaseAdmin() {
   )
 }
 
-type CollectPolicy = ApprovalPolicy & {
-  highRequiresApproval: boolean
-  queueAfterCollect: boolean
-}
-
-const DEFAULT_POLICY: CollectPolicy = {
-  criticalUrgentAlert: true,
-  highRequiresApproval: true,
-  queueAfterCollect: true,
-}
-
-async function fetchPolicy(supabase: ReturnType<typeof supabaseAdmin>): Promise<CollectPolicy> {
-  try {
-    const { data } = await supabase
-      .from("admin_policies")
-      .select("critical_urgent_alert, high_requires_approval, queue_after_collect")
-      .eq("id", "default")
-      .maybeSingle()
-    if (!data) return DEFAULT_POLICY
-    return {
-      criticalUrgentAlert: data.critical_urgent_alert,
-      highRequiresApproval: data.high_requires_approval,
-      queueAfterCollect: data.queue_after_collect,
-    }
-  } catch {
-    return DEFAULT_POLICY
-  }
-}
-
-function shouldAutoApprove(severity: FoundNotice["severity"], policy: CollectPolicy): boolean {
-  if (!policy.queueAfterCollect) return true
-  if (!policy.highRequiresApproval && (severity === "Medium" || severity === "Low")) return true
-  return false
-}
 
 async function fetchHtml(url: string): Promise<string> {
   const res = await fetch(url, { headers: { "User-Agent": UA }, cache: "no-store" })
@@ -265,7 +229,8 @@ async function collectPostgresEos(): Promise<FoundNotice[]> {
     source_type: "vendor",
     notice_type: "EOS",
     mapped_assets: 0,
-    collected_at: eosDate.toISOString(),
+    eos_date: eosDate.toISOString().slice(0, 10),
+    collected_at: new Date().toISOString(),
   }]
 }
 
@@ -527,6 +492,26 @@ async function collectKnvd(): Promise<FoundNotice[]> {
   return notices
 }
 
+// 공지 제목에 지원종료일이 박혀 있는 경우만 추출한다(예: "종료일: 2026-11-14",
+// "2026.11.14부로 종료", "2026년 11월 14일까지"). 제조사가 날짜를 명시하지 않으면
+// null을 반환하고, 화면에서는 이를 "정보 없음"으로 정직하게 보여준다 — 모든 공지가
+// 친절하게 제목에 종료일을 적어주는 것은 아니므로 추측하지 않는다.
+function extractEosDateFromTitle(title: string): string | null {
+  const isoMatch = title.match(/(\d{4})[.\-](\d{1,2})[.\-](\d{1,2})/)
+  if (isoMatch) {
+    const [, y, m, d] = isoMatch
+    const date = new Date(Date.UTC(+y, +m - 1, +d))
+    if (!isNaN(date.getTime())) return date.toISOString().slice(0, 10)
+  }
+  const krMatch = title.match(/(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/)
+  if (krMatch) {
+    const [, y, m, d] = krMatch
+    const date = new Date(Date.UTC(+y, +m - 1, +d))
+    if (!isNaN(date.getTime())) return date.toISOString().slice(0, 10)
+  }
+  return null
+}
+
 // www.tmaxsoft.com/kr/developer/notice/list: 공식 기술공지 게시판.
 // <tr onclick="fnView('./view','SEQ')"> 행마다 제목/등록일이 들어있다.
 async function collectTmaxSoft(product: "JEUS" | "WebtoB"): Promise<FoundNotice[]> {
@@ -567,6 +552,7 @@ async function collectTmaxSoft(product: "JEUS" | "WebtoB"): Promise<FoundNotice[
       source_type: "vendor",
       notice_type: noticeType,
       mapped_assets: 0,
+      eos_date: noticeType === "EOS" ? extractEosDateFromTitle(row.title) : null,
       collected_at: collectedAt,
     })
   }
@@ -588,11 +574,7 @@ function fetchForProduct(product: CollectProduct): Promise<FoundNotice[]> {
   }
 }
 
-async function collectOne(
-  product: CollectProduct,
-  policy: CollectPolicy,
-  assets: Tables<"assets">[],
-): Promise<CollectResult> {
+async function collectOne(product: CollectProduct): Promise<CollectResult> {
   try {
     const supabase = supabaseAdmin()
     const rawFound = await fetchForProduct(product)
@@ -617,41 +599,14 @@ async function collectOne(
       return { product, ok: true, newCount: 0 }
     }
 
-    const prepared = toInsert.map((notice) => {
-      const matched = matchAssets(notice, assets)
-      const autoApprove = shouldAutoApprove(notice.severity, policy)
-      return {
-        // notice_type is optional on the Insert type but every collector above always sets it —
-        // fall back to "CVE" only to satisfy the stricter (non-optional) shape flagMatchedAssetsAndNotify expects.
-        notice: {
-          title: notice.title,
-          cve: notice.cve,
-          severity: notice.severity,
-          notice_type: notice.notice_type ?? "CVE",
-        },
-        matched,
-        row: {
-          ...notice,
-          approval: autoApprove ? ("승인완료" as const) : ("승인대기" as const),
-          mapped_assets: autoApprove ? matched.length : 0,
-        },
-      }
-    })
+    const rows = toInsert.map((notice) => ({
+      ...notice,
+      approval: "승인대기" as const,
+      mapped_assets: 0,
+    }))
 
-    const { data: insertedRows, error: insErr } = await supabase
-      .from("vulnerabilities")
-      .insert(prepared.map((p) => p.row))
-      .select("id, cve")
+    const { error: insErr } = await supabase.from("vulnerabilities").insert(rows)
     if (insErr) throw insErr
-
-    const idByCve = new Map((insertedRows ?? []).map((r) => [r.cve, r.id]))
-
-    for (const { notice, matched, row } of prepared) {
-      if (row.approval !== "승인완료") continue
-      const id = idByCve.get(row.cve)
-      if (!id) continue
-      await flagMatchedAssetsAndNotify(supabase, { ...notice, id }, matched, policy)
-    }
 
     return { product, ok: true, newCount: toInsert.length }
   } catch (err) {
@@ -681,13 +636,6 @@ export async function POST(request: Request) {
     )
   }
 
-  const supabase = supabaseAdmin()
-  const [policy, assetsRes] = await Promise.all([
-    fetchPolicy(supabase),
-    supabase.from("assets").select("*"),
-  ])
-  const assets = assetsRes.data ?? []
-
-  const results = await Promise.all(validProducts.map((p) => collectOne(p, policy, assets)))
+  const results = await Promise.all(validProducts.map((p) => collectOne(p)))
   return NextResponse.json({ results })
 }

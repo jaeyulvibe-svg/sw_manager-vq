@@ -514,6 +514,14 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
                           ) : (
                             <p className="text-xs text-muted-foreground">매칭되는 자산이 없습니다.</p>
                           )}
+                          {v.notice_type === "EOS" ? (
+                            <p className="mt-2 text-[11px] text-muted-foreground">
+                              EOS(지원종료) 일자:{" "}
+                              <span className={cn("font-mono font-semibold", v.eos_date ? "text-eos" : "text-muted-foreground")}>
+                                {v.eos_date ?? "정보 없음 (제조사 공지에 명시된 일자가 없어 원문 확인 필요)"}
+                              </span>
+                            </p>
+                          ) : null}
                           <p className="mt-2 text-[11px] text-muted-foreground">수집 일시: {formatCollected(v.collected_at)}</p>
                         </div>
                       </td>

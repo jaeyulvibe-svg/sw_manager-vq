@@ -433,7 +433,7 @@ export function Td({
     <td
       style={style}
       className={cn(
-        "whitespace-nowrap border-b border-border/40 px-3 py-2.5 text-foreground",
+        "whitespace-nowrap border-b border-border/40 px-3 py-2.5 align-middle text-foreground",
         style?.width !== undefined && "overflow-hidden text-ellipsis",
         className,
       )}
