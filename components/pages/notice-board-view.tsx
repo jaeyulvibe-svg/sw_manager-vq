@@ -28,7 +28,6 @@ import {
   Pagination,
   ConfirmDialog,
   SelectionActionBar,
-  type Accent,
   type RiskLevel,
 } from "@/components/portal/ui"
 import { useRole } from "@/components/portal/role-context"
@@ -66,15 +65,13 @@ const EMPTY_NOTICE_FORM: NoticeFormValues = {
 
 /* ---- Inline add/edit form ---- */
 function NoticeFormPanel({
-  initial,
   onCancel,
   onSubmit,
 }: {
-  initial?: NoticeFormValues
   onCancel: () => void
   onSubmit: (values: NoticeFormValues) => void
 }) {
-  const [values, setValues] = useState<NoticeFormValues>(initial ?? EMPTY_NOTICE_FORM)
+  const [values, setValues] = useState<NoticeFormValues>(EMPTY_NOTICE_FORM)
 
   return (
     <div className="mb-4 flex flex-col gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
@@ -322,6 +319,10 @@ export function NoticeBoardView() {
   const { setDirty, confirmLeave } = useUnsavedGuard()
   const { toast } = useToast()
 
+  useEffect(() => {
+    return () => setDirty(false)
+  }, [setDirty])
+
   const [notices, setNotices] = useState<Notice[]>([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState("")
@@ -486,6 +487,7 @@ export function NoticeBoardView() {
       setOpenId(null)
       setEditMode(false)
       setDraft(null)
+      setDirty(false)
     }
     setSelectedIds(new Set())
     setDeleteRequest(null)
