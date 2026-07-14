@@ -79,8 +79,8 @@ export const NAV_ITEMS: NavEntry[] = [
     label: "보안 관리",
     icon: ShieldAlert,
     children: [
-      { key: "notice-board", label: "보안 공지", icon: Megaphone },
-      { key: "patch", label: "패치 현황", icon: ShieldCheck },
+      { key: "notice-board", label: "공지사항", icon: Megaphone },
+      { key: "patch", label: "패치&취약점&EOS공지", icon: ShieldCheck },
     ],
   },
   {

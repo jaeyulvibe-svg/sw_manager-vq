@@ -398,7 +398,7 @@ export function NoticeReviewBoard({
                     ) : null}
                     {selected.approval === "승인완료" && onNavigate ? (
                       <MiniButton accent="eos" onClick={() => onNavigate("patch")}>
-                        <ArrowRight className="h-3 w-3" />패치 현황에서 보기
+                        <ArrowRight className="h-3 w-3" />패치&취약점&EOS공지에서 보기
                       </MiniButton>
                     ) : null}
                     {isAdmin ? (

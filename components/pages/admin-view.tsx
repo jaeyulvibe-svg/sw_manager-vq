@@ -1497,7 +1497,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
             submitting={manualVulnSubmitting}
           />
           <p className="mt-3 text-[11px] text-muted-foreground">
-            등록된 공지는 &apos;승인대기&apos; 상태로 공지 유형에 맞는 화면(EOS는 &apos;EOS 공지&apos;, 그 외는 출처 유형에 따라 &apos;KISA 공지&apos; 또는 &apos;제조사 공지&apos;)에 나타납니다. 그곳에서 검토 후 승인하면 패치 현황에 반영됩니다.
+            등록된 공지는 &apos;승인대기&apos; 상태로 공지 유형에 맞는 화면(EOS는 &apos;EOS 공지&apos;, 그 외는 출처 유형에 따라 &apos;KISA 공지&apos; 또는 &apos;제조사 공지&apos;)에 나타납니다. 그곳에서 검토 후 승인하면 패치&취약점&EOS공지에 반영됩니다.
           </p>
         </SectionCard>
 

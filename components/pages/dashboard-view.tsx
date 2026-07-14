@@ -133,7 +133,7 @@ const SECURITY_DASHBOARD_BLOCK_LABELS: Record<string, string> = {
   charts: "취약점 승인·심각도 차트",
   patchStatus: "패치 적용·조치 현황 차트",
   alerts: "긴급 알림·최근 업데이트",
-  notices: "보안 공지 게시판",
+  notices: "공지사항 게시판",
   "security-notices": "취약점 매핑 현황",
 }
 

@@ -247,7 +247,7 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
     <div className="flex flex-col gap-6">
       <PageHeader
         icon={ShieldCheck}
-        title="패치 현황"
+        title="패치&취약점&EOS공지"
         description="KISA·제조사에서 승인 완료된 취약점·EOS 공지를 전사 자산 매핑 기준으로 조회합니다. 신규 미승인 공지는 KISA/제조사/EOS 공지 화면에서 검토·승인하세요."
         action={
           onNavigate ? (
