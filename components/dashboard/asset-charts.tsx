@@ -15,7 +15,6 @@ import {
 import {
   PieChart as PieIcon,
   BarChart3,
-  Building2,
   Activity,
   CalendarClock,
   Layers,
@@ -330,35 +329,6 @@ export function AssetHealth({ assets }: { assets: Asset[] }) {
             <span className="ml-auto font-mono font-semibold text-foreground">{s.value}</span>
           </span>
         ))}
-      </div>
-    </ChartCard>
-  )
-}
-
-/* ---------------- 4. 벤더별 자산 현황 (실데이터 기반 가로 막대) ---------------- */
-
-export function VendorDistribution({ assets }: { assets: Asset[] }) {
-  const counts = new Map<string, number>()
-  for (const a of assets) {
-    if (!a.vendor) continue
-    counts.set(a.vendor, (counts.get(a.vendor) ?? 0) + 1)
-  }
-  const data = [...counts.entries()]
-    .map(([vendor, value]) => ({ vendor, value }))
-    .sort((a, b) => b.value - a.value)
-
-  return (
-    <ChartCard title="벤더별 자산 현황" subtitle="공급사별 보유 자산 수" icon={Building2}>
-      <div className="h-64 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} layout="vertical" margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-            <XAxis type="number" allowDecimals={false} stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-            <YAxis type="category" dataKey="vendor" width={110} stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-            <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--primary)", fillOpacity: 0.08 }} />
-            <Bar dataKey="value" name="자산 수" fill="var(--primary)" radius={[0, 6, 6, 0]} maxBarSize={22} animationDuration={1400} />
-          </BarChart>
-        </ResponsiveContainer>
       </div>
     </ChartCard>
   )

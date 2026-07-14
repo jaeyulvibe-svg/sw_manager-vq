@@ -33,7 +33,6 @@ import {
   CategoryDistribution,
   EosTimeline,
   ProductVersionBreakdown,
-  VendorDistribution,
 } from "@/components/dashboard/asset-charts"
 import { AssetBoards } from "@/components/dashboard/asset-boards"
 import type { ViewKey } from "@/components/portal/nav"
@@ -181,7 +180,6 @@ const ASSET_DASHBOARD_BLOCKS = [
   "kpi",
   "chart-category-eos",
   "chart-product",
-  "chart-vendor",
   "summary",
   "boards",
 ]
@@ -292,7 +290,6 @@ export function AssetDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey
       </div>
     ),
     "chart-product": <ProductVersionBreakdown assets={assets} />,
-    "chart-vendor": <VendorDistribution assets={assets} />,
     summary: <CategorySummary assets={assets} />,
     boards: <AssetBoards onNavigate={onNavigate} />,
   }
