@@ -17,6 +17,9 @@ import {
   BarChart3,
   Building2,
   Activity,
+  CalendarClock,
+  Layers,
+  ClipboardCheck,
 } from "lucide-react"
 import type { Tables } from "@/lib/supabase/types"
 
@@ -87,19 +90,23 @@ function TooltipBox({ active, payload, label }: any) {
 /* ---------------- 1. 카테고리별 SW 자산 분포 ---------------- */
 
 export function CategoryDistribution({ assets }: { assets: Asset[] }) {
-  const CATS = ["OS", "WEB", "WAS", "DB", "Middleware", "Security"]
-  const data = CATS.map((cat) => ({
+  const KNOWN_CATS = ["OS", "WEB", "WAS", "DB"]
+  const known = KNOWN_CATS.map((cat) => ({
     name: cat,
     value: assets.filter((a) => a.category === cat).length,
     color: "var(--primary)",
-  })).filter((d) => d.value > 0)
+  }))
+  const otherCount = assets.filter((a) => !KNOWN_CATS.includes(a.category)).length
+  const data = [...known, { name: "기타", value: otherCount, color: "var(--muted-foreground)" }].filter(
+    (d) => d.value > 0,
+  )
 
   const total = data.reduce((s, d) => s + d.value, 0)
 
   return (
     <ChartCard
-      title="카테고리별 SW 자산 분포"
-      subtitle={`전체 ${total}개 자산 구성`}
+      title="카테고리별 자산 구성"
+      subtitle={`전체 ${total}개 자산 구성 · OS/WEB/WAS/DB/기타`}
       icon={BarChart3}
       className="lg:col-span-2"
     >
@@ -121,6 +128,209 @@ export function CategoryDistribution({ assets }: { assets: Asset[] }) {
           </BarChart>
         </ResponsiveContainer>
       </div>
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-4 text-xs">
+        {data.map((d) => (
+          <span key={d.name} className="flex items-center gap-1.5 text-muted-foreground">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: d.color }} />
+            {d.name}
+            <span className="ml-1 font-mono font-semibold text-foreground">
+              {d.value}
+              <span className="ml-0.5 text-muted-foreground">
+                ({total > 0 ? Math.round((d.value / total) * 1000) / 10 : 0}%)
+              </span>
+            </span>
+          </span>
+        ))}
+      </div>
+    </ChartCard>
+  )
+}
+
+/* ---------------- EOS 도래 현황 ---------------- */
+
+const EOS_BUCKETS = ["만료됨", "90일 이내", "91~180일", "181일~1년", "1년 초과", "정보 없음"] as const
+
+const eosBucketColor: Record<string, string> = {
+  만료됨: "var(--risk-5)",
+  "90일 이내": "var(--risk-4)",
+  "91~180일": "var(--risk-3)",
+  "181일~1년": "var(--risk-2)",
+  "1년 초과": "var(--risk-1)",
+  "정보 없음": "var(--muted-foreground)",
+}
+
+function eosBucketOf(eos: string | null): (typeof EOS_BUCKETS)[number] {
+  if (!eos) return "정보 없음"
+  const t = new Date(eos).getTime()
+  if (Number.isNaN(t)) return "정보 없음"
+  const days = Math.floor((t - NOW) / 86400000)
+  if (days < 0) return "만료됨"
+  if (days <= 90) return "90일 이내"
+  if (days <= 180) return "91~180일"
+  if (days <= 365) return "181일~1년"
+  return "1년 초과"
+}
+
+export function EosTimeline({ assets }: { assets: Asset[] }) {
+  const data = EOS_BUCKETS.map((name) => ({
+    name,
+    value: assets.filter((a) => eosBucketOf(a.eos) === name).length,
+    color: eosBucketColor[name],
+  })).filter((d) => d.value > 0)
+
+  const within180 = assets.filter((a) => {
+    const b = eosBucketOf(a.eos)
+    return b === "만료됨" || b === "90일 이내" || b === "91~180일"
+  }).length
+
+  return (
+    <ChartCard title="EOS 도래 현황" subtitle={`180일 이내 도래 ${within180}건`} icon={CalendarClock}>
+      <div className="h-64 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+            <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} interval={0} angle={-20} textAnchor="end" height={50} />
+            <YAxis allowDecimals={false} stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+            <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--primary)", fillOpacity: 0.08 }} />
+            <Bar dataKey="value" name="자산 수" radius={[6, 6, 0, 0]} maxBarSize={40} animationDuration={1500}>
+              {data.map((entry) => (
+                <Cell key={entry.name} fill={entry.color} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </ChartCard>
+  )
+}
+
+/* ---------------- 제품·버전별 자산 구성 ---------------- */
+
+export function ProductVersionBreakdown({ assets }: { assets: Asset[] }) {
+  const productCounts = new Map<string, number>()
+  for (const a of assets) {
+    const key = `${a.name}__${a.vendor}`
+    productCounts.set(key, (productCounts.get(key) ?? 0) + 1)
+  }
+  const topProducts = [...productCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([key]) => key)
+
+  type Row = { product: string; version: string; count: number; ratio: number }
+  const rows: Row[] = []
+  for (const key of topProducts) {
+    const [name] = key.split("__")
+    const productAssets = assets.filter((a) => `${a.name}__${a.vendor}` === key)
+    const versionCounts = new Map<string, number>()
+    for (const a of productAssets) {
+      versionCounts.set(a.version, (versionCounts.get(a.version) ?? 0) + 1)
+    }
+    for (const [version, count] of [...versionCounts.entries()].sort((a, b) => b[1] - a[1])) {
+      rows.push({
+        product: name,
+        version,
+        count,
+        ratio: Math.round((count / productAssets.length) * 1000) / 10,
+      })
+    }
+  }
+
+  const otherCount = assets.length - topProducts.reduce((s, key) => s + (productCounts.get(key) ?? 0), 0)
+
+  return (
+    <ChartCard
+      title="제품·버전별 자산 구성"
+      subtitle="자산 수 상위 제품의 버전 분포"
+      icon={Layers}
+      className="lg:col-span-2"
+    >
+      <div className="max-h-72 overflow-y-auto overflow-x-hidden">
+        <table className="w-full table-fixed text-sm">
+          <thead>
+            <tr className="text-left text-xs text-muted-foreground">
+              <th className="w-2/5 pb-2 font-medium">제품</th>
+              <th className="w-1/5 pb-2 font-medium">버전</th>
+              <th className="w-1/5 pb-2 text-right font-medium">자산 수</th>
+              <th className="w-1/5 pb-2 text-right font-medium">비율</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={`${r.product}-${r.version}-${i}`} className="border-t border-border/50">
+                <td className="max-w-0 truncate py-2 pr-2 font-medium text-foreground" title={r.product}>
+                  {r.product}
+                </td>
+                <td className="max-w-0 truncate py-2 pr-2 text-muted-foreground" title={r.version}>
+                  {r.version}
+                </td>
+                <td className="py-2 text-right font-mono text-foreground">{r.count}</td>
+                <td className="py-2 text-right font-mono text-muted-foreground">{r.ratio}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {otherCount > 0 ? (
+        <p className="mt-3 text-xs text-muted-foreground">그 외 제품 {otherCount}건은 기타로 묶임 (자산 목록에서 상세 확인)</p>
+      ) : null}
+    </ChartCard>
+  )
+}
+
+/* ---------------- 자산 데이터 품질 ---------------- */
+
+export function AssetDataQuality({ assets }: { assets: Asset[] }) {
+  const total = assets.length
+  const missingOwner = assets.filter((a) => !a.owner || !a.owner.trim()).length
+  const missingVersion = assets.filter((a) => !a.version || !a.version.trim()).length
+  const missingServer = assets.filter((a) => !a.server || !a.server.trim()).length
+  const missingEos = assets.filter((a) => !a.eos || Number.isNaN(new Date(a.eos).getTime())).length
+  const normal = assets.filter(
+    (a) =>
+      a.owner?.trim() &&
+      a.version?.trim() &&
+      a.server?.trim() &&
+      a.eos &&
+      !Number.isNaN(new Date(a.eos).getTime()),
+  ).length
+
+  const data = [
+    { name: "담당자 누락", value: missingOwner, color: "var(--risk-4)" },
+    { name: "버전 누락", value: missingVersion, color: "var(--risk-4)" },
+    { name: "설치 위치 누락", value: missingServer, color: "var(--risk-4)" },
+    { name: "EOS 정보 누락", value: missingEos, color: "var(--risk-3)" },
+    { name: "필수 정보 정상", value: normal, color: "var(--risk-1)" },
+  ]
+
+  if (total === 0) {
+    return (
+      <ChartCard title="자산 데이터 품질" subtitle="등록된 자산 없음" icon={ClipboardCheck}>
+        <p className="py-10 text-center text-sm text-muted-foreground">표시할 자산 데이터가 없습니다.</p>
+      </ChartCard>
+    )
+  }
+
+  return (
+    <ChartCard title="자산 데이터 품질" subtitle="필수 정보 누락 현황 (중복 집계 가능)" icon={ClipboardCheck}>
+      <div className="h-64 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} layout="vertical" margin={{ top: 10, right: 24, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+            <XAxis type="number" allowDecimals={false} stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+            <YAxis type="category" dataKey="name" width={96} stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
+            <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--primary)", fillOpacity: 0.08 }} />
+            <Bar dataKey="value" name="건수" radius={[0, 6, 6, 0]} maxBarSize={22} animationDuration={1400}>
+              {data.map((entry) => (
+                <Cell key={entry.name} fill={entry.color} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        하나의 자산이 여러 누락 조건에 동시에 해당할 수 있어 항목 합계가 전체 자산 수와 다를 수 있습니다.
+      </p>
     </ChartCard>
   )
 }

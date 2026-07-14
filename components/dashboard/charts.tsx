@@ -12,11 +12,15 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import { ShieldAlert, PieChart as PieIcon } from "lucide-react"
+import { ShieldAlert, PieChart as PieIcon, Wrench, ClipboardList } from "lucide-react"
 import type { Tables } from "@/lib/supabase/types"
 
 type Asset = Tables<"assets">
 type Vulnerability = Tables<"vulnerabilities">
+type PatchTask = Tables<"patch_tasks">
+
+// Computed once at module load (not during render) so it stays a pure value for react-hooks/purity.
+const NOW = Date.now()
 
 function ChartCard({
   title,
@@ -196,6 +200,93 @@ export function SeverityDonut({ assets }: { assets: Asset[] }) {
             </span>
           </span>
         ))}
+      </div>
+    </ChartCard>
+  )
+}
+
+/* ---------------- 3. 패치 적용 현황 (실데이터) ---------------- */
+
+const PATCH_META = [
+  { key: "Up to Date", name: "최신 적용", color: "var(--risk-1)" },
+  { key: "Patch Available", name: "패치 가능", color: "var(--risk-3)" },
+  { key: "Patch Required", name: "패치 필요", color: "var(--risk-5)" },
+] as const
+
+export function PatchApplicationStatus({ assets }: { assets: Asset[] }) {
+  const data = PATCH_META.map((p) => ({
+    name: p.name,
+    value: assets.filter((a) => a.patch === p.key).length,
+    color: p.color,
+  })).filter((d) => d.value > 0)
+
+  const total = data.reduce((s, d) => s + d.value, 0)
+  const requiredCount = assets.filter((a) => a.patch === "Patch Required").length
+  const rate = total > 0 ? Math.round(((total - requiredCount) / total) * 1000) / 10 : 0
+
+  return (
+    <ChartCard title="패치 적용 현황" subtitle={`패치 적용률 ${rate}%`} icon={Wrench}>
+      <div className="h-64 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+            <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+            <YAxis allowDecimals={false} stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+            <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--primary)", fillOpacity: 0.08 }} />
+            <Bar dataKey="value" name="자산 수" radius={[6, 6, 0, 0]} maxBarSize={64} animationDuration={1500}>
+              {data.map((entry) => (
+                <Cell key={entry.name} fill={entry.color} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </ChartCard>
+  )
+}
+
+/* ---------------- 4. 보안 조치 업무 현황 (실데이터) ---------------- */
+
+const TASK_STATUS_META = [
+  { key: "배정됨", color: "var(--risk-3)" },
+  { key: "조치예정", color: "var(--risk-2)" },
+  { key: "조치지연", color: "var(--risk-5)" },
+  { key: "조치완료", color: "var(--risk-1)" },
+  { key: "예외요청", color: "var(--risk-4)" },
+  { key: "예외승인", color: "var(--muted-foreground)" },
+] as const
+
+export function PatchTaskStatus({ patchTasks }: { patchTasks: PatchTask[] }) {
+  const data = TASK_STATUS_META.map((s) => ({
+    name: s.key,
+    value: patchTasks.filter((t) => t.status === s.key).length,
+    color: s.color,
+  })).filter((d) => d.value > 0)
+
+  const overdue = patchTasks.filter(
+    (t) =>
+      t.status !== "조치완료" &&
+      t.status !== "예외승인" &&
+      t.due_date &&
+      new Date(t.due_date).getTime() < NOW,
+  ).length
+
+  return (
+    <ChartCard title="보안 조치 업무 현황" subtitle={`기한 초과 ${overdue}건`} icon={ClipboardList}>
+      <div className="h-64 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+            <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} interval={0} angle={-20} textAnchor="end" height={50} />
+            <YAxis allowDecimals={false} stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+            <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--primary)", fillOpacity: 0.08 }} />
+            <Bar dataKey="value" name="건수" radius={[6, 6, 0, 0]} maxBarSize={40} animationDuration={1500}>
+              {data.map((entry) => (
+                <Cell key={entry.name} fill={entry.color} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </ChartCard>
   )

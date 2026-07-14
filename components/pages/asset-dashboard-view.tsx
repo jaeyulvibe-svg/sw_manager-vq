@@ -4,12 +4,10 @@ import { useEffect, useState } from "react"
 import {
   Boxes,
   Server,
-  Globe,
   Package,
-  Database,
-  AlertTriangle,
+  CalendarClock,
+  FileEdit,
   Table as TableIcon,
-  Layers,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import type { Tables } from "@/lib/supabase/types"
@@ -33,13 +31,16 @@ import {
 } from "@/components/portal/dashboard-layout"
 import {
   CategoryDistribution,
-  AssetHealth,
+  EosTimeline,
+  ProductVersionBreakdown,
+  AssetDataQuality,
   VendorDistribution,
 } from "@/components/dashboard/asset-charts"
 import { AssetBoards } from "@/components/dashboard/asset-boards"
 import type { ViewKey } from "@/components/portal/nav"
 
 type Asset = Tables<"assets">
+type AssetRequest = Tables<"asset_requests">
 
 // Computed once at module load (not during render) so it stays a pure value for react-hooks/purity.
 const NOW = Date.now()
@@ -177,10 +178,13 @@ function CategorySummary({ assets }: { assets: Asset[] }) {
   )
 }
 
-const ASSET_DASHBOARD_BLOCKS = ["kpi", "charts1", "charts2", "summary", "boards"]
+const ASSET_DASHBOARD_BLOCKS = ["kpi", "charts1", "charts2", "charts3", "summary", "boards"]
+
+const PENDING_APPROVALS: AssetRequest["approval"][] = ["승인대기", "검토중"]
 
 export function AssetDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey) => void }) {
   const [assets, setAssets] = useState<Asset[]>([])
+  const [pendingRequests, setPendingRequests] = useState(0)
   const [loading, setLoading] = useState(true)
   const { isAdmin } = useRole()
   const [locked, setLocked] = useState(true)
@@ -193,31 +197,41 @@ export function AssetDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey
 
   useEffect(() => {
     const supabase = createClient()
-    supabase
-      .from("assets")
-      .select("*")
-      .then(({ data }) => {
-        if (data) setAssets(data)
-        setLoading(false)
-      })
+    Promise.all([
+      supabase.from("assets").select("*"),
+      supabase.from("asset_requests").select("id, approval"),
+    ]).then(([assetsRes, requestsRes]) => {
+      if (assetsRes.data) setAssets(assetsRes.data)
+      if (requestsRes.data) {
+        setPendingRequests(
+          requestsRes.data.filter((r) => PENDING_APPROVALS.includes(r.approval)).length,
+        )
+      }
+      setLoading(false)
+    })
   }, [])
 
-  const total    = assets.length
-  const osCount  = assets.filter((a) => a.category === "OS").length
-  const webCount = assets.filter((a) => a.category === "WEB").length
-  const wasCount = assets.filter((a) => a.category === "WAS").length
-  const dbCount  = assets.filter((a) => a.category === "DB").length
-  const needAction = assets.filter(
-    (a) => (a.eos && new Date(a.eos).getTime() < NOW) ||
-            a.patch === "Patch Required" ||
-            a.vuln === "Critical",
-  ).length
+  const total = assets.length
+  const serverCount = new Set(assets.map((a) => a.server).filter(Boolean)).size
+  const productCount = new Set(assets.map((a) => `${a.name}__${a.vendor}`)).size
+
+  let eosExpired = 0
+  let eosWithin180 = 0
+  for (const a of assets) {
+    if (!a.eos) continue
+    const t = new Date(a.eos).getTime()
+    if (Number.isNaN(t)) continue
+    const days = Math.floor((t - NOW) / 86400000)
+    if (days < 0) eosExpired++
+    else if (days <= 180) eosWithin180++
+  }
+  const eosNear = eosExpired + eosWithin180
 
   const editable = isAdmin && !locked
 
   const blocks: Record<string, React.ReactNode> = {
     kpi: (
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
         <StatCard
           label="전체 SW 자산"
           value={total}
@@ -227,54 +241,52 @@ export function AssetDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey
           delay={80}
         />
         <StatCard
-          label="OS 자산"
-          value={osCount}
+          label="관리 서버 수"
+          value={serverCount}
           icon={Server}
           accent="primary"
-          trendLabel="Red Hat Enterprise Linux"
+          trendLabel="설치 서버 기준 중복 제거"
           delay={160}
         />
         <StatCard
-          label="WEB 자산"
-          value={webCount}
-          icon={Globe}
+          label="제품 종류 수"
+          value={productCount}
+          icon={Package}
           accent="primary"
-          trendLabel="WebtoB, Nginx"
+          trendLabel="제품명+제조사 기준 중복 제거"
           delay={240}
         />
         <StatCard
-          label="WAS 자산"
-          value={wasCount}
-          icon={Layers}
-          accent="primary"
-          trendLabel="JEUS, Apache Tomcat"
+          label="EOS 180일 이내 자산"
+          value={eosNear}
+          icon={CalendarClock}
+          accent="eos"
+          trendLabel={`만료됨 ${eosExpired}건 · 180일 이내 ${eosWithin180}건`}
           delay={320}
         />
         <StatCard
-          label="DB 자산"
-          value={dbCount}
-          icon={Database}
-          accent="primary"
-          trendLabel="Oracle Database, PostgreSQL"
+          label="변경 요청 대기"
+          value={pendingRequests}
+          icon={FileEdit}
+          accent="warning"
+          trendLabel="승인대기·검토중 상태"
           delay={400}
-        />
-        <StatCard
-          label="조치 필요 자산"
-          value={needAction}
-          icon={AlertTriangle}
-          accent="destructive"
-          trendLabel="EOS만료·패치필요·Critical"
-          delay={480}
         />
       </div>
     ),
     charts1: (
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <CategoryDistribution assets={assets} />
-        <AssetHealth assets={assets} />
+        <EosTimeline assets={assets} />
       </div>
     ),
     charts2: (
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ProductVersionBreakdown assets={assets} />
+        <AssetDataQuality assets={assets} />
+      </div>
+    ),
+    charts3: (
       <div className="grid grid-cols-1 gap-4">
         <VendorDistribution assets={assets} />
       </div>

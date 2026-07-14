@@ -12,6 +12,8 @@ import { CriticalAlerts } from "@/components/dashboard/critical-alerts"
 import {
   VulnerabilityApprovalStatus,
   SeverityDonut,
+  PatchApplicationStatus,
+  PatchTaskStatus,
 } from "@/components/dashboard/charts"
 import {
   NoticeBoard,
@@ -32,6 +34,7 @@ import {
 
 type Asset = Tables<"assets">
 type Vulnerability = Tables<"vulnerabilities">
+type PatchTask = Tables<"patch_tasks">
 
 const accentIconColor: Record<Accent, string> = {
   primary: "text-primary",
@@ -97,11 +100,12 @@ function RecentUpdates() {
   )
 }
 
-const SECURITY_DASHBOARD_BLOCKS = ["hero", "kpi", "charts", "alerts", "notices", "security-notices"]
+const SECURITY_DASHBOARD_BLOCKS = ["hero", "kpi", "charts", "patchStatus", "alerts", "notices", "security-notices"]
 
 function SecurityDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey) => void }) {
   const [assets, setAssets] = useState<Asset[]>([])
   const [vulns, setVulns] = useState<Vulnerability[]>([])
+  const [patchTasks, setPatchTasks] = useState<PatchTask[]>([])
   const [loading, setLoading] = useState(true)
   const { isAdmin } = useRole()
   const [locked, setLocked] = useState(true)
@@ -117,9 +121,11 @@ function SecurityDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey) =>
     Promise.all([
       supabase.from("assets").select("*"),
       supabase.from("vulnerabilities").select("*").order("collected_at", { ascending: false }),
-    ]).then(([assetsRes, vulnsRes]) => {
+      supabase.from("patch_tasks").select("*"),
+    ]).then(([assetsRes, vulnsRes, patchTasksRes]) => {
       if (assetsRes.data) setAssets(assetsRes.data)
       if (vulnsRes.data) setVulns(vulnsRes.data)
+      if (patchTasksRes.data) setPatchTasks(patchTasksRes.data)
       setLoading(false)
     })
   }, [])
@@ -128,11 +134,17 @@ function SecurityDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey) =>
 
   const blocks: Record<string, React.ReactNode> = {
     hero: <ScanHero />,
-    kpi: <KpiCards assets={assets} loading={loading} />,
+    kpi: <KpiCards assets={assets} vulns={vulns} patchTasks={patchTasks} loading={loading} />,
     charts: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <VulnerabilityApprovalStatus vulns={vulns} />
         <SeverityDonut assets={assets} />
+      </div>
+    ),
+    patchStatus: (
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <PatchApplicationStatus assets={assets} />
+        <PatchTaskStatus patchTasks={patchTasks} />
       </div>
     ),
     alerts: (
