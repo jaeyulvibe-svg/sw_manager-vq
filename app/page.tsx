@@ -27,6 +27,7 @@ import { PatchTasksView } from "@/components/pages/patch-tasks-view"
 import { AdminView } from "@/components/pages/admin-view"
 import { SwMasterView } from "@/components/pages/sw-master-view"
 import { ServersView } from "@/components/pages/servers-view"
+import { DemoDataView } from "@/components/pages/demo-data-view"
 import { NotificationsView } from "@/components/pages/notifications-view"
 
 function Portal({ onLogout }: { onLogout: () => void }) {
@@ -93,6 +94,8 @@ function Portal({ onLogout }: { onLogout: () => void }) {
         return <AdminView key={active} initialTab="policy" />
       case "admin-users":
         return <AdminView key={active} initialTab="users" />
+      case "admin-demo":
+        return <DemoDataView />
       case "notifications":
         return <NotificationsView onNavigate={setActive} />
       default:

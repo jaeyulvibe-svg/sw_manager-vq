@@ -47,6 +47,8 @@ Supabase is **live and wired up**, but the migration off mock arrays is partial 
 
 `patch-tasks-view.tsx` ("내 조치 업무" nav entry, `patch_tasks` table): 공지 승인 시 매칭 자산마다 자동 생성되는 조치 티켓 목록 — 담당자가 조치예정/조치지연/조치완료/예외요청 + 기한/메모를 등록(조치예정은 기한 필수, 예외요청은 메모(사유) 필수 — 비어있으면 저장 차단). 실제 로그인이 없어(`role-context.tsx`) "본인 건만"은 `app_users`(역할=담당자) 기반 담당자 드롭다운으로 시뮬레이션하며, 그 이름을 고른 담당자 역할에서만 행별 "조치 등록" 버튼이 열림 — 관리자는 `예외요청` 상태인 행에 한해 승인(→`예외승인`으로 종결)/반려(→`조치예정`으로 복귀, 메모는 보존) 버튼을 사용할 수 있고 그 외 행은 이 화면에서 조회만 가능(담당자변경·완료확인은 여전히 미구현). `patch-view.tsx`(승인된 취약점 공지)의 매핑 자산 펼침 목록에도 자산별 조치 상태 배지와 "내 조치 업무 바로가기" 버튼이 추가됨.
 
+`demo-data-view.tsx` ("DEMO 데이터 설정" nav entry, `demo_snapshots` table + `save_demo_snapshot()`/`reset_demo_data()` Postgres RPC functions) — 시연용 샘플 데이터를 저장된 기준 상태로 즉시 복원하는 관리자 전용 화면. `assets`/`servers`/`vulnerabilities`/`asset_requests`/`notifications`/`notices`/`licenses`/`sw_masters`/`sources`/`app_users`/`patch_tasks` 11개 테이블만 대상이며 `admin_policies`는 운영 설정으로 보고 제외; "초기화"는 `reset_demo_data()` RPC 한 번으로 11개 테이블을 원자적으로 delete+insert한 뒤 전체 페이지를 새로고침, "현재 데이터를 새 기준으로 저장"은 `save_demo_snapshot()` RPC로 기준 스냅샷을 갱신.
+
 The three React contexts provided at the root:
 - `RoleProvider` — current role (admin/owner), still mock — no real auth
 - `ToastProvider` — imperative toast API (`useToast().toast({...})`), in-memory only
@@ -73,7 +75,7 @@ Required env vars (see `.env.example`):
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY` (server only — never expose to client)
 
-Tables actually in use: `assets`, `servers`, `vulnerabilities`, `notifications`, `notices`, `sw_masters`, `asset_requests`, `sources`, `app_users`, `admin_policies`, `patch_tasks` (read via `select`, written via `update`/`insert` where noted above). See "Data & state" above for the per-file migration status; don't assume a page is mock just because a sibling page is, or fully migrated just because it has a `supabase.from(...)` call somewhere in it.
+Tables actually in use: `assets`, `servers`, `vulnerabilities`, `notifications`, `notices`, `sw_masters`, `asset_requests`, `sources`, `app_users`, `admin_policies`, `patch_tasks`, `demo_snapshots` (read via `select`, written via `update`/`insert` where noted above). See "Data & state" above for the per-file migration status; don't assume a page is mock just because a sibling page is, or fully migrated just because it has a `supabase.from(...)` call somewhere in it.
 
 ### Key patterns
 
