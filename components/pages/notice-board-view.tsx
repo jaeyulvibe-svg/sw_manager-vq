@@ -33,6 +33,7 @@ import {
 } from "@/components/portal/ui"
 import { useRole } from "@/components/portal/role-context"
 import { useToast } from "@/components/portal/toast"
+import { useUnsavedGuard } from "@/components/portal/unsaved-guard"
 import { createClient } from "@/lib/supabase/client"
 import type { Tables, TablesInsert } from "@/lib/supabase/types"
 import { cn } from "@/lib/utils"
@@ -318,6 +319,7 @@ function noticeSortValue(n: Notice, key: NoticeSortKey): string | number {
 
 export function NoticeBoardView() {
   const { isAdmin } = useRole()
+  const { setDirty, confirmLeave } = useUnsavedGuard()
   const { toast } = useToast()
 
   const [notices, setNotices] = useState<Notice[]>([])
@@ -394,27 +396,32 @@ export function NoticeBoardView() {
   }
 
   function handleTitleClick(id: string) {
-    if (openId === id) {
-      setOpenId(null)
-    } else {
-      setOpenId(id)
-    }
+    if (editMode && !confirmLeave()) return
+    setOpenId((prev) => (prev === id ? null : id))
     setEditMode(false)
     setDraft(null)
+    setDirty(false)
   }
 
   function handleStartEdit(n: Notice) {
     setDraft({ title: n.title, content: n.content, status: n.status })
     setEditMode(true)
+    setDirty(false)
   }
 
-  function handleDraftChange(next: NoticeDraft) {
+  function handleDraftChange(next: NoticeDraft, original: Notice) {
     setDraft(next)
+    setDirty(
+      next.title !== original.title ||
+        next.content !== original.content ||
+        next.status !== original.status,
+    )
   }
 
   function handleCancelEdit() {
     setEditMode(false)
     setDraft(null)
+    setDirty(false)
   }
 
   async function handleSave() {
@@ -437,13 +444,16 @@ export function NoticeBoardView() {
     toast({ title: "공지사항이 수정되었습니다", tone: "success" })
     setEditMode(false)
     setDraft(null)
+    setDirty(false)
     loadNotices()
   }
 
   function handleClosePanel() {
+    if (editMode && !confirmLeave()) return
     setOpenId(null)
     setEditMode(false)
     setDraft(null)
+    setDirty(false)
   }
 
   function requestDeleteNotice(n: Notice) {
@@ -655,7 +665,7 @@ export function NoticeBoardView() {
                             editMode={editMode}
                             draft={draft}
                             saving={saving}
-                            onDraftChange={handleDraftChange}
+                            onDraftChange={(next) => handleDraftChange(next, n)}
                             onStartEdit={() => handleStartEdit(n)}
                             onCancelEdit={handleCancelEdit}
                             onSave={handleSave}
