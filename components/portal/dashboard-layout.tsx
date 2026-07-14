@@ -76,6 +76,7 @@ export function DashboardSection({
   onDragEnd,
   onMoveUp,
   onMoveDown,
+  className,
   children,
 }: {
   id: string
@@ -90,12 +91,17 @@ export function DashboardSection({
   onDragEnd: () => void
   onMoveUp: () => void
   onMoveDown: () => void
+  className?: string
   children: ReactNode
 }) {
   const isDragging = draggingId === id
 
   return (
-    <motion.div layout transition={{ type: "spring", stiffness: 420, damping: 38 }}>
+    <motion.div
+      layout
+      transition={{ type: "spring", stiffness: 420, damping: 38 }}
+      className={className}
+    >
       <div
         draggable={editable}
         onDragStart={(e) => {

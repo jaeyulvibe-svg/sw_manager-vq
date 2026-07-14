@@ -10,6 +10,7 @@ import {
   Table as TableIcon,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { cn } from "@/lib/utils"
 import type { Tables } from "@/lib/supabase/types"
 import {
   StatCard,
@@ -177,7 +178,18 @@ function CategorySummary({ assets }: { assets: Asset[] }) {
   )
 }
 
-const ASSET_DASHBOARD_BLOCKS = ["kpi", "charts1", "charts2", "charts3", "summary", "boards"]
+const ASSET_DASHBOARD_BLOCKS = [
+  "kpi",
+  "chart-category",
+  "chart-eos",
+  "chart-product",
+  "chart-vendor",
+  "summary",
+  "boards",
+]
+
+// Blocks that should sit two-per-row on large screens instead of taking the full width.
+const HALF_WIDTH_BLOCKS = new Set(["chart-category", "chart-eos"])
 
 const PENDING_APPROVALS: AssetRequest["approval"][] = ["승인대기", "검토중"]
 
@@ -273,22 +285,10 @@ export function AssetDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey
         />
       </div>
     ),
-    charts1: (
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <CategoryDistribution assets={assets} />
-        <EosTimeline assets={assets} />
-      </div>
-    ),
-    charts2: (
-      <div className="grid grid-cols-1 gap-4">
-        <ProductVersionBreakdown assets={assets} />
-      </div>
-    ),
-    charts3: (
-      <div className="grid grid-cols-1 gap-4">
-        <VendorDistribution assets={assets} />
-      </div>
-    ),
+    "chart-category": <CategoryDistribution assets={assets} />,
+    "chart-eos": <EosTimeline assets={assets} />,
+    "chart-product": <ProductVersionBreakdown assets={assets} />,
+    "chart-vendor": <VendorDistribution assets={assets} />,
     summary: <CategorySummary assets={assets} />,
     boards: <AssetBoards onNavigate={onNavigate} />,
   }
@@ -305,34 +305,37 @@ export function AssetDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey
         </div>
       ) : null}
 
-      {order.map((id, index) => (
-        <DashboardSection
-          key={id}
-          id={id}
-          editable={editable}
-          draggingId={draggingId}
-          isOverTarget={overId === id}
-          isFirst={index === 0}
-          isLast={index === order.length - 1}
-          onDragStart={setDraggingId}
-          onDragOverTarget={(targetId) => {
-            setOverId(targetId)
-            if (draggingId && draggingId !== targetId) moveBefore(draggingId, targetId)
-          }}
-          onDrop={() => {
-            setDraggingId(null)
-            setOverId(null)
-          }}
-          onDragEnd={() => {
-            setDraggingId(null)
-            setOverId(null)
-          }}
-          onMoveUp={() => moveByOffset(id, -1)}
-          onMoveDown={() => moveByOffset(id, 1)}
-        >
-          {blocks[id]}
-        </DashboardSection>
-      ))}
+      <div className="flex flex-wrap gap-6">
+        {order.map((id, index) => (
+          <DashboardSection
+            key={id}
+            id={id}
+            editable={editable}
+            draggingId={draggingId}
+            isOverTarget={overId === id}
+            isFirst={index === 0}
+            isLast={index === order.length - 1}
+            onDragStart={setDraggingId}
+            onDragOverTarget={(targetId) => {
+              setOverId(targetId)
+              if (draggingId && draggingId !== targetId) moveBefore(draggingId, targetId)
+            }}
+            onDrop={() => {
+              setDraggingId(null)
+              setOverId(null)
+            }}
+            onDragEnd={() => {
+              setDraggingId(null)
+              setOverId(null)
+            }}
+            onMoveUp={() => moveByOffset(id, -1)}
+            onMoveDown={() => moveByOffset(id, 1)}
+            className={cn("w-full", HALF_WIDTH_BLOCKS.has(id) && "lg:w-[calc(50%-0.75rem)]")}
+          >
+            {blocks[id]}
+          </DashboardSection>
+        ))}
+      </div>
     </div>
   )
 }
