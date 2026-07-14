@@ -292,6 +292,13 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
                 { label: "출처", value: (v: Vulnerability) => v.source },
                 { label: "영향 제품", value: (v: Vulnerability) => v.product },
                 { label: "매핑 자산 수", value: (v: Vulnerability) => matchMap.get(v.id)?.length ?? 0 },
+                {
+                  label: "매핑 자산 상세(설치 서버)",
+                  value: (v: Vulnerability) =>
+                    (matchMap.get(v.id) ?? [])
+                      .map((a) => `${a.name} v${a.version} (${a.server})`)
+                      .join(", "),
+                },
               ]}
             />
             <ColumnVisibilityMenu
