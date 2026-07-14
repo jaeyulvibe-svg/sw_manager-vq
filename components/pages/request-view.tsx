@@ -22,6 +22,7 @@ import {
   ExportExcelButton,
   usePagination,
   Pagination,
+  InfoDialog,
   type Accent,
   type RiskLevel,
 } from "@/components/portal/ui"
@@ -111,6 +112,7 @@ export function RequestView() {
   const [mastersLoading, setMastersLoading] = useState(true)
   const [servers, setServers] = useState<Server[]>([])
   const [serversLoading, setServersLoading] = useState(true)
+  const [completedName, setCompletedName] = useState<string | null>(null)
 
   function loadRequests() {
     const supabase = createClient()
@@ -280,11 +282,7 @@ export function RequestView() {
     })
     refreshNotifications()
 
-    toast({
-      tone: "success",
-      title: "요청 등록 완료",
-      description: `${name} 신규 자산 등록 요청이 접수되었습니다. 관리자 승인 후 반영됩니다.`,
-    })
+    setCompletedName(name)
     setForm(EMPTY_FORM)
     loadRequests()
   }
@@ -558,6 +556,13 @@ export function RequestView() {
           </div>
         )}
       </SectionCard>
+
+      <InfoDialog
+        open={completedName !== null}
+        title="요청 등록 완료"
+        description={`${completedName} 신규 자산 등록 요청이 접수되었습니다. 관리자 승인 후 반영됩니다.`}
+        onConfirm={() => setCompletedName(null)}
+      />
     </div>
   )
 }

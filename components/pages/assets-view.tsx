@@ -178,7 +178,7 @@ export function AssetsView() {
   const [cat,     setCat]     = useState<(typeof CATEGORIES)[number]>("전체")
   const [status,  setStatus]  = useState<(typeof STATUS_FILTERS)[number]>("전체")
   const [sortKey, setSortKey] = useState<SortKey>("id")
-  const [sortDir, setSortDir] = useState<SortDir>("asc")
+  const [sortDir, setSortDir] = useState<SortDir>("desc")
   const [visible, setVisible] = useState<ColKey[]>(() => loadColumnVisibility(LS_KEY, FACTORY_VISIBLE))
   const [selected, setSelected] = useState<AssetDetail | null>(null)
   const [detailFiltersOpen, setDetailFiltersOpen] = useState(false)
