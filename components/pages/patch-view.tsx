@@ -30,7 +30,6 @@ import {
   ColumnVisibilityMenu,
   loadColumnVisibility,
   TABLE_HEADER_CELL_H,
-  TABLE_ROW_CELL_H,
   usePagination,
   Pagination,
   type Accent,
@@ -80,6 +79,9 @@ const LS_KEY = "patch_view_columns"
 
 /** 매핑 자산이 이 개수를 넘으면 검색창과 세로 스크롤 영역을 함께 노출 */
 const MAPPED_ASSETS_DENSE_THRESHOLD = 8
+
+/** 제목 컬럼이 1줄 말줄임으로 바뀌면서 다른 화면 공용 h-16(64px)보다 낮은 행 높이(56px)로도 충분해짐 */
+const ROW_CELL_H = "h-14 py-0"
 
 type SortKey = ColKey | "none"
 type SortDir = "asc" | "desc"
@@ -415,12 +417,12 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
           {loading && <span className="ml-2 text-xs">불러오는 중…</span>}
         </p>
 
-        <TableShell scrollHint>
+        <TableShell scrollHint fixed>
           <thead>
             <tr>
               {show("severity") && <SortTh col="severity" label="심각도" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
               {show("cve") && <SortTh col="cve" label="CVE" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
-              {show("title") && <SortTh col="title" label="제목" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              {show("title") && <SortTh col="title" label="제목" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} style={{ width: "42%" }} />}
               {show("noticeType") && <SortTh col="noticeType" label="공지 유형" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
               {show("sourceType") && <SortTh col="sourceType" label="출처 유형" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
               {show("source") && <SortTh col="source" label="출처" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
@@ -437,28 +439,35 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
                 <Fragment key={v.id}>
                   <tr className="transition-colors hover:bg-accent/40">
                     {show("severity") && (
-                      <Td className={TABLE_ROW_CELL_H}>
+                      <Td className={ROW_CELL_H}>
                         <StatusBadge risk={sevRisk[v.severity]} pulse={v.severity === "Critical"}>{v.severity}</StatusBadge>
                       </Td>
                     )}
-                    {show("cve") && <Td className={cn("font-mono text-xs", TABLE_ROW_CELL_H)}>{v.cve}</Td>}
-                    {show("title") && <Td className={cn("whitespace-normal text-xs line-clamp-2", TABLE_ROW_CELL_H)}>{v.title}</Td>}
+                    {show("cve") && <Td className={cn("font-mono text-xs", ROW_CELL_H)}>{v.cve}</Td>}
+                    {show("title") && (
+                      <Td
+                        className={cn("max-w-0 truncate text-xs max-sm:h-auto max-sm:whitespace-normal max-sm:py-2 max-sm:line-clamp-2", ROW_CELL_H)}
+                        title={v.title}
+                      >
+                        {v.title}
+                      </Td>
+                    )}
                     {show("noticeType") && (
-                      <Td className={TABLE_ROW_CELL_H}>
+                      <Td className={ROW_CELL_H}>
                         <StatusBadge accent={noticeTypeAccent[v.notice_type]}>{v.notice_type}</StatusBadge>
                       </Td>
                     )}
                     {show("sourceType") && (
-                      <Td className={TABLE_ROW_CELL_H}>
+                      <Td className={ROW_CELL_H}>
                         <StatusBadge accent={sourceTypeAccent[v.source_type]}>
                           {sourceTypeLabel[v.source_type]}
                         </StatusBadge>
                       </Td>
                     )}
-                    {show("source") && <Td className={cn("text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{v.source}</Td>}
-                    {show("product") && <Td className={cn("text-xs", TABLE_ROW_CELL_H)}>{v.product}</Td>}
-                    {show("mapped") && <Td className={TABLE_ROW_CELL_H}>{matched.length}대</Td>}
-                    <Td className={TABLE_ROW_CELL_H}>
+                    {show("source") && <Td className={cn("text-xs text-muted-foreground", ROW_CELL_H)}>{v.source}</Td>}
+                    {show("product") && <Td className={cn("text-xs", ROW_CELL_H)}>{v.product}</Td>}
+                    {show("mapped") && <Td className={ROW_CELL_H}>{matched.length}대</Td>}
+                    <Td className={ROW_CELL_H}>
                       <MiniButton
                         accent="primary"
                         onClick={() => toggleExpanded(v.id)}
@@ -482,6 +491,9 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
                           className="min-w-0 px-3 py-3"
                           style={{ contain: "inline-size" }}
                         >
+                          <p className="mb-3 whitespace-normal break-words text-sm font-medium text-foreground">
+                            {v.title}
+                          </p>
                           {matched.length > 0 ? (
                             <>
                               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">

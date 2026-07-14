@@ -348,10 +348,13 @@ export function SectionCard({
 export function TableShell({
   children,
   scrollHint = false,
+  fixed = false,
 }: {
   children: React.ReactNode
   /** 가로 스크롤이 더 있을 때 양 끝에 은은한 그림자를 표시 (기본 꺼짐 — 기존 테이블에 영향 없음) */
   scrollHint?: boolean
+  /** table-layout: fixed — 긴 텍스트 컬럼(예: 제목)에 style={{width}}로 비율 폭을 강제하고 싶을 때 사용 (기본 꺼짐 — 기존 테이블은 내용 기준 자동 폭 유지) */
+  fixed?: boolean
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [showLeftHint, setShowLeftHint] = useState(false)
@@ -377,7 +380,7 @@ export function TableShell({
   return (
     <div className="relative">
       <div ref={scrollRef} className="overflow-x-auto rounded-xl border border-border/60">
-        <table className="w-full min-w-max border-collapse text-sm">
+        <table className={cn("w-full border-collapse text-sm", fixed ? "table-fixed" : "min-w-max")}>
           {children}
         </table>
       </div>
