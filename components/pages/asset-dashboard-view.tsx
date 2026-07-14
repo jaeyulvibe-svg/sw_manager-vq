@@ -61,8 +61,8 @@ const statusRisk: Record<CategoryRow["status"], RiskLevel> = {
 
 const PRODUCT_MAP: Record<string, string> = {
   OS: "Red Hat Enterprise Linux",
-  WEB: "WebtoB, Nginx",
-  WAS: "Apache Tomcat, JEUS",
+  WEB: "Nginx",
+  WAS: "Apache Tomcat",
   DB: "Oracle Database, PostgreSQL",
   Middleware: "-",
   Security: "OpenSSL",

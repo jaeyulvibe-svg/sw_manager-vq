@@ -28,7 +28,6 @@ const ASSET_ITEMS: CommandItem[] = [
   { id: "a1", label: "OpenSSL 3.0.x", hint: "SEC-PRD-01 · Critical", group: "자산", icon: Boxes, target: "assets", keywords: "openssl 보안 critical" },
   { id: "a2", label: "Oracle Database 19c", hint: "DB-PRD-01 · Critical", group: "자산", icon: Boxes, target: "assets", keywords: "oracle db database" },
   { id: "a3", label: "Apache Tomcat 9.0.89", hint: "WAS-PRD-01 · High", group: "자산", icon: Boxes, target: "assets", keywords: "tomcat apache was" },
-  { id: "a4", label: "JEUS 7", hint: "WAS-PRD-02 · EOS 임박", group: "자산", icon: Boxes, target: "eos", keywords: "jeus tmax eos 단종" },
 ]
 
 const CVE_ITEMS: CommandItem[] = [

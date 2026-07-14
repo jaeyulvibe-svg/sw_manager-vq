@@ -664,7 +664,7 @@ function Toggle({
 type CollectLogEntry = { product: string; ok: boolean; newCount: number; error?: string }
 
 const REAL_COLLECT_PRODUCTS = [
-  "Apache Tomcat", "JEUS", "WebtoB",
+  "Apache Tomcat",
   "Nginx", "PostgreSQL", "OpenSSL", "Red Hat Enterprise Linux", "Oracle Database",
   "KISA",
 ] as const

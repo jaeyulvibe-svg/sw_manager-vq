@@ -6,8 +6,6 @@ import { classifyNoticeType } from "@/lib/notice-classify"
 
 export type CollectProduct =
   | "Apache Tomcat"
-  | "JEUS"
-  | "WebtoB"
   | "Nginx"
   | "PostgreSQL"
   | "OpenSSL"
@@ -16,7 +14,7 @@ export type CollectProduct =
   | "KISA"
 
 const COLLECT_PRODUCTS: CollectProduct[] = [
-  "Apache Tomcat", "JEUS", "WebtoB",
+  "Apache Tomcat",
   "Nginx", "PostgreSQL", "OpenSSL", "Red Hat Enterprise Linux", "Oracle Database",
   "KISA",
 ]
@@ -426,11 +424,11 @@ async function collectOracle(): Promise<FoundNotice[]> {
 }
 
 const SW_MASTER_PRODUCTS = [
-  "Apache Tomcat", "JEUS", "WebtoB", "Oracle Database",
+  "Apache Tomcat", "Oracle Database",
   "OpenSSL", "Nginx", "Red Hat Enterprise Linux", "PostgreSQL",
 ] as const
 
-// KNVD는 전 분야 보안공지를 다루므로, 제목/본문에 SW마스터 8개 제품 중 하나가 언급된
+// KNVD는 전 분야 보안공지를 다루므로, 제목/본문에 SW마스터 6개 제품 중 하나가 언급된
 // 공지만 추적 대상으로 인정한다 — 그렇지 않으면 KISA 공지 화면이 무관한 공지로 가득 찬다.
 function detectTrackedProduct(text: string): string | null {
   for (const name of SW_MASTER_PRODUCTS) {
@@ -492,79 +490,9 @@ async function collectKnvd(): Promise<FoundNotice[]> {
   return notices
 }
 
-// 공지 제목에 지원종료일이 박혀 있는 경우만 추출한다(예: "종료일: 2026-11-14",
-// "2026.11.14부로 종료", "2026년 11월 14일까지"). 제조사가 날짜를 명시하지 않으면
-// null을 반환하고, 화면에서는 이를 "정보 없음"으로 정직하게 보여준다 — 모든 공지가
-// 친절하게 제목에 종료일을 적어주는 것은 아니므로 추측하지 않는다.
-function extractEosDateFromTitle(title: string): string | null {
-  const isoMatch = title.match(/(\d{4})[.\-](\d{1,2})[.\-](\d{1,2})/)
-  if (isoMatch) {
-    const [, y, m, d] = isoMatch
-    const date = new Date(Date.UTC(+y, +m - 1, +d))
-    if (!isNaN(date.getTime())) return date.toISOString().slice(0, 10)
-  }
-  const krMatch = title.match(/(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/)
-  if (krMatch) {
-    const [, y, m, d] = krMatch
-    const date = new Date(Date.UTC(+y, +m - 1, +d))
-    if (!isNaN(date.getTime())) return date.toISOString().slice(0, 10)
-  }
-  return null
-}
-
-// www.tmaxsoft.com/kr/developer/notice/list: 공식 기술공지 게시판.
-// <tr onclick="fnView('./view','SEQ')"> 행마다 제목/등록일이 들어있다.
-async function collectTmaxSoft(product: "JEUS" | "WebtoB"): Promise<FoundNotice[]> {
-  const listUrl = "https://www.tmaxsoft.com/kr/developer/notice/list"
-  const html = await fetchHtml(listUrl)
-  const $ = cheerio.load(html)
-  const notices: FoundNotice[] = []
-
-  const rows: { seq: string; title: string; date: string }[] = []
-  $("tr[onclick]").each((_, trEl) => {
-    const onclick = $(trEl).attr("onclick") ?? ""
-    const seqMatch = onclick.match(/fnView\('\.\/view',\s*'(\d+)'\)/)
-    if (!seqMatch) return
-    const title = $(trEl).find(".text-clamp-1").first().text().trim()
-    const date = $(trEl).find("td").eq(1).text().trim()
-    if (title) rows.push({ seq: seqMatch[1], title, date })
-  })
-
-  const relevant = rows.filter((r) => r.title.includes(product))
-
-  for (const row of relevant) {
-    const noticeType = classifyNoticeType(row.title)
-    if (!noticeType) continue // 호환성 테스트 결과 등 관련 없는 공지는 제외
-
-    const cveMatch = row.title.match(/CVE-\d{4}-\d+/)
-    const key = cveMatch ? cveMatch[0] : `TMAX-${row.seq}`
-
-    const [y, m, d] = row.date.split(".").map((n) => parseInt(n, 10))
-    const collectedAt = y && m && d ? new Date(Date.UTC(y, m - 1, d)).toISOString() : new Date().toISOString()
-
-    notices.push({
-      cve: key,
-      title: row.title,
-      severity: noticeType === "EOS" ? "High" : "High",
-      product,
-      source: "TmaxSoft 공식 기술공지",
-      source_url: `https://www.tmaxsoft.com/kr/developer/notice/view?seq=${row.seq}&boardCd=notice`,
-      source_type: "vendor",
-      notice_type: noticeType,
-      mapped_assets: 0,
-      eos_date: noticeType === "EOS" ? extractEosDateFromTitle(row.title) : null,
-      collected_at: collectedAt,
-    })
-  }
-
-  return notices
-}
-
 function fetchForProduct(product: CollectProduct): Promise<FoundNotice[]> {
   switch (product) {
     case "Apache Tomcat": return collectApacheTomcat()
-    case "JEUS": return collectTmaxSoft("JEUS")
-    case "WebtoB": return collectTmaxSoft("WebtoB")
     case "Nginx": return collectNginx()
     case "PostgreSQL": return collectPostgres()
     case "OpenSSL": return collectOpenSSL()
