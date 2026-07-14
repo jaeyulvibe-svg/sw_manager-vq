@@ -7,13 +7,10 @@ import {
   FileClock,
   ClipboardList,
   AlarmClockOff,
-  TrendingUp,
-  TrendingDown,
   type LucideIcon,
 } from "lucide-react"
 import type { Tables } from "@/lib/supabase/types"
 import type { RiskLevel } from "@/components/portal/ui"
-import { Sparkline } from "@/components/portal/sparkline"
 import { cn } from "@/lib/utils"
 import { useCountUp } from "@/hooks/use-count-up"
 
@@ -32,20 +29,9 @@ type KpiData = {
   suffix?: string
   decimals?: number
   icon: LucideIcon
-  trend: number
-  trendLabel: string
+  subLabel?: string
   accent: KpiAccent
   delay: number
-  spark: number[]
-}
-
-const accentVar: Record<KpiAccent, string> = {
-  primary: "var(--primary)",
-  5: "var(--risk-5)",
-  4: "var(--risk-4)",
-  3: "var(--risk-3)",
-  2: "var(--risk-2)",
-  1: "var(--risk-1)",
 }
 
 const accentBg: Record<KpiAccent, string> = {
@@ -63,8 +49,6 @@ function KpiCard({ kpi }: { kpi: KpiData }) {
     delay: kpi.delay,
     duration: 1800,
   })
-  const positive = kpi.trend >= 0
-  const TrendIcon = positive ? TrendingUp : TrendingDown
 
   return (
     <div
@@ -92,16 +76,9 @@ function KpiCard({ kpi }: { kpi: KpiData }) {
         <span className="text-2xl sm:text-3xl">{kpi.suffix}</span>
       </div>
 
-      <div className="mt-3 flex min-w-0 items-end justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-1.5 text-xs">
-          <span className={cn("flex shrink-0 items-center gap-1 font-semibold", positive ? "text-success" : "text-destructive")}>
-            <TrendIcon className="h-3.5 w-3.5" />
-            {Math.abs(kpi.trend)}%
-          </span>
-          <span className="min-w-0 truncate text-muted-foreground">{kpi.trendLabel}</span>
-        </div>
-        <Sparkline data={kpi.spark} color={accentVar[kpi.accent]} width={96} height={34} className="shrink-0" />
-      </div>
+      {kpi.subLabel ? (
+        <p className="mt-3 truncate text-xs text-muted-foreground">{kpi.subLabel}</p>
+      ) : null}
     </div>
   )
 }
@@ -127,81 +104,83 @@ export function KpiCards({
     )
   }
 
+  const totalAssets = assets.length
   const vulnAffectedCount = assets.filter((a) => a.vuln !== "Low").length
-  const criticalHighCount = assets.filter((a) => a.vuln === "Critical" || a.vuln === "High").length
+  const criticalCount = assets.filter((a) => a.vuln === "Critical").length
+  const highCount = assets.filter((a) => a.vuln === "High").length
   const patchNeededCount = assets.filter((a) => a.patch === "Patch Required").length
-  const pendingNoticeCount = vulns.filter((v) => v.approval === "승인대기" || v.approval === "검토중").length
-  const incompleteTaskCount = patchTasks.filter(
+  const patchAvailableCount = assets.filter((a) => a.patch === "Patch Available").length
+
+  const pendingNotices = vulns.filter((v) => v.approval === "승인대기" || v.approval === "검토중")
+  const pendingCriticalNotices = pendingNotices.filter((v) => v.severity === "Critical").length
+  const pendingHighNotices = pendingNotices.filter((v) => v.severity === "High").length
+
+  const incompleteTasks = patchTasks.filter(
     (t) => t.status !== "조치완료" && t.status !== "예외승인",
+  )
+  const inProgressTasks = incompleteTasks.filter(
+    (t) => t.status === "조치예정" || t.status === "조치지연",
   ).length
-  const overdueTaskCount = patchTasks.filter(
-    (t) =>
-      t.status !== "조치완료" &&
-      t.status !== "예외승인" &&
-      t.due_date &&
-      new Date(t.due_date).getTime() < NOW,
-  ).length
+  const waitingTasks = incompleteTasks.filter((t) => t.status === "배정됨").length
+
+  const overdueTasks = incompleteTasks.filter(
+    (t) => t.due_date && new Date(t.due_date).getTime() < NOW,
+  )
+  const maxOverdueDays =
+    overdueTasks.length > 0
+      ? Math.max(
+          ...overdueTasks.map((t) => Math.floor((NOW - new Date(t.due_date as string).getTime()) / 86400000)),
+        )
+      : 0
 
   const kpis: KpiData[] = [
     {
       label: "취약점 영향 자산",
       value: vulnAffectedCount,
       icon: ShieldAlert,
-      trend: vulnAffectedCount > 0 ? -5 : 0,
-      trendLabel: "Low 등급 제외 전체",
+      subLabel: totalAssets > 0 ? `전체 자산 중 ${vulnAffectedCount}개` : undefined,
       accent: 4,
       delay: 80,
-      spark: [vulnAffectedCount, vulnAffectedCount, vulnAffectedCount, vulnAffectedCount, vulnAffectedCount, vulnAffectedCount, vulnAffectedCount],
     },
     {
       label: "Critical·High 위험 자산",
-      value: criticalHighCount,
+      value: criticalCount + highCount,
       icon: ShieldX,
-      trend: criticalHighCount > 0 ? -5 : 0,
-      trendLabel: "긴급 대응 필요",
+      subLabel: `Critical ${criticalCount} · High ${highCount}`,
       accent: 5,
       delay: 160,
-      spark: [criticalHighCount, criticalHighCount, criticalHighCount, criticalHighCount, criticalHighCount, criticalHighCount, criticalHighCount],
     },
     {
       label: "패치 필요 자산",
       value: patchNeededCount,
       icon: Wrench,
-      trend: patchNeededCount > 0 ? -3 : 5,
-      trendLabel: "Patch Required 상태",
+      subLabel: `패치 필요 ${patchNeededCount} · 패치 가능 ${patchAvailableCount}`,
       accent: 3,
       delay: 240,
-      spark: [patchNeededCount, patchNeededCount, patchNeededCount, patchNeededCount, patchNeededCount, patchNeededCount, patchNeededCount],
     },
     {
       label: "승인 대기 보안공지",
-      value: pendingNoticeCount,
+      value: pendingNotices.length,
       icon: FileClock,
-      trend: pendingNoticeCount > 0 ? 8 : 0,
-      trendLabel: "승인대기·검토중",
+      subLabel: `Critical ${pendingCriticalNotices} · High ${pendingHighNotices}`,
       accent: 3,
       delay: 320,
-      spark: [pendingNoticeCount, pendingNoticeCount, pendingNoticeCount, pendingNoticeCount, pendingNoticeCount, pendingNoticeCount, pendingNoticeCount],
     },
     {
       label: "미완료 조치 업무",
-      value: incompleteTaskCount,
+      value: incompleteTasks.length,
       icon: ClipboardList,
-      trend: incompleteTaskCount > 0 ? -4 : 5,
-      trendLabel: "조치완료·예외승인 제외",
+      subLabel: `진행 중 ${inProgressTasks} · 배정 대기 ${waitingTasks}`,
       accent: 2,
       delay: 400,
-      spark: [incompleteTaskCount, incompleteTaskCount, incompleteTaskCount, incompleteTaskCount, incompleteTaskCount, incompleteTaskCount, incompleteTaskCount],
     },
     {
       label: "조치 기한 초과 업무",
-      value: overdueTaskCount,
+      value: overdueTasks.length,
       icon: AlarmClockOff,
-      trend: overdueTaskCount > 0 ? 12 : 0,
-      trendLabel: "기한 경과 미완료 건",
+      subLabel: overdueTasks.length > 0 ? `최장 지연 ${maxOverdueDays}일` : undefined,
       accent: 5,
       delay: 480,
-      spark: [overdueTaskCount, overdueTaskCount, overdueTaskCount, overdueTaskCount, overdueTaskCount, overdueTaskCount, overdueTaskCount],
     },
   ]
 
