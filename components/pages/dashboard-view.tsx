@@ -149,6 +149,7 @@ function SecurityDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey) =>
   const { order, hidden, moveBefore, moveByOffset, hideBlock, unhideBlock, reset } = useDashboardOrder(
     "security-dashboard-order",
     SECURITY_DASHBOARD_BLOCKS,
+    ["patchStatus"],
   )
 
   useEffect(() => {

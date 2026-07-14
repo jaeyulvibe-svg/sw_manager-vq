@@ -29,9 +29,9 @@ function loadStoredLayout(storageKey: string, blockIds: string[]): StoredLayout 
 }
 
 /** Manages a persisted (localStorage) display order + hidden set for a fixed set of block ids. */
-export function useDashboardOrder(storageKey: string, blockIds: string[]) {
+export function useDashboardOrder(storageKey: string, blockIds: string[], defaultHidden: string[] = []) {
   const [order, setOrder] = useState<string[]>(blockIds)
-  const [hidden, setHidden] = useState<string[]>([])
+  const [hidden, setHidden] = useState<string[]>(defaultHidden)
 
   useEffect(() => {
     const loaded = loadStoredLayout(storageKey, blockIds)
@@ -96,7 +96,7 @@ export function useDashboardOrder(storageKey: string, blockIds: string[]) {
 
   function reset() {
     setOrder(blockIds)
-    setHidden([])
+    setHidden(defaultHidden)
     window.localStorage.removeItem(storageKey)
   }
 
