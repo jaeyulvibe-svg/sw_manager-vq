@@ -14,7 +14,6 @@ import {
   Plus,
   Type,
   Pencil,
-  Trash2,
   FilePlus2,
   CalendarClock,
   Search,
@@ -924,13 +923,6 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
     loadSources()
   }
 
-  function requestDeleteOneSource(target: Source) {
-    setSourceDeleteRequest({
-      ids: [target.id],
-      title: `"${target.name}" Source URL을 삭제할까요?`,
-      confirmLabel: "1개 삭제",
-    })
-  }
   function requestDeleteSelectedSources() {
     if (selectedSourceIds.size === 0) return
     setSourceDeleteRequest({
@@ -995,13 +987,6 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
     loadUsers()
   }
 
-  function requestDeleteOneUser(target: AppUser) {
-    setUserDeleteRequest({
-      ids: [target.id],
-      title: `"${target.name}" 사용자를 삭제할까요?`,
-      confirmLabel: "1개 삭제",
-    })
-  }
   function requestDeleteSelectedUsers() {
     if (selectedUserIds.size === 0) return
     setUserDeleteRequest({
@@ -1297,16 +1282,10 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
                     </Td>
                   )}
                   <Td className={TABLE_ROW_CELL_H}>
-                    <div className="flex items-center gap-1.5">
-                      <MiniButton className="h-8 px-2.5" onClick={() => setSourcePanel(s.id)}>
-                        <Pencil className="h-3 w-3" />
-                        수정
-                      </MiniButton>
-                      <MiniButton accent="destructive" className="h-8 px-2.5" onClick={() => requestDeleteOneSource(s)}>
-                        <Trash2 className="h-3 w-3" />
-                        삭제
-                      </MiniButton>
-                    </div>
+                    <MiniButton className="h-8 px-2.5" onClick={() => setSourcePanel(s.id)}>
+                      <Pencil className="h-3 w-3" />
+                      수정
+                    </MiniButton>
                   </Td>
                 </tr>
               ),
@@ -1596,16 +1575,10 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
                     </Td>
                   )}
                   <Td className={TABLE_ROW_CELL_H}>
-                    <div className="flex items-center gap-1.5">
-                      <MiniButton className="h-8 px-2.5" onClick={() => setUserPanel(u.id)}>
-                        <Pencil className="h-3 w-3" />
-                        수정
-                      </MiniButton>
-                      <MiniButton accent="destructive" className="h-8 px-2.5" onClick={() => requestDeleteOneUser(u)}>
-                        <Trash2 className="h-3 w-3" />
-                        삭제
-                      </MiniButton>
-                    </div>
+                    <MiniButton className="h-8 px-2.5" onClick={() => setUserPanel(u.id)}>
+                      <Pencil className="h-3 w-3" />
+                      수정
+                    </MiniButton>
                   </Td>
                 </tr>
               ),

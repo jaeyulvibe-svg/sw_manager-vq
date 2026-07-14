@@ -6,9 +6,6 @@ import {
   Search,
   Plus,
   Pencil,
-  Trash2,
-  Check,
-  X,
 } from "lucide-react"
 import {
   PageHeader,
@@ -25,6 +22,8 @@ import {
   TABLE_ROW_CELL_H,
   usePagination,
   Pagination,
+  ConfirmDialog,
+  SelectionActionBar,
 } from "@/components/portal/ui"
 import { useToast } from "@/components/portal/toast"
 import { createClient } from "@/lib/supabase/client"
@@ -224,8 +223,8 @@ export function SwMasterView() {
   const [visible, setVisible] = useState<ColKey[]>(() => loadColumnVisibility(LS_KEY, FACTORY_VISIBLE))
 
   const [panel, setPanel] = useState<"add" | string | null>(null)
-  const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [deleteRequest, setDeleteRequest] = useState<{ ids: string[]; title: string; confirmLabel: string } | null>(null)
 
   function loadMasters() {
     const supabase = createClient()
@@ -317,23 +316,6 @@ export function SwMasterView() {
     loadMasters()
   }
 
-  async function deleteMaster(target: MasterRow) {
-    if (!window.confirm(`"${target.name}" SW 마스터를 삭제하시겠습니까?`)) return
-    const supabase = createClient()
-    const payload: TablesUpdate<"sw_masters"> = {
-      active: false,
-      deleted_at: new Date().toISOString(),
-      deleted_by: MASTER_ACTOR,
-    }
-    const { error } = await supabase.from("sw_masters").update(payload).eq("id", target.id)
-    if (error) {
-      toast({ title: "삭제 실패", description: error.message, tone: "danger" })
-      return
-    }
-    toast({ title: "SW 마스터가 삭제되었습니다", tone: "info" })
-    loadMasters()
-  }
-
   function toggleSelectAll() {
     setSelectedIds((prev) =>
       prev.size === filtered.length && filtered.length > 0 ? new Set() : new Set(filtered.map((m) => m.id)),
@@ -347,29 +329,35 @@ export function SwMasterView() {
       return next
     })
   }
-  function cancelSelection() {
-    setSelectMode(false)
+  function clearSelection() {
     setSelectedIds(new Set())
   }
-  async function saveSelection() {
-    if (selectedIds.size === 0) {
-      cancelSelection()
-      return
-    }
-    if (!window.confirm(`선택한 SW 마스터 ${selectedIds.size}건을 삭제하시겠습니까?`)) return
+
+  function requestDeleteSelected() {
+    if (selectedIds.size === 0) return
+    setDeleteRequest({
+      ids: Array.from(selectedIds),
+      title: `선택한 SW 마스터 ${selectedIds.size}건을 삭제할까요?`,
+      confirmLabel: `${selectedIds.size}건 삭제`,
+    })
+  }
+  async function confirmDelete() {
+    if (!deleteRequest) return
     const supabase = createClient()
     const payload: TablesUpdate<"sw_masters"> = {
       active: false,
       deleted_at: new Date().toISOString(),
       deleted_by: MASTER_ACTOR,
     }
-    const { error } = await supabase.from("sw_masters").update(payload).in("id", Array.from(selectedIds))
+    const { error } = await supabase.from("sw_masters").update(payload).in("id", deleteRequest.ids)
     if (error) {
       toast({ title: "삭제 실패", description: error.message, tone: "danger" })
+      setDeleteRequest(null)
       return
     }
-    toast({ title: `SW 마스터 ${selectedIds.size}건이 삭제되었습니다`, tone: "info" })
-    cancelSelection()
+    toast({ title: `SW 마스터 ${deleteRequest.ids.length}건이 삭제되었습니다`, tone: "info" })
+    clearSelection()
+    setDeleteRequest(null)
     loadMasters()
   }
 
@@ -386,18 +374,7 @@ export function SwMasterView() {
         subtitle="등록된 표준 소프트웨어"
         icon={Database}
         action={
-          panel ? null : selectMode ? (
-            <div className="flex items-center gap-1.5">
-              <MiniButton accent="success" onClick={saveSelection}>
-                <Check className="h-3.5 w-3.5" />
-                저장
-              </MiniButton>
-              <MiniButton onClick={cancelSelection}>
-                <X className="h-3.5 w-3.5" />
-                취소
-              </MiniButton>
-            </div>
-          ) : (
+          panel ? null : (
             <div className="flex items-center gap-1.5">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -435,10 +412,6 @@ export function SwMasterView() {
                 <Plus className="h-3.5 w-3.5" />
                 추가
               </MiniButton>
-              <MiniButton onClick={() => setSelectMode(true)}>
-                <Pencil className="h-3.5 w-3.5" />
-                편집
-              </MiniButton>
             </div>
           )
         }
@@ -447,20 +420,20 @@ export function SwMasterView() {
           <MasterFormPanel onCancel={() => setPanel(null)} onSubmit={saveMaster} />
         ) : null}
 
+        <SelectionActionBar count={selectedIds.size} onClear={clearSelection} onDelete={requestDeleteSelected} />
+
         <TableShell scrollHint>
           <thead>
             <tr>
-              {selectMode ? (
-                <Th className={cn("w-8", TABLE_HEADER_CELL_H)}>
-                  <input
-                    type="checkbox"
-                    checked={filtered.length > 0 && selectedIds.size === filtered.length}
-                    onChange={toggleSelectAll}
-                    aria-label="전체 선택"
-                    className="h-4 w-4 rounded border-border/60 accent-primary"
-                  />
-                </Th>
-              ) : null}
+              <Th className={cn("w-8", TABLE_HEADER_CELL_H)}>
+                <input
+                  type="checkbox"
+                  checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                  onChange={toggleSelectAll}
+                  aria-label="전체 선택"
+                  className="h-4 w-4 rounded border-border/60 accent-primary"
+                />
+              </Th>
               {show("id") && <SortTh col="id" label="마스터 ID" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
               {show("category") && <SortTh col="category" label="분류" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="center" />}
               {show("name") && <SortTh col="name" label="제품명" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
@@ -471,7 +444,7 @@ export function SwMasterView() {
               {show("manager") && <SortTh col="manager" label="관리자" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
               {show("updated_by") && <SortTh col="updated_by" label="수정자" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
               {show("note") && <SortTh col="note" label="비고" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
-              {selectMode ? null : <Th className={TABLE_HEADER_CELL_H}>관리</Th>}
+              <Th className={TABLE_HEADER_CELL_H}>관리</Th>
             </tr>
           </thead>
           <tbody>
@@ -495,17 +468,15 @@ export function SwMasterView() {
                   </tr>
                 ) : (
                   <tr key={m.id} className="transition-colors hover:bg-accent/40">
-                    {selectMode ? (
-                      <Td className={TABLE_ROW_CELL_H}>
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(m.id)}
-                          onChange={() => toggleSelected(m.id)}
-                          aria-label={`${m.name} 선택`}
-                          className="h-4 w-4 rounded border-border/60 accent-primary"
-                        />
-                      </Td>
-                    ) : null}
+                    <Td className={TABLE_ROW_CELL_H}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(m.id)}
+                        onChange={() => toggleSelected(m.id)}
+                        aria-label={`${m.name} 선택`}
+                        className="h-4 w-4 rounded border-border/60 accent-primary"
+                      />
+                    </Td>
                     {show("id") && <Td className={cn("font-mono text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{m.id}</Td>}
                     {show("category") && <Td className={TABLE_ROW_CELL_H}><CategoryCell value={m.category} /></Td>}
                     {show("name") && <Td className={cn("font-semibold", TABLE_ROW_CELL_H)}>{m.name}</Td>}
@@ -520,20 +491,12 @@ export function SwMasterView() {
                     {show("manager") && <Td className={cn("text-xs", TABLE_ROW_CELL_H)}>{m.manager ?? "-"}</Td>}
                     {show("updated_by") && <Td className={cn("text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{m.updated_by ?? "-"}</Td>}
                     {show("note") && <Td className={cn("text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{m.note ?? "-"}</Td>}
-                    {selectMode ? null : (
-                      <Td className={TABLE_ROW_CELL_H}>
-                        <div className="flex items-center gap-1.5">
-                          <MiniButton onClick={() => setPanel(m.id)}>
-                            <Pencil className="h-3 w-3" />
-                            수정
-                          </MiniButton>
-                          <MiniButton accent="destructive" onClick={() => deleteMaster(m)}>
-                            <Trash2 className="h-3 w-3" />
-                            삭제
-                          </MiniButton>
-                        </div>
-                      </Td>
-                    )}
+                    <Td className={TABLE_ROW_CELL_H}>
+                      <MiniButton onClick={() => setPanel(m.id)}>
+                        <Pencil className="h-3 w-3" />
+                        수정
+                      </MiniButton>
+                    </Td>
                   </tr>
                 ),
               )
@@ -553,6 +516,15 @@ export function SwMasterView() {
           </div>
         )}
       </SectionCard>
+
+      <ConfirmDialog
+        open={!!deleteRequest}
+        title={deleteRequest?.title ?? ""}
+        description="삭제 후에는 목록에서 제거됩니다."
+        confirmLabel={deleteRequest?.confirmLabel ?? ""}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteRequest(null)}
+      />
     </div>
   )
 }

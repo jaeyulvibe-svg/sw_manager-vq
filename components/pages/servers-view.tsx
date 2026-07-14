@@ -6,7 +6,6 @@ import {
   Search,
   Plus,
   Pencil,
-  Trash2,
 } from "lucide-react"
 import {
   PageHeader,
@@ -269,13 +268,6 @@ export function ServersView() {
     loadServers()
   }
 
-  function requestDeleteOne(target: ServerRow) {
-    setDeleteRequest({
-      ids: [target.id],
-      title: `"${target.name}" 서버를 삭제할까요?`,
-      confirmLabel: "1개 삭제",
-    })
-  }
   function requestDeleteSelected() {
     if (selectedIds.size === 0) return
     setDeleteRequest({
@@ -448,16 +440,10 @@ export function ServersView() {
                       </Td>
                     )}
                     <Td className={TABLE_ROW_CELL_H}>
-                      <div className="flex items-center gap-1.5">
-                        <MiniButton className="h-8 px-2.5" onClick={() => setPanel(s.id)}>
-                          <Pencil className="h-3 w-3" />
-                          수정
-                        </MiniButton>
-                        <MiniButton accent="destructive" className="h-8 px-2.5" onClick={() => requestDeleteOne(s)}>
-                          <Trash2 className="h-3 w-3" />
-                          삭제
-                        </MiniButton>
-                      </div>
+                      <MiniButton className="h-8 px-2.5" onClick={() => setPanel(s.id)}>
+                        <Pencil className="h-3 w-3" />
+                        수정
+                      </MiniButton>
                     </Td>
                   </tr>
                 ),

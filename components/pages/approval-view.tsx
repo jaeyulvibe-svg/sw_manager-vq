@@ -353,24 +353,24 @@ export function ApprovalView() {
 
                 {selected.approval === "승인대기" || selected.approval === "검토중" ? (
                   <div className="flex gap-2">
-                    <button
-                      type="button"
+                    <MiniButton
+                      accent="success"
                       disabled={!!busyId}
                       onClick={() => decide(selected, "승인완료")}
-                      className="glow-card inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-risk-1/40 bg-risk-1/15 px-4 py-2.5 text-sm font-semibold text-risk-1 transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex-1 justify-center rounded-lg py-2.5 text-sm"
                     >
                       <Check className="h-4 w-4" />
                       {busyId === selected.id ? "처리 중..." : "승인"}
-                    </button>
-                    <button
-                      type="button"
+                    </MiniButton>
+                    <MiniButton
+                      accent="destructive"
                       disabled={!!busyId}
                       onClick={() => decide(selected, "반려")}
-                      className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-risk-5/40 bg-risk-5/15 px-4 py-2.5 text-sm font-semibold text-risk-5 transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex-1 justify-center rounded-lg py-2.5 text-sm"
                     >
                       <X className="h-4 w-4" />
                       {busyId === selected.id ? "처리 중..." : "반려"}
-                    </button>
+                    </MiniButton>
                   </div>
                 ) : (
                   <div

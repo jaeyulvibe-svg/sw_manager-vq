@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   ClipboardList,
   Search,
+  Pencil,
 } from "lucide-react"
 import {
   PageHeader,
@@ -343,6 +344,7 @@ export function PatchTasksView() {
                   <Td>
                     {canEdit ? (
                       <MiniButton accent="primary" onClick={() => setEditId(task.id)}>
+                        <Pencil className="h-3 w-3" />
                         조치 등록
                       </MiniButton>
                     ) : (
