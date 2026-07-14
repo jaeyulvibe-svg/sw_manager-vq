@@ -204,6 +204,80 @@ export function EosTimeline({ assets }: { assets: Asset[] }) {
 
 /* ---------------- 제품·버전별 자산 구성 ---------------- */
 
+// 카테고리컬 5색 팔레트(--chart-1~5) — 버전 구간마다 고정 순서로 순환 배정
+const VERSION_SEGMENT_COLORS = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+]
+
+// DB의 원본 버전 값은 그대로 두고 화면 표시할 때만 접두사를 붙인다.
+function displayVersion(version: string) {
+  return version.startsWith("v") ? version : `v${version}`
+}
+
+type VersionSegment = { version: string; count: number; ratio: number; color: string }
+
+function ProductVersionBar({
+  product,
+  total,
+  segments,
+}: {
+  product: string
+  total: number
+  segments: VersionSegment[]
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="min-w-0 truncate text-sm font-semibold text-foreground" title={product}>
+          {product}
+        </span>
+        <span className="shrink-0 font-mono text-xs text-muted-foreground">
+          총 {total}대
+        </span>
+      </div>
+
+      <div className="flex h-3 w-full gap-0.5 overflow-hidden rounded-full bg-muted/40">
+        {segments.map((s) => (
+          <div
+            key={s.version}
+            role="button"
+            tabIndex={0}
+            aria-label={`${product} ${displayVersion(s.version)} · ${s.count}대 · ${s.ratio}%`}
+            title={`${product} · ${displayVersion(s.version)} · ${s.count}대 · ${s.ratio}%`}
+            className="group/seg relative h-full outline-none transition-[filter] hover:brightness-110 focus-visible:brightness-110"
+            style={{ width: `${s.ratio}%`, background: s.color }}
+          >
+            <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-max max-w-[14rem] -translate-x-1/2 rounded-lg border border-primary/30 bg-popover/95 px-3 py-2 text-xs opacity-0 shadow-xl backdrop-blur transition-opacity group-hover/seg:opacity-100 group-focus-visible/seg:opacity-100">
+              <p className="font-semibold text-foreground">{product}</p>
+              <p className="flex items-center gap-1.5 text-muted-foreground">
+                <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+                {displayVersion(s.version)}
+                <span className="font-mono font-semibold text-foreground">{s.count}대</span>
+                <span className="text-muted-foreground">({s.ratio}%)</span>
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:gap-x-4 sm:gap-y-1">
+        {segments.map((s) => (
+          <span key={s.version} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: s.color }} />
+            <span className="truncate">
+              {displayVersion(s.version)} · {s.count}대 · {s.ratio}%
+            </span>
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function ProductVersionBreakdown({ assets }: { assets: Asset[] }) {
   const productCounts = new Map<string, number>()
   for (const a of assets) {
@@ -215,24 +289,24 @@ export function ProductVersionBreakdown({ assets }: { assets: Asset[] }) {
     .slice(0, 5)
     .map(([key]) => key)
 
-  type Row = { product: string; version: string; count: number; ratio: number }
-  const rows: Row[] = []
-  for (const key of topProducts) {
+  type ProductRow = { product: string; total: number; segments: VersionSegment[] }
+  const productRows: ProductRow[] = topProducts.map((key) => {
     const [name] = key.split("__")
     const productAssets = assets.filter((a) => `${a.name}__${a.vendor}` === key)
     const versionCounts = new Map<string, number>()
     for (const a of productAssets) {
       versionCounts.set(a.version, (versionCounts.get(a.version) ?? 0) + 1)
     }
-    for (const [version, count] of [...versionCounts.entries()].sort((a, b) => b[1] - a[1])) {
-      rows.push({
-        product: name,
+    const segments = [...versionCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([version, count], i) => ({
         version,
         count,
         ratio: Math.round((count / productAssets.length) * 1000) / 10,
-      })
-    }
-  }
+        color: VERSION_SEGMENT_COLORS[i % VERSION_SEGMENT_COLORS.length],
+      }))
+    return { product: name, total: productAssets.length, segments }
+  })
 
   const otherCount = assets.length - topProducts.reduce((s, key) => s + (productCounts.get(key) ?? 0), 0)
 
@@ -243,31 +317,10 @@ export function ProductVersionBreakdown({ assets }: { assets: Asset[] }) {
       icon={Layers}
       className="lg:col-span-2"
     >
-      <div className="max-h-72 overflow-y-auto overflow-x-hidden">
-        <table className="w-full table-fixed text-sm">
-          <thead>
-            <tr className="text-left text-xs text-muted-foreground">
-              <th className="w-2/5 pb-2 font-medium">제품</th>
-              <th className="w-1/5 pb-2 font-medium">버전</th>
-              <th className="w-1/5 pb-2 text-right font-medium">자산 수</th>
-              <th className="w-1/5 pb-2 text-right font-medium">비율</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={`${r.product}-${r.version}-${i}`} className="border-t border-border/50">
-                <td className="max-w-0 truncate py-2 pr-2 font-medium text-foreground" title={r.product}>
-                  {r.product}
-                </td>
-                <td className="max-w-0 truncate py-2 pr-2 text-muted-foreground" title={r.version}>
-                  {r.version}
-                </td>
-                <td className="py-2 text-right font-mono text-foreground">{r.count}</td>
-                <td className="py-2 text-right font-mono text-muted-foreground">{r.ratio}%</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="flex max-h-80 flex-col gap-5 overflow-y-auto overflow-x-hidden pr-1">
+        {productRows.map((r) => (
+          <ProductVersionBar key={r.product} product={r.product} total={r.total} segments={r.segments} />
+        ))}
       </div>
       {otherCount > 0 ? (
         <p className="mt-3 text-xs text-muted-foreground">그 외 제품 {otherCount}건은 기타로 묶임 (자산 목록에서 상세 확인)</p>
