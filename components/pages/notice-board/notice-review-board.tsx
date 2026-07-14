@@ -71,7 +71,7 @@ export function NoticeReviewBoard({
   const { isAdmin } = useRole()
   const { toast } = useToast()
   const { refresh: refreshNotifications } = useNotifications()
-  const { vulns, setVulns, matchMap, loading, refresh } = useNoticeData({ sourceType, noticeTypes })
+  const { vulns, setVulns, matchMap, findServer, loading, refresh } = useNoticeData({ sourceType, noticeTypes })
 
   const [query, setQuery] = useState("")
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -362,7 +362,7 @@ export function NoticeReviewBoard({
                         <ul className="flex flex-col gap-1.5 text-xs text-muted-foreground">
                           {selectedMatches.map((a) => (
                             <li key={a.id} className="flex items-center justify-between gap-2 rounded-md bg-card px-2 py-1.5">
-                              <span className="min-w-0 truncate font-mono">{a.id} · {a.server}</span>
+                              <span className="min-w-0 truncate font-mono">{a.id} · {findServer(a.server)?.name ?? a.server}</span>
                               <span className="shrink-0">{a.owner}</span>
                             </li>
                           ))}

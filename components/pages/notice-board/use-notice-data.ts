@@ -8,6 +8,7 @@ import type { RiskLevel } from "@/components/portal/ui"
 
 export type Vulnerability = Tables<"vulnerabilities">
 export type Asset = Tables<"assets">
+export type Server = Tables<"servers">
 
 export type NoticeDataFilter = {
   sourceType?: Vulnerability["source_type"]
@@ -32,6 +33,7 @@ export function useNoticeData(filter: NoticeDataFilter = {}) {
   const noticeTypesKey = noticeTypes ? noticeTypes.join(",") : ""
   const [vulns, setVulns] = useState<Vulnerability[]>([])
   const [assets, setAssets] = useState<Asset[]>([])
+  const [servers, setServers] = useState<Server[]>([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(() => {
@@ -49,9 +51,14 @@ export function useNoticeData(filter: NoticeDataFilter = {}) {
       )
     }
 
-    Promise.all([vulnQuery, supabase.from("assets").select("*")]).then(([vulnRes, assetRes]) => {
+    Promise.all([
+      vulnQuery,
+      supabase.from("assets").select("*"),
+      supabase.from("servers").select("*"),
+    ]).then(([vulnRes, assetRes, serverRes]) => {
       if (vulnRes.data) setVulns(vulnRes.data)
       if (assetRes.data) setAssets(assetRes.data)
+      if (serverRes.data) setServers(serverRes.data)
       setLoading(false)
     })
     // sourceType/noticeTypesKey are primitives derived from `filter`, so this only
@@ -71,5 +78,13 @@ export function useNoticeData(filter: NoticeDataFilter = {}) {
     return map
   }, [vulns, assets])
 
-  return { vulns, setVulns, assets, matchMap, loading, refresh: load }
+  // assets.server는 servers.id(레거시 시드) 또는 servers.name(신규 승인분)이 섞여 있으므로
+  // 항상 실제 서버 레코드로 정규화해서 이름/hostname/ip를 얻는다.
+  const findServer = useMemo(() => {
+    const byId = new Map(servers.map((s) => [s.id, s]))
+    const byName = new Map(servers.map((s) => [s.name, s]))
+    return (raw: string) => byId.get(raw) ?? byName.get(raw)
+  }, [servers])
+
+  return { vulns, setVulns, assets, servers, findServer, matchMap, loading, refresh: load }
 }

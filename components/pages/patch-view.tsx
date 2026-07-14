@@ -107,15 +107,19 @@ function MappedAssetGrid({
   query,
   dense,
   taskStatusOf,
+  findServer,
 }: {
   assets: Asset[]
   query: string
   dense: boolean
   taskStatusOf: (assetId: string) => PatchTaskStatus | undefined
+  findServer: (raw: string) => { name: string } | undefined
 }) {
   const q = query.trim().toLowerCase()
   const filtered = q
-    ? assets.filter((a) => [a.id, a.name, a.server, a.owner].some((f) => f.toLowerCase().includes(q)))
+    ? assets.filter((a) =>
+        [a.id, a.name, findServer(a.server)?.name ?? a.server, a.owner].some((f) => f.toLowerCase().includes(q)),
+      )
     : assets
 
   if (filtered.length === 0) {
@@ -146,7 +150,7 @@ function MappedAssetGrid({
               {a.name} <span className="text-muted-foreground">v{a.version}</span>
             </p>
             <div className="mt-1.5 flex min-w-0 flex-col gap-0.5 text-[11px] text-muted-foreground">
-              <span className="min-w-0 truncate" title={a.server}>서버 {a.server}</span>
+              <span className="min-w-0 truncate" title={findServer(a.server)?.name ?? a.server}>서버 {findServer(a.server)?.name ?? a.server}</span>
               <span className="min-w-0 truncate" title={a.owner}>담당 {a.owner}</span>
             </div>
           </div>
@@ -157,7 +161,7 @@ function MappedAssetGrid({
 }
 
 export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void }) {
-  const { vulns, matchMap, loading } = useNoticeData()
+  const { vulns, matchMap, findServer, loading } = useNoticeData()
   const [taskStatusMap, setTaskStatusMap] = useState<Map<string, PatchTaskStatus>>(new Map())
   const [query, setQuery] = useState("")
   const [severity, setSeverity] = useState<(typeof SEVERITIES)[number]>("전체")
@@ -313,7 +317,7 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
                   label: "매핑 자산 상세(설치 서버)",
                   value: (v: Vulnerability) =>
                     (matchMap.get(v.id) ?? [])
-                      .map((a) => `${a.name} v${a.version} (${a.server})`)
+                      .map((a) => `${a.name} v${a.version} (${findServer(a.server)?.name ?? a.server})`)
                       .join(", "),
                 },
               ]}
@@ -551,6 +555,7 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
                                 query={assetQuery}
                                 dense={matched.length > MAPPED_ASSETS_DENSE_THRESHOLD}
                                 taskStatusOf={(assetId) => taskStatusMap.get(`${v.id}:${assetId}`)}
+                                findServer={findServer}
                               />
                             </>
                           ) : (

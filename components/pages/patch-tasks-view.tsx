@@ -36,7 +36,6 @@ import { cn } from "@/lib/utils"
 type PatchTask = Tables<"patch_tasks">
 type PatchTaskStatus = PatchTask["status"]
 type Asset = Tables<"assets">
-type Server = Tables<"servers">
 
 const STATUS_FILTERS: ("전체" | PatchTaskStatus)[] = ["전체", "배정됨", "조치예정", "조치지연", "조치완료", "예외요청", "예외승인"]
 const SEVERITY_FILTERS: ("전체" | Vulnerability["severity"])[] = ["전체", "Critical", "High", "Medium", "Low"]
@@ -123,9 +122,8 @@ function EditPanel({
 export function PatchTasksView() {
   const { isAdmin, currentUser } = useRole()
   const { toast } = useToast()
-  const { vulns, assets, loading: noticeLoading } = useNoticeData()
+  const { vulns, assets, findServer, loading: noticeLoading } = useNoticeData()
   const [tasks, setTasks] = useState<PatchTask[]>([])
-  const [servers, setServers] = useState<Server[]>([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<"전체" | PatchTaskStatus>("전체")
@@ -144,23 +142,8 @@ export function PatchTasksView() {
       })
   }, [])
 
-  useEffect(() => {
-    const supabase = createClient()
-    supabase
-      .from("servers")
-      .select("*")
-      .then(({ data }) => {
-        if (data) setServers(data)
-      })
-  }, [])
-
   const vulnMap = useMemo(() => new Map(vulns.map((v) => [v.id, v])), [vulns])
   const assetMap = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
-  const findServer = useMemo(() => {
-    const byId = new Map(servers.map((s) => [s.id, s]))
-    const byName = new Map(servers.map((s) => [s.name, s]))
-    return (raw: string) => byId.get(raw) ?? byName.get(raw)
-  }, [servers])
 
   const rows = useMemo<Row[]>(() => {
     const out: Row[] = []

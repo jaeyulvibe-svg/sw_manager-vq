@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   Settings,
   Link2,
@@ -375,10 +375,12 @@ type ManualEosFormValues = { assetId: string; eos: string }
 
 function ManualEosFormPanel({
   assets,
+  findServer,
   onSubmit,
   submitting,
 }: {
   assets: Tables<"assets">[]
+  findServer: (raw: string) => { name: string } | undefined
   onSubmit: (values: ManualEosFormValues) => Promise<boolean>
   submitting: boolean
 }) {
@@ -411,7 +413,7 @@ function ManualEosFormPanel({
           <option value="">자산을 선택하세요</option>
           {assets.map((a) => (
             <option key={a.id} value={a.id}>
-              {a.name} · {a.server} ({a.eos ?? "EOS 미등록"})
+              {a.name} · {findServer(a.server)?.name ?? a.server} ({a.eos ?? "EOS 미등록"})
             </option>
           ))}
         </select>
@@ -776,10 +778,21 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
   const sourcePagination = usePagination(filteredSources)
 
   const [assets, setAssets] = useState<Tables<"assets">[]>([])
+  const [servers, setServers] = useState<Tables<"servers">[]>([])
   const [manualVulnSubmitting, setManualVulnSubmitting] = useState(false)
   const [manualEosSubmitting, setManualEosSubmitting] = useState(false)
   const [masters, setMasters] = useState<Tables<"sw_masters">[]>([])
   const [mastersLoading, setMastersLoading] = useState(true)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from("servers")
+      .select("*")
+      .then(({ data }) => {
+        if (data) setServers(data)
+      })
+  }, [])
 
   useEffect(() => {
     const supabase = createClient()
@@ -791,6 +804,12 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
         if (data) setAssets(data)
       })
   }, [])
+
+  const findServer = useMemo(() => {
+    const byId = new Map(servers.map((s) => [s.id, s]))
+    const byName = new Map(servers.map((s) => [s.name, s]))
+    return (raw: string) => byId.get(raw) ?? byName.get(raw)
+  }, [servers])
 
   const eosNotifyClaimedRef = useRef<Set<string>>(new Set())
 
@@ -806,7 +825,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
     if (due.length === 0) return
 
     // 서버까지 포함해야 같은 제품명이 여러 서버에 설치된 경우에도 자산별로 구분된다.
-    const titleFor = (a: Tables<"assets">) => `${a.name} (${a.server}) 지원종료(EOS) 180일 전 알림`
+    const titleFor = (a: Tables<"assets">) => `${a.name} (${findServer(a.server)?.name ?? a.server}) 지원종료(EOS) 180일 전 알림`
 
     // assets 참조가 바뀔 때마다(예: 수동 EOS 수정) 이 effect가 다시 실행될 수 있으므로,
     // DB 조회가 끝나기 전에 같은 자산을 두 번 시도하지 않도록 동기적으로 먼저 선점한다.
@@ -826,7 +845,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
           .map((a) => ({
             category: "security" as const,
             title: titleFor(a),
-            description: `${a.name} (${a.server}) 자산의 지원종료(EOS) 예정일이 ${a.eos}로, 180일 이내입니다. 교체·업그레이드 계획을 검토해주세요.`,
+            description: `${a.name} (${findServer(a.server)?.name ?? a.server}) 자산의 지원종료(EOS) 예정일이 ${a.eos}로, 180일 이내입니다. 교체·업그레이드 계획을 검토해주세요.`,
             asset: `${a.name} ${a.version}`,
             owner: a.owner,
             status: "확인필요" as const,
@@ -838,7 +857,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
           supabase.from("notifications").insert(toInsert).then()
         }
       })
-  }, [policy?.eos_alert_180d, assets])
+  }, [policy?.eos_alert_180d, assets, findServer])
 
   useEffect(() => {
     const supabase = createClient()
@@ -1506,7 +1525,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
           subtitle="보유 자산의 지원종료일을 직접 입력"
           icon={CalendarClock}
         >
-          <ManualEosFormPanel assets={assets} onSubmit={submitManualEos} submitting={manualEosSubmitting} />
+          <ManualEosFormPanel assets={assets} findServer={findServer} onSubmit={submitManualEos} submitting={manualEosSubmitting} />
           <p className="mt-3 text-[11px] text-muted-foreground">
             승인 절차 없이 즉시 반영되며, EOS 로드맵과 자산 목록에 바로 나타납니다.
           </p>
