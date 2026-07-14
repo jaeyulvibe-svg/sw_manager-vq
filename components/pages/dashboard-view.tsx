@@ -102,6 +102,16 @@ function RecentUpdates() {
 
 const SECURITY_DASHBOARD_BLOCKS = ["hero", "kpi", "charts", "patchStatus", "alerts", "notices", "security-notices"]
 
+const SECURITY_DASHBOARD_BLOCK_LABELS: Record<string, string> = {
+  hero: "스캔 현황 배너",
+  kpi: "주요 지표 카드",
+  charts: "취약점 승인·심각도 차트",
+  patchStatus: "패치 적용·조치 현황 차트",
+  alerts: "긴급 알림·최근 업데이트",
+  notices: "보안 공지 게시판",
+  "security-notices": "취약점 매핑 현황",
+}
+
 function SecurityDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey) => void }) {
   const [assets, setAssets] = useState<Asset[]>([])
   const [vulns, setVulns] = useState<Vulnerability[]>([])
@@ -111,7 +121,7 @@ function SecurityDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey) =>
   const [locked, setLocked] = useState(true)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [overId, setOverId] = useState<string | null>(null)
-  const { order, moveBefore, moveByOffset, reset } = useDashboardOrder(
+  const { order, hidden, moveBefore, moveByOffset, hideBlock, unhideBlock, reset } = useDashboardOrder(
     "security-dashboard-order",
     SECURITY_DASHBOARD_BLOCKS,
   )
@@ -165,11 +175,14 @@ function SecurityDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey) =>
             locked={locked}
             onToggle={() => setLocked((v) => !v)}
             onReset={reset}
+            hidden={hidden}
+            labels={SECURITY_DASHBOARD_BLOCK_LABELS}
+            onUnhide={unhideBlock}
           />
         </div>
       ) : null}
 
-      {order.map((id, index) => (
+      {order.filter((id) => !hidden.includes(id)).map((id, index, visibleOrder) => (
         <DashboardSection
           key={id}
           id={id}
@@ -177,7 +190,7 @@ function SecurityDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey) =>
           draggingId={draggingId}
           isOverTarget={overId === id}
           isFirst={index === 0}
-          isLast={index === order.length - 1}
+          isLast={index === visibleOrder.length - 1}
           onDragStart={setDraggingId}
           onDragOverTarget={(targetId) => {
             setOverId(targetId)
@@ -193,6 +206,7 @@ function SecurityDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey) =>
           }}
           onMoveUp={() => moveByOffset(id, -1)}
           onMoveDown={() => moveByOffset(id, 1)}
+          onHide={() => hideBlock(id)}
         >
           {blocks[id]}
         </DashboardSection>

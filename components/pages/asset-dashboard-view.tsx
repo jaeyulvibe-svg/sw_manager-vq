@@ -184,6 +184,14 @@ const ASSET_DASHBOARD_BLOCKS = [
   "boards",
 ]
 
+const ASSET_DASHBOARD_BLOCK_LABELS: Record<string, string> = {
+  kpi: "주요 지표 카드",
+  "chart-category-eos": "카테고리·EOS 차트",
+  "chart-product": "제품·버전별 자산 구성",
+  summary: "카테고리별 자산 요약",
+  boards: "요청·공지·취약점 보드",
+}
+
 const PENDING_APPROVALS: AssetRequest["approval"][] = ["승인대기", "검토중"]
 
 export function AssetDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey) => void }) {
@@ -194,7 +202,7 @@ export function AssetDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey
   const [locked, setLocked] = useState(true)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [overId, setOverId] = useState<string | null>(null)
-  const { order, moveBefore, moveByOffset, reset } = useDashboardOrder(
+  const { order, hidden, moveBefore, moveByOffset, hideBlock, unhideBlock, reset } = useDashboardOrder(
     "asset-dashboard-order",
     ASSET_DASHBOARD_BLOCKS,
   )
@@ -302,12 +310,15 @@ export function AssetDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey
             locked={locked}
             onToggle={() => setLocked((v) => !v)}
             onReset={reset}
+            hidden={hidden}
+            labels={ASSET_DASHBOARD_BLOCK_LABELS}
+            onUnhide={unhideBlock}
           />
         </div>
       ) : null}
 
       <div className="flex flex-wrap gap-6">
-        {order.map((id, index) => (
+        {order.filter((id) => !hidden.includes(id)).map((id, index, visibleOrder) => (
           <DashboardSection
             key={id}
             id={id}
@@ -315,7 +326,7 @@ export function AssetDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey
             draggingId={draggingId}
             isOverTarget={overId === id}
             isFirst={index === 0}
-            isLast={index === order.length - 1}
+            isLast={index === visibleOrder.length - 1}
             onDragStart={setDraggingId}
             onDragOverTarget={(targetId) => {
               setOverId(targetId)
@@ -331,6 +342,7 @@ export function AssetDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey
             }}
             onMoveUp={() => moveByOffset(id, -1)}
             onMoveDown={() => moveByOffset(id, 1)}
+            onHide={() => hideBlock(id)}
             className="w-full"
           >
             {blocks[id]}
