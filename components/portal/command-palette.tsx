@@ -246,7 +246,7 @@ export function CommandPalette({
               선택
             </span>
           </div>
-          <span className="font-medium text-primary">AI SW Asset Master</span>
+          <span className="font-medium text-primary">AI SW관리 Master</span>
         </div>
       </div>
     </div>

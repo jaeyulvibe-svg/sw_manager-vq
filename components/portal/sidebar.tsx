@@ -83,7 +83,7 @@ export function Sidebar({
             </div>
             <div className={collapsed ? "lg:hidden" : undefined}>
               <h1 className="text-base font-bold leading-tight tracking-tight text-white">
-                AI SW Asset Master
+                AI SW관리 Master
               </h1>
               <p className="text-[11px] leading-tight text-slate-300/80">
                 자산 기반 취약점·패치·EOS 통합관리

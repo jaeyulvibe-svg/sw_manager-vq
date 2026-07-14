@@ -10,7 +10,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'AI SW Asset Master — 자산 기반 취약점·패치·EOS 통합관리',
+  title: 'AI SW관리 Master — 자산 기반 취약점·패치·EOS 통합관리',
   description:
     'AI 기반 소프트웨어 자산 취약점, 패치, EOS(단종) 통합 관리 대시보드',
   generator: 'v0.app',

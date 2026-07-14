@@ -11,7 +11,7 @@ export function TopBar() {
         </div>
         <div>
           <h1 className="text-balance text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-            AI SW Asset Master
+            AI SW관리 Master
           </h1>
           <p className="text-sm text-muted-foreground">
             자산 기반 취약점 · 패치 · EOS 통합관리
