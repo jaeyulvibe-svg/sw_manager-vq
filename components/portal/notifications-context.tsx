@@ -11,6 +11,7 @@ import {
 } from "react"
 import { Boxes, ShieldAlert, Server, type LucideIcon } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { useRole } from "./role-context"
 import type { Tables } from "@/lib/supabase/types"
 import type { Accent, RiskLevel } from "./ui"
 import type { ViewKey } from "./nav"
@@ -103,6 +104,7 @@ const NotificationsContext = createContext<NotificationsContextValue | null>(
 )
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
+  const { isAdmin, currentUser } = useRole()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -122,6 +124,11 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     refresh()
   }, [refresh])
 
+  const visible = useMemo(
+    () => notifications.filter((n) => isAdmin || n.owner === currentUser?.name),
+    [notifications, isAdmin, currentUser],
+  )
+
   const markRead = useCallback((id: string) => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
@@ -130,18 +137,35 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const markAllRead = useCallback(() => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
-    createClient().from("notifications").update({ read: true }).eq("read", false).then()
-  }, [])
+    const targetIds = new Set(
+      notifications
+        .filter((n) => !n.read && (isAdmin || n.owner === currentUser?.name))
+        .map((n) => n.id),
+    )
+    setNotifications((prev) =>
+      prev.map((n) => (targetIds.has(n.id) ? { ...n, read: true } : n)),
+    )
+    const supabase = createClient()
+    if (isAdmin) {
+      supabase.from("notifications").update({ read: true }).eq("read", false).then()
+    } else if (currentUser) {
+      supabase
+        .from("notifications")
+        .update({ read: true })
+        .eq("read", false)
+        .eq("owner", currentUser.name)
+        .then()
+    }
+  }, [notifications, isAdmin, currentUser])
 
   const value = useMemo<NotificationsContextValue>(() => {
-    const unreadCount = notifications.filter((n) => !n.read).length
-    const urgentCount = notifications.filter((n) => n.urgent).length
-    const approvalCount = notifications.filter(
+    const unreadCount = visible.filter((n) => !n.read).length
+    const urgentCount = visible.filter((n) => n.urgent).length
+    const approvalCount = visible.filter(
       (n) => n.status === "승인대기",
     ).length
     return {
-      notifications,
+      notifications: visible,
       loading,
       unreadCount,
       urgentCount,
@@ -150,7 +174,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       markAllRead,
       refresh,
     }
-  }, [notifications, loading, markRead, markAllRead, refresh])
+  }, [visible, loading, markRead, markAllRead, refresh])
 
   return (
     <NotificationsContext.Provider value={value}>
