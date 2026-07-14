@@ -19,7 +19,6 @@ import {
   Activity,
   CalendarClock,
   Layers,
-  ClipboardCheck,
 } from "lucide-react"
 import type { Tables } from "@/lib/supabase/types"
 
@@ -274,63 +273,6 @@ export function ProductVersionBreakdown({ assets }: { assets: Asset[] }) {
       {otherCount > 0 ? (
         <p className="mt-3 text-xs text-muted-foreground">그 외 제품 {otherCount}건은 기타로 묶임 (자산 목록에서 상세 확인)</p>
       ) : null}
-    </ChartCard>
-  )
-}
-
-/* ---------------- 자산 데이터 품질 ---------------- */
-
-export function AssetDataQuality({ assets }: { assets: Asset[] }) {
-  const total = assets.length
-  const missingOwner = assets.filter((a) => !a.owner || !a.owner.trim()).length
-  const missingVersion = assets.filter((a) => !a.version || !a.version.trim()).length
-  const missingServer = assets.filter((a) => !a.server || !a.server.trim()).length
-  const missingEos = assets.filter((a) => !a.eos || Number.isNaN(new Date(a.eos).getTime())).length
-  const normal = assets.filter(
-    (a) =>
-      a.owner?.trim() &&
-      a.version?.trim() &&
-      a.server?.trim() &&
-      a.eos &&
-      !Number.isNaN(new Date(a.eos).getTime()),
-  ).length
-
-  const data = [
-    { name: "담당자 누락", value: missingOwner, color: "var(--risk-4)" },
-    { name: "버전 누락", value: missingVersion, color: "var(--risk-4)" },
-    { name: "설치 위치 누락", value: missingServer, color: "var(--risk-4)" },
-    { name: "EOS 정보 누락", value: missingEos, color: "var(--risk-3)" },
-    { name: "필수 정보 정상", value: normal, color: "var(--risk-1)" },
-  ]
-
-  if (total === 0) {
-    return (
-      <ChartCard title="자산 데이터 품질" subtitle="등록된 자산 없음" icon={ClipboardCheck}>
-        <p className="py-10 text-center text-sm text-muted-foreground">표시할 자산 데이터가 없습니다.</p>
-      </ChartCard>
-    )
-  }
-
-  return (
-    <ChartCard title="자산 데이터 품질" subtitle="필수 정보 누락 현황 (중복 집계 가능)" icon={ClipboardCheck}>
-      <div className="h-64 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} layout="vertical" margin={{ top: 10, right: 24, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-            <XAxis type="number" allowDecimals={false} stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-            <YAxis type="category" dataKey="name" width={96} stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
-            <Tooltip content={<TooltipBox />} cursor={{ fill: "var(--primary)", fillOpacity: 0.08 }} />
-            <Bar dataKey="value" name="건수" radius={[0, 6, 6, 0]} maxBarSize={22} animationDuration={1400}>
-              {data.map((entry) => (
-                <Cell key={entry.name} fill={entry.color} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-      <p className="mt-2 text-[11px] text-muted-foreground">
-        하나의 자산이 여러 누락 조건에 동시에 해당할 수 있어 항목 합계가 전체 자산 수와 다를 수 있습니다.
-      </p>
     </ChartCard>
   )
 }

@@ -33,7 +33,6 @@ import {
   CategoryDistribution,
   EosTimeline,
   ProductVersionBreakdown,
-  AssetDataQuality,
   VendorDistribution,
 } from "@/components/dashboard/asset-charts"
 import { AssetBoards } from "@/components/dashboard/asset-boards"
@@ -281,9 +280,8 @@ export function AssetDashboardView({ onNavigate }: { onNavigate?: (view: ViewKey
       </div>
     ),
     charts2: (
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4">
         <ProductVersionBreakdown assets={assets} />
-        <AssetDataQuality assets={assets} />
       </div>
     ),
     charts3: (

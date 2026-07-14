@@ -14,12 +14,15 @@ export function useDashboardOrder(storageKey: string, blockIds: string[]) {
       const stored = window.localStorage.getItem(storageKey)
       if (!stored) return
       const parsed: string[] = JSON.parse(stored)
-      const sameSet =
-        parsed.length === blockIds.length &&
-        blockIds.every((id) => parsed.includes(id))
-      if (sameSet) {
+      // Keep any previously-saved ordering that's still valid, drop stale ids,
+      // and append any new block ids (e.g. newly added dashboard sections) at the end
+      // so they stay reachable instead of silently missing from `order`.
+      const kept = parsed.filter((id) => blockIds.includes(id))
+      const missing = blockIds.filter((id) => !kept.includes(id))
+      const next = [...kept, ...missing]
+      if (next.length === blockIds.length) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
-        setOrder(parsed)
+        setOrder(next)
       }
     } catch {
       /* ignore malformed storage */
