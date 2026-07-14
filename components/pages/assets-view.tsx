@@ -107,9 +107,8 @@ function toDetail(a: Asset): AssetDetail {
   }
 }
 
-/* ── 행별 수정 패널 (담당자/설치 서버/승인 상태만) ─────────── */
-type AssetEditValues = { owner: string; server: string; approval: Asset["approval"] }
-const APPROVAL_OPTIONS: Asset["approval"][] = ["승인대기", "확인필요", "승인완료", "긴급"]
+/* ── 행별 수정 패널 (담당자/설치 서버만) ─────────── */
+type AssetEditValues = { owner: string; server: string }
 
 function AssetEditFormPanel({
   initial,
@@ -145,18 +144,6 @@ function AssetEditFormPanel({
         >
           {servers.map((s) => (
             <option key={s.id} value={s.name}>{s.name}</option>
-          ))}
-        </select>
-      </label>
-      <label className="flex flex-col gap-1 text-xs">
-        <span className="font-medium text-muted-foreground">승인 상태</span>
-        <select
-          value={values.approval}
-          onChange={(e) => setValues((v) => ({ ...v, approval: e.target.value as Asset["approval"] }))}
-          className={inputCls}
-        >
-          {APPROVAL_OPTIONS.map((a) => (
-            <option key={a} value={a}>{a}</option>
           ))}
         </select>
       </label>
@@ -419,7 +406,7 @@ export function AssetsView() {
                   <tr key={a.id}>
                     <td colSpan={visible.length + 1} className="border-b border-border/40 p-0">
                       <AssetEditFormPanel
-                        initial={{ owner: a.owner, server: a.server, approval: a.approval }}
+                        initial={{ owner: a.owner, server: a.server }}
                         servers={servers}
                         onCancel={() => setEditPanel(null)}
                         onSubmit={(values) => saveAssetEdit(a.id, values)}
