@@ -3,6 +3,7 @@ import * as cheerio from "cheerio"
 import { createClient } from "@supabase/supabase-js"
 import type { Database, TablesInsert } from "@/lib/supabase/types"
 import { classifyNoticeType } from "@/lib/notice-classify"
+import { normalizeAssetVersion } from "@/lib/eos-version-match"
 
 export type CollectProduct =
   | "Apache Tomcat"
@@ -185,9 +186,6 @@ async function collectNginx(): Promise<FoundNotice[]> {
   return notices
 }
 
-// 시드 데이터의 PostgreSQL 자산(SW-008)이 16.2이므로 그에 맞춰 추적한다.
-const PG_TARGET_MAJOR_VERSION = "16"
-
 function cvssToSeverity(score: number): FoundNotice["severity"] {
   if (score >= 9) return "Critical"
   if (score >= 7) return "High"
@@ -195,46 +193,64 @@ function cvssToSeverity(score: number): FoundNotice["severity"] {
   return "Low"
 }
 
+// assets 테이블에 실제로 등록된 PostgreSQL major 버전들을 조회한다 — 하드코딩된
+// 단일 버전 대신, 보유 중인 자산 버전에 맞춰 추적 대상을 동적으로 정한다.
+async function findTrackedPgMajorVersions(
+  supabase: ReturnType<typeof supabaseAdmin>,
+): Promise<string[]> {
+  const { data, error } = await supabase.from("assets").select("version").eq("name", "PostgreSQL")
+  if (error) throw error
+  const majors = new Set<string>()
+  for (const row of data ?? []) {
+    const major = normalizeAssetVersion("postgresql", row.version)
+    if (major) majors.add(major)
+  }
+  return Array.from(majors)
+}
+
 // postgresql.org/support/versioning/: 버전별 최종 릴리스(EOS) 날짜 테이블에서
-// PG_TARGET_MAJOR_VERSION 행을 찾아 EOS 공지 1건을 만든다. 자산으로 보유 중인 버전만
-// 추적하므로 다른 major 버전 행은 무시한다.
-async function collectPostgresEos(): Promise<FoundNotice[]> {
+// 추적 대상 major 버전 행을 찾아 EOS 공지를 만든다. 자산으로 보유 중인 버전만 추적한다.
+async function collectPostgresEos(targetMajors: string[]): Promise<FoundNotice[]> {
+  if (targetMajors.length === 0) return []
   const url = "https://www.postgresql.org/support/versioning/"
   const html = await fetchHtml(url)
   const $ = cheerio.load(html)
-  let eosDateText: string | null = null
+  const eosDateByMajor = new Map<string, string>()
 
   $("table.table-striped tr").each((_, trEl) => {
     const cells = $(trEl).find("td")
     if (cells.length < 5) return
     const majorVersion = $(cells[0]).text().trim()
-    if (majorVersion === PG_TARGET_MAJOR_VERSION) {
-      eosDateText = $(cells[4]).text().trim()
+    if (targetMajors.includes(majorVersion)) {
+      eosDateByMajor.set(majorVersion, $(cells[4]).text().trim())
     }
   })
 
-  if (!eosDateText) return []
-  const eosDate = new Date(eosDateText)
-  if (isNaN(eosDate.getTime())) return []
-
-  return [{
-    cve: `PG-EOS-${PG_TARGET_MAJOR_VERSION}`,
-    title: `PostgreSQL ${PG_TARGET_MAJOR_VERSION} 지원 종료 안내 (종료일: ${eosDateText})`,
-    severity: "High",
-    product: `PostgreSQL ${PG_TARGET_MAJOR_VERSION}`,
-    source: "PostgreSQL 공식 버전 지원 정책",
-    source_url: url,
-    source_type: "vendor",
-    notice_type: "EOS",
-    mapped_assets: 0,
-    eos_date: eosDate.toISOString().slice(0, 10),
-    collected_at: new Date().toISOString(),
-  }]
+  const notices: FoundNotice[] = []
+  for (const [majorVersion, eosDateText] of eosDateByMajor) {
+    const eosDate = new Date(eosDateText)
+    if (isNaN(eosDate.getTime())) continue
+    notices.push({
+      cve: `PG-EOS-${majorVersion}`,
+      title: `PostgreSQL ${majorVersion} 지원 종료 안내 (종료일: ${eosDateText})`,
+      severity: "High",
+      product: `PostgreSQL ${majorVersion}`,
+      source: "PostgreSQL 공식 버전 지원 정책",
+      source_url: url,
+      source_type: "vendor",
+      notice_type: "EOS",
+      mapped_assets: 0,
+      eos_date: eosDate.toISOString().slice(0, 10),
+      collected_at: new Date().toISOString(),
+    })
+  }
+  return notices
 }
 
 // postgresql.org/support/security/: CVE/영향버전/수정버전/CVSS/설명 테이블에서
-// PG_TARGET_MAJOR_VERSION이 영향 major 버전 목록에 포함된 행만 취약점 공지로 만든다.
-async function collectPostgresCve(): Promise<FoundNotice[]> {
+// 추적 대상 major 버전이 영향 버전 목록에 포함된 행만 취약점 공지로 만든다.
+async function collectPostgresCve(targetMajors: string[]): Promise<FoundNotice[]> {
+  if (targetMajors.length === 0) return []
   const url = "https://www.postgresql.org/support/security/"
   const html = await fetchHtml(url)
   const $ = cheerio.load(html)
@@ -248,7 +264,8 @@ async function collectPostgresCve(): Promise<FoundNotice[]> {
     if (!/^CVE-/.test(cveText)) return
 
     const affectedVersions = $(cells[1]).text().split(",").map((s) => s.trim())
-    if (!affectedVersions.includes(PG_TARGET_MAJOR_VERSION)) return
+    const matchedMajor = targetMajors.find((major) => affectedVersions.includes(major))
+    if (!matchedMajor) return
 
     const cvssText = $(cells[3]).find("a").first().text().trim()
     const cvssScore = parseFloat(cvssText)
@@ -258,7 +275,7 @@ async function collectPostgresCve(): Promise<FoundNotice[]> {
       cve: cveText,
       title: description || cveText,
       severity: isNaN(cvssScore) ? "Medium" : cvssToSeverity(cvssScore),
-      product: `PostgreSQL ${PG_TARGET_MAJOR_VERSION}`,
+      product: `PostgreSQL ${matchedMajor}`,
       source: "PostgreSQL 공식 보안 공지",
       source_url: url,
       source_type: "vendor",
@@ -271,8 +288,12 @@ async function collectPostgresCve(): Promise<FoundNotice[]> {
   return notices
 }
 
-async function collectPostgres(): Promise<FoundNotice[]> {
-  const [eos, cve] = await Promise.all([collectPostgresEos(), collectPostgresCve()])
+async function collectPostgres(supabase: ReturnType<typeof supabaseAdmin>): Promise<FoundNotice[]> {
+  const targetMajors = await findTrackedPgMajorVersions(supabase)
+  const [eos, cve] = await Promise.all([
+    collectPostgresEos(targetMajors),
+    collectPostgresCve(targetMajors),
+  ])
   return [...eos, ...cve]
 }
 
@@ -490,11 +511,14 @@ async function collectKnvd(): Promise<FoundNotice[]> {
   return notices
 }
 
-function fetchForProduct(product: CollectProduct): Promise<FoundNotice[]> {
+function fetchForProduct(
+  product: CollectProduct,
+  supabase: ReturnType<typeof supabaseAdmin>,
+): Promise<FoundNotice[]> {
   switch (product) {
     case "Apache Tomcat": return collectApacheTomcat()
     case "Nginx": return collectNginx()
-    case "PostgreSQL": return collectPostgres()
+    case "PostgreSQL": return collectPostgres(supabase)
     case "OpenSSL": return collectOpenSSL()
     case "Red Hat Enterprise Linux": return collectRedHat()
     case "Oracle Database": return collectOracle()
@@ -505,7 +529,7 @@ function fetchForProduct(product: CollectProduct): Promise<FoundNotice[]> {
 async function collectOne(product: CollectProduct): Promise<CollectResult> {
   try {
     const supabase = supabaseAdmin()
-    const rawFound = await fetchForProduct(product)
+    const rawFound = await fetchForProduct(product, supabase)
 
     // 동일 CVE가 여러 버전 섹션에 걸쳐 반복 언급될 수 있으므로 배치 내에서도 cve 기준 중복 제거.
     const found = Array.from(new Map(rawFound.map((n) => [n.cve, n])).values())
