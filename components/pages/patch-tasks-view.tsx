@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils"
 type PatchTask = Tables<"patch_tasks">
 type PatchTaskStatus = PatchTask["status"]
 type Asset = Tables<"assets">
+type Server = Tables<"servers">
 
 const STATUS_FILTERS: ("전체" | PatchTaskStatus)[] = ["전체", "배정됨", "조치예정", "조치지연", "조치완료", "예외요청", "예외승인"]
 const SEVERITY_FILTERS: ("전체" | Vulnerability["severity"])[] = ["전체", "Critical", "High", "Medium", "Low"]
@@ -124,6 +125,7 @@ export function PatchTasksView() {
   const { toast } = useToast()
   const { vulns, assets, loading: noticeLoading } = useNoticeData()
   const [tasks, setTasks] = useState<PatchTask[]>([])
+  const [servers, setServers] = useState<Server[]>([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<"전체" | PatchTaskStatus>("전체")
@@ -142,8 +144,23 @@ export function PatchTasksView() {
       })
   }, [])
 
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from("servers")
+      .select("*")
+      .then(({ data }) => {
+        if (data) setServers(data)
+      })
+  }, [])
+
   const vulnMap = useMemo(() => new Map(vulns.map((v) => [v.id, v])), [vulns])
   const assetMap = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
+  const findServer = useMemo(() => {
+    const byId = new Map(servers.map((s) => [s.id, s]))
+    const byName = new Map(servers.map((s) => [s.name, s]))
+    return (raw: string) => byId.get(raw) ?? byName.get(raw)
+  }, [servers])
 
   const rows = useMemo<Row[]>(() => {
     const out: Row[] = []
@@ -349,7 +366,21 @@ export function PatchTasksView() {
                   </Td>
                   <Td className="font-mono text-xs">{vulnerability.cve}</Td>
                   <Td className="text-xs">{vulnerability.product}</Td>
-                  <Td className="text-xs text-muted-foreground">{asset.server}</Td>
+                  <Td className="text-xs">
+                    {(() => {
+                      const sv = findServer(asset.server)
+                      return (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-medium text-foreground">{sv?.name ?? asset.server}</span>
+                          {sv && (
+                            <span className="font-mono text-[11px] text-muted-foreground">
+                              {sv.hostname} · {sv.ip}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })()}
+                  </Td>
                   <Td className="text-xs">{task.owner}</Td>
                   <Td>
                     <StatusBadge accent={statusAccent[task.status]}>{task.status}</StatusBadge>
