@@ -266,7 +266,15 @@ function ProductVersionBar({
           ))}
         </div>
         {hoveredIndex !== null && segments[hoveredIndex] ? (
-          <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-max max-w-[14rem] -translate-x-1/2 rounded-lg border border-primary/30 bg-popover/95 px-3 py-2 text-xs shadow-xl backdrop-blur">
+          <div
+            className="pointer-events-none absolute top-full z-20 mt-2 w-max max-w-[14rem] -translate-x-1/2 rounded-lg border border-primary/30 bg-popover/95 px-3 py-2 text-xs shadow-xl backdrop-blur"
+            style={{
+              left: `${
+                segments.slice(0, hoveredIndex).reduce((sum, s) => sum + s.ratio, 0) +
+                segments[hoveredIndex].ratio / 2
+              }%`,
+            }}
+          >
             <p className="font-semibold text-foreground">{product}</p>
             <p className="flex items-center gap-1.5 text-muted-foreground">
               <span className="h-2 w-2 rounded-full" style={{ background: segments[hoveredIndex].color }} />
