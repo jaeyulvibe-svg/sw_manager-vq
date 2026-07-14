@@ -14,6 +14,7 @@ import {
   Server,
   Megaphone,
   ListChecks,
+  RotateCcw,
   type LucideIcon,
 } from "lucide-react"
 
@@ -34,6 +35,7 @@ export type ViewKey =
   | "admin-collect"
   | "admin-policy"
   | "admin-users"
+  | "admin-demo"
   | "notifications"
 
 /** 사이드바에는 표시하지 않지만 헤더 타이틀 등에 사용하는 뷰 메타 */
@@ -98,6 +100,7 @@ export const NAV_ITEMS: NavEntry[] = [
       { key: "admin-collect", label: "수집 관리", icon: RefreshCw },
       { key: "admin-policy", label: "승인 정책", icon: ShieldCheck },
       { key: "admin-users", label: "사용자 관리", icon: UsersRound },
+      { key: "admin-demo", label: "DEMO 데이터 설정", icon: RotateCcw },
     ],
   },
 ]
