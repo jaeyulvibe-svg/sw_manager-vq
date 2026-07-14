@@ -33,7 +33,11 @@ import { NotificationsView } from "@/components/pages/notifications-view"
 function Portal({ onLogout }: { onLogout: () => void }) {
   const { isAdmin } = useRole()
   const { confirmLeave } = useUnsavedGuard()
-  const [requestedView, setActiveRaw] = useState<ViewKey>("dashboard")
+  const [requestedView, setActiveRaw] = useState<ViewKey>(() => {
+    if (typeof window === "undefined") return "dashboard"
+    const fromQuery = new URLSearchParams(window.location.search).get("view")
+    return fromQuery ? (fromQuery as ViewKey) : "dashboard"
+  })
   const [mobileOpen, setMobileOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)

@@ -62,8 +62,10 @@ export function DemoDataView() {
 
   useEffect(() => {
     loadSnapshot()
-    if (sessionStorage.getItem("demo-data-reset-success")) {
-      sessionStorage.removeItem("demo-data-reset-success")
+    const url = new URL(window.location.href)
+    if (url.searchParams.get("demoReset") === "1") {
+      url.searchParams.delete("demoReset")
+      window.history.replaceState({}, "", url.toString())
       toast({ tone: "success", title: "샘플 데이터가 기준 상태로 초기화되었습니다" })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -93,8 +95,7 @@ export function DemoDataView() {
       toast({ tone: "danger", title: "초기화 실패", description: error.message })
       return
     }
-    sessionStorage.setItem("demo-data-reset-success", "1")
-    window.location.reload()
+    window.location.href = `${window.location.pathname}?view=admin-demo&demoReset=1`
   }
 
   return (
