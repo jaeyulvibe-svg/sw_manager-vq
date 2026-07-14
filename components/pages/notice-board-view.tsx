@@ -473,14 +473,14 @@ export function NoticeBoardView() {
     setSelectedIds(new Set())
   }
 
-  // +1 은 NO 컬럼, +1 은 관리 컬럼(Task 2에서 제목 컬럼으로 대체되지만 개수는 그대로 +2 유지)
+  // +1 은 NO 컬럼, +1 은 제목 컬럼(둘 다 컬럼설정에서 숨길 수 없는 고정 컬럼)
   const colSpan = visible.length + 2 + (isAdmin ? 1 : 0)
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         icon={Megaphone}
-        title="보안 공지"
+        title="공지사항"
         description={
           isAdmin
             ? "시스템 운영·점검·자산 등록 기준·패치 승인 절차 등을 안내하는 공지사항을 관리합니다."
