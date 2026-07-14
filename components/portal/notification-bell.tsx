@@ -14,12 +14,6 @@ import { cn } from "@/lib/utils"
 
 type FilterKey = "all" | "unread" | "urgent"
 
-const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: "all", label: "전체" },
-  { key: "unread", label: "읽지 않음" },
-  { key: "urgent", label: "긴급" },
-]
-
 function matchesFilter(n: Notification, filter: FilterKey): boolean {
   switch (filter) {
     case "all":
@@ -67,10 +61,10 @@ export function NotificationBell({
     .filter((n) => matchesFilter(n, filter))
     .sort((a, b) => a.order - b.order)
 
-  const summary: { label: string; value: number; risk?: RiskLevel }[] = [
-    { label: "전체 알림", value: notifications.length },
-    { label: "읽지 않음", value: unreadCount, risk: 3 },
-    { label: "긴급", value: urgentCount, risk: 5 },
+  const summary: { key: FilterKey; label: string; value: number; risk?: RiskLevel }[] = [
+    { key: "all", label: "전체 알림", value: notifications.length },
+    { key: "unread", label: "읽지 않음", value: unreadCount, risk: 3 },
+    { key: "urgent", label: "긴급", value: urgentCount, risk: 5 },
   ]
 
   const handleGo = (n: Notification) => {
@@ -117,42 +111,47 @@ export function NotificationBell({
             </button>
           </div>
 
-          {/* Summary */}
+          {/* Summary — 클릭하면 그 조건으로 아래 목록이 바로 필터링된다 */}
           <div className="grid grid-cols-3 gap-px border-b border-border/60 bg-border/60">
-            {summary.map((s) => (
-              <div key={s.label} className="bg-card px-2 py-2.5 text-center">
+            {summary.map((s) => {
+              const active = filter === s.key
+              return (
                 <div
+                  key={s.key}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setFilter(s.key)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault()
+                      setFilter(s.key)
+                    }
+                  }}
+                  aria-pressed={active}
                   className={cn(
-                    "font-mono text-lg font-bold tabular-nums",
-                    s.risk ? riskText[s.risk] : "text-primary",
+                    "cursor-pointer bg-card px-2 py-2.5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+                    active && "bg-primary/[0.08]",
                   )}
                 >
-                  {s.value}
+                  <div
+                    className={cn(
+                      "font-mono text-lg font-bold tabular-nums",
+                      s.risk ? riskText[s.risk] : "text-primary",
+                    )}
+                  >
+                    {s.value}
+                  </div>
+                  <div
+                    className={cn(
+                      "text-[10px]",
+                      active ? "font-semibold text-primary" : "text-muted-foreground",
+                    )}
+                  >
+                    {s.label}
+                  </div>
                 </div>
-                <div className="text-[10px] text-muted-foreground">
-                  {s.label}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Filters */}
-          <div className="flex gap-1.5 overflow-x-auto border-b border-border/60 px-3 py-2">
-            {FILTERS.map((f) => (
-              <button
-                key={f.key}
-                type="button"
-                onClick={() => setFilter(f.key)}
-                className={cn(
-                  "shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-                  filter === f.key
-                    ? "border-primary/50 bg-primary/15 text-primary"
-                    : "border-border/60 text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
+              )
+            })}
           </div>
 
           {/* List */}
@@ -243,7 +242,7 @@ export function NotificationBell({
                             className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                           >
                             <Check className="h-3 w-3" />
-                            읽음
+                            알림확인
                           </button>
                         ) : null}
                       </div>

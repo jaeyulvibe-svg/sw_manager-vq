@@ -238,7 +238,7 @@ export function NotificationsView({
                     {!n.read ? (
                       <MiniButton accent="muted" onClick={() => markRead(n.id)}>
                         <Check className="h-3 w-3" />
-                        읽음
+                        알림확인
                       </MiniButton>
                     ) : null}
                   </div>
