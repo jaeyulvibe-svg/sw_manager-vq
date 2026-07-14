@@ -61,7 +61,7 @@ export function ApprovalView() {
   const [requests, setRequests] = useState<AssetRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("승인대기")
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("전체")
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   function loadRequests() {
