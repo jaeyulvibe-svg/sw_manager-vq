@@ -35,7 +35,7 @@ import {
   Pagination,
   type Accent,
 } from "@/components/portal/ui"
-import { useNoticeData, sevRisk, formatCollected, type Vulnerability } from "@/components/pages/notice-board/use-notice-data"
+import { useNoticeData, sevRisk, formatCollected, type Vulnerability, type Asset } from "@/components/pages/notice-board/use-notice-data"
 import type { ViewKey } from "@/components/portal/nav"
 import { createClient } from "@/lib/supabase/client"
 import type { Tables } from "@/lib/supabase/types"
@@ -78,8 +78,66 @@ const ALL_COLS: { key: ColKey; label: string }[] = [
 const FACTORY_VISIBLE: ColKey[] = ALL_COLS.map((c) => c.key)
 const LS_KEY = "patch_view_columns"
 
+/** 매핑 자산이 이 개수를 넘으면 검색창과 세로 스크롤 영역을 함께 노출 */
+const MAPPED_ASSETS_DENSE_THRESHOLD = 8
+
 type SortKey = ColKey | "none"
 type SortDir = "asc" | "desc"
+
+/** 승인된 공지 행을 펼쳤을 때 매핑 자산을 표시하는 반응형 카드 그리드 (가로 스크롤 없이 자동 줄바꿈) */
+function MappedAssetGrid({
+  assets,
+  query,
+  dense,
+  taskStatusOf,
+}: {
+  assets: Asset[]
+  query: string
+  dense: boolean
+  taskStatusOf: (assetId: string) => PatchTaskStatus | undefined
+}) {
+  const q = query.trim().toLowerCase()
+  const filtered = q
+    ? assets.filter((a) => [a.id, a.name, a.server, a.owner].some((f) => f.toLowerCase().includes(q)))
+    : assets
+
+  if (filtered.length === 0) {
+    return <p className="text-xs text-muted-foreground">검색 조건에 맞는 자산이 없습니다.</p>
+  }
+
+  return (
+    <div
+      className="grid min-w-0 gap-2"
+      style={{
+        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+        ...(dense ? { maxHeight: 360, overflowY: "auto" } : null),
+      }}
+    >
+      {filtered.map((a) => {
+        const taskStatus = taskStatusOf(a.id)
+        return (
+          <div key={a.id} className="min-w-0 rounded-lg border border-border/60 bg-card p-2.5">
+            <div className="flex min-w-0 items-start justify-between gap-2">
+              <span className="min-w-0 truncate font-mono text-xs font-semibold text-foreground" title={a.id}>
+                {a.id}
+              </span>
+              {taskStatus ? (
+                <StatusBadge accent={taskStatusAccent[taskStatus]}>{taskStatus}</StatusBadge>
+              ) : null}
+            </div>
+            <p className="mt-1 min-w-0 truncate text-xs text-foreground" title={`${a.name} ${a.version}`}>
+              {a.name} <span className="text-muted-foreground">v{a.version}</span>
+            </p>
+            <div className="mt-1.5 flex min-w-0 flex-col gap-0.5 text-[11px] text-muted-foreground">
+              <span className="min-w-0 truncate" title={a.server}>서버 {a.server}</span>
+              <span className="min-w-0 truncate" title={a.owner}>담당 {a.owner}</span>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
 export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void }) {
   const { vulns, matchMap, loading } = useNoticeData()
@@ -93,6 +151,12 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
   const [visible, setVisible] = useState<ColKey[]>(() => loadColumnVisibility(LS_KEY, FACTORY_VISIBLE))
   const [detailFiltersOpen, setDetailFiltersOpen] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [assetQuery, setAssetQuery] = useState("")
+
+  function toggleExpanded(id: string) {
+    setExpandedId((prev) => (prev === id ? null : id))
+    setAssetQuery("")
+  }
 
   useEffect(() => {
     const supabase = createClient()
@@ -388,7 +452,12 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
                     {show("product") && <Td className={cn("text-xs", TABLE_ROW_CELL_H)}>{v.product}</Td>}
                     {show("mapped") && <Td className={TABLE_ROW_CELL_H}>{matched.length}대</Td>}
                     <Td className={TABLE_ROW_CELL_H}>
-                      <MiniButton accent="primary" onClick={() => setExpandedId(expanded ? null : v.id)}>
+                      <MiniButton
+                        accent="primary"
+                        onClick={() => toggleExpanded(v.id)}
+                        aria-expanded={expanded}
+                        aria-controls={`patch-mapped-${v.id}`}
+                      >
                         <Server className="h-3 w-3" />
                         매핑 자산{expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                       </MiniButton>
@@ -396,25 +465,50 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
                   </tr>
                   {expanded ? (
                     <tr>
-                      <td colSpan={visible.length + 1} className="border-b border-border/40 bg-background/40 px-3 py-3">
-                        {matched.length > 0 ? (
-                          <ul className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                            {matched.map((a) => {
-                              const taskStatus = taskStatusMap.get(`${v.id}:${a.id}`)
-                              return (
-                                <li key={a.id} className="flex items-center gap-2 rounded-md border border-border/60 bg-card px-2.5 py-1.5">
-                                  <span className="font-mono">{a.id}</span> · {a.name} · {a.server} · {a.owner}
-                                  {taskStatus ? (
-                                    <StatusBadge accent={taskStatusAccent[taskStatus]}>{taskStatus}</StatusBadge>
-                                  ) : null}
-                                </li>
-                              )
-                            })}
-                          </ul>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">매칭되는 자산이 없습니다.</p>
-                        )}
-                        <p className="mt-2 text-[11px] text-muted-foreground">수집 일시: {formatCollected(v.collected_at)}</p>
+                      <td colSpan={visible.length + 1} className="border-b border-border/40 bg-background/40 p-0">
+                        {/* contain: inline-size는 이 박스의 내용(카드 그리드)이 아무리 넓어져도
+                            상위 테이블의 min-w-max 계산에 영향을 주지 않도록 격리한다.
+                            (flex-wrap은 max-content 계산 시 줄바꿈을 무시해 표 전체가 가로로
+                            밀리는 원인이었던 부분) */}
+                        <div
+                          id={`patch-mapped-${v.id}`}
+                          className="min-w-0 px-3 py-3"
+                          style={{ contain: "inline-size" }}
+                        >
+                          {matched.length > 0 ? (
+                            <>
+                              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                                <p className="text-xs font-medium text-muted-foreground">
+                                  매핑 자산{" "}
+                                  <span className="font-mono font-semibold text-foreground">
+                                    {matched.length}
+                                  </span>
+                                  개
+                                </p>
+                                {matched.length > MAPPED_ASSETS_DENSE_THRESHOLD ? (
+                                  <div className="relative w-full sm:w-56">
+                                    <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                                    <input
+                                      value={assetQuery}
+                                      onChange={(e) => setAssetQuery(e.target.value)}
+                                      placeholder="자산명, 서버, 담당자 검색"
+                                      className="w-full rounded-md border border-border/60 bg-background/60 py-1.5 pl-8 pr-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none"
+                                    />
+                                  </div>
+                                ) : null}
+                              </div>
+                              <MappedAssetGrid
+                                assets={matched}
+                                query={assetQuery}
+                                dense={matched.length > MAPPED_ASSETS_DENSE_THRESHOLD}
+                                taskStatusOf={(assetId) => taskStatusMap.get(`${v.id}:${assetId}`)}
+                              />
+                            </>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">매칭되는 자산이 없습니다.</p>
+                          )}
+                          <p className="mt-2 text-[11px] text-muted-foreground">수집 일시: {formatCollected(v.collected_at)}</p>
+                        </div>
                       </td>
                     </tr>
                   ) : null}

@@ -669,13 +669,14 @@ export function MiniButton({
   onClick,
   disabled = false,
   className,
+  ...rest
 }: {
   children: React.ReactNode
   accent?: Accent
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void
   disabled?: boolean
   className?: string
-}) {
+} & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "onClick" | "disabled" | "className" | "children" | "type">) {
   return (
     <button
       type="button"
@@ -687,6 +688,7 @@ export function MiniButton({
         accentSoft[accent],
         className,
       )}
+      {...rest}
     >
       {children}
     </button>
