@@ -30,11 +30,7 @@ const TYPE_FILTERS: { key: "all" | NotifCategory; label: string }[] = [
   { key: "system", label: "시스템" },
 ]
 
-const READ_FILTERS: { key: "all" | "unread" | "read"; label: string }[] = [
-  { key: "all", label: "전체" },
-  { key: "unread", label: "읽지 않음" },
-  { key: "read", label: "읽음" },
-]
+type StatFilter = "all" | "unread" | "urgent"
 
 export function NotificationsView({
   onNavigate,
@@ -46,15 +42,15 @@ export function NotificationsView({
 
   const [query, setQuery] = useState("")
   const [type, setType] = useState<"all" | NotifCategory>("all")
-  const [read, setRead] = useState<"all" | "unread" | "read">("all")
+  const [statFilter, setStatFilter] = useState<StatFilter>("all")
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return notifications
       .filter((n) => {
         if (type !== "all" && n.category !== type) return false
-        if (read === "unread" && n.read) return false
-        if (read === "read" && !n.read) return false
+        if (statFilter === "unread" && n.read) return false
+        if (statFilter === "urgent" && !n.urgent) return false
         if (q) {
           const hay = `${n.title} ${n.description} ${n.asset} ${n.owner}`.toLowerCase()
           if (!hay.includes(q)) return false
@@ -62,8 +58,13 @@ export function NotificationsView({
         return true
       })
       .sort((a, b) => a.order - b.order)
-  }, [notifications, query, type, read])
+  }, [notifications, query, type, statFilter])
   const pagination = usePagination(filtered)
+
+  function selectStatFilter(next: StatFilter) {
+    setStatFilter(next)
+    pagination.setPage(1)
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -98,32 +99,56 @@ export function NotificationsView({
         }
       />
 
-      {/* Summary KPIs */}
+      {/* Summary KPIs — 클릭하면 그 조건으로 목록이 바로 필터링된다 */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard
-          label="전체 알림"
-          value={notifications.length}
-          icon={Bell}
-          accent="primary"
-          trendLabel="누적 알림"
-          delay={80}
-        />
-        <StatCard
-          label="읽지 않음"
-          value={unreadCount}
-          icon={Check}
-          risk={3}
-          trendLabel="확인 대기"
-          delay={160}
-        />
-        <StatCard
-          label="긴급"
-          value={urgentCount}
-          icon={Bell}
-          risk={5}
-          trendLabel="즉시 조치 필요"
-          delay={240}
-        />
+        <button
+          type="button"
+          onClick={() => selectStatFilter("all")}
+          aria-pressed={statFilter === "all"}
+          className="rounded-2xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+        >
+          <StatCard
+            label="전체 알림"
+            value={notifications.length}
+            icon={Bell}
+            accent="primary"
+            trendLabel="누적 알림"
+            delay={80}
+            className={cn(statFilter === "all" && "ring-2 ring-primary/60")}
+          />
+        </button>
+        <button
+          type="button"
+          onClick={() => selectStatFilter("unread")}
+          aria-pressed={statFilter === "unread"}
+          className="rounded-2xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+        >
+          <StatCard
+            label="읽지 않음"
+            value={unreadCount}
+            icon={Check}
+            risk={3}
+            trendLabel="확인 대기"
+            delay={160}
+            className={cn(statFilter === "unread" && "ring-2 ring-primary/60")}
+          />
+        </button>
+        <button
+          type="button"
+          onClick={() => selectStatFilter("urgent")}
+          aria-pressed={statFilter === "urgent"}
+          className="rounded-2xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+        >
+          <StatCard
+            label="긴급"
+            value={urgentCount}
+            icon={Bell}
+            risk={5}
+            trendLabel="즉시 조치 필요"
+            delay={240}
+            className={cn(statFilter === "urgent" && "ring-2 ring-primary/60")}
+          />
+        </button>
       </div>
 
       {/* Filters */}
@@ -137,10 +162,7 @@ export function NotificationsView({
             className="w-full rounded-lg border border-border/60 bg-background/60 py-2 pl-9 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/50"
           />
         </div>
-        <div className="flex flex-col gap-2">
-          <FilterRow options={TYPE_FILTERS} value={type} onChange={(v) => { setType(v); pagination.setPage(1) }} />
-          <FilterRow options={READ_FILTERS} value={read} onChange={(v) => { setRead(v); pagination.setPage(1) }} />
-        </div>
+        <FilterRow options={TYPE_FILTERS} value={type} onChange={(v) => { setType(v); pagination.setPage(1) }} />
       </div>
 
       {/* Table */}

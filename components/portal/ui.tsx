@@ -219,6 +219,7 @@ export function StatCard({
   trend,
   trendLabel,
   delay = 0,
+  className,
 }: {
   label: string
   value: number
@@ -230,6 +231,7 @@ export function StatCard({
   trend?: number
   trendLabel?: string
   delay?: number
+  className?: string
 }) {
   const animated = useCountUp(value, { decimals, delay, duration: 1600 })
   const positive = (trend ?? 0) >= 0
@@ -237,7 +239,10 @@ export function StatCard({
 
   return (
     <div
-      className="glow-card animate-rise group relative min-w-0 overflow-hidden rounded-2xl border border-border/60 bg-card p-5 transition-transform duration-300 hover:-translate-y-1"
+      className={cn(
+        "glow-card animate-rise group relative min-w-0 overflow-hidden rounded-2xl border border-border/60 bg-card p-5 transition-transform duration-300 hover:-translate-y-1",
+        className,
+      )}
       style={{ animationDelay: `${delay}ms` }}
     >
       <div
