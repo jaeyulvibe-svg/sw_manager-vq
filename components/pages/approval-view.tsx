@@ -127,6 +127,39 @@ export function ApprovalView() {
         })
         return
       }
+
+      const { data: existingMaster } = await supabase
+        .from("sw_masters")
+        .select("id, std_version")
+        .eq("name", req.name)
+        .eq("vendor", req.vendor)
+        .eq("active", true)
+        .is("deleted_at", null)
+        .maybeSingle()
+
+      if (!existingMaster || existingMaster.std_version !== req.version) {
+        const { error: masterError } = await supabase.from("sw_masters").insert({
+          name: req.name,
+          vendor: req.vendor,
+          category: req.category as Tables<"sw_masters">["category"],
+          std_version: req.version,
+          active: true,
+          updated_by: req.owner,
+        })
+        if (masterError) {
+          toast({
+            tone: "danger",
+            title: "SW 마스터 반영 실패",
+            description: `${req.name} ${req.version}을(를) SW 마스터에 추가하지 못했습니다: ${masterError.message}`,
+          })
+        } else {
+          toast({
+            tone: "success",
+            title: "SW 마스터에 새 버전 등록됨",
+            description: `${req.name} ${req.version}이(가) SW 마스터에 새 항목으로 추가되었습니다.`,
+          })
+        }
+      }
     }
 
     await supabase.from("asset_requests").update({ approval: decision }).eq("id", req.id)

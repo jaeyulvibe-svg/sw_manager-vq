@@ -44,29 +44,25 @@ const approvalRisk: Record<AssetRequest["approval"], RiskLevel> = {
   승인완료: 1,
 }
 
-type RequestMode = "existing" | "new"
+type VersionMode = "select" | "manual"
 
 type FormState = {
-  mode: RequestMode
   category: MasterCategory | ""
   productName: string
   masterId: string
-  // "신규" 모드 전용 — SW 마스터에 없는 제품을 직접 기입한다.
-  newProductName: string
-  newVendor: string
-  newVersion: string
+  versionMode: VersionMode
+  // "수작업" 버전 입력 전용 — SW 마스터의 표준 버전과 다른 버전을 직접 기입한다.
+  manualVersion: string
   server: string
   reason: string
 }
 
 const EMPTY_FORM: FormState = {
-  mode: "existing",
   category: "",
   productName: "",
   masterId: "",
-  newProductName: "",
-  newVendor: "",
-  newVersion: "",
+  versionMode: "select",
+  manualVersion: "",
   server: "",
   reason: "",
 }
@@ -171,16 +167,8 @@ export function RequestView() {
     setForm((prev) => ({ ...prev, productName: next, masterId: "" }))
   }
 
-  function handleModeChange(next: RequestMode) {
-    setForm((prev) => ({
-      ...prev,
-      mode: next,
-      productName: "",
-      masterId: "",
-      newProductName: "",
-      newVendor: "",
-      newVersion: "",
-    }))
+  function handleVersionModeChange(next: VersionMode) {
+    setForm((prev) => ({ ...prev, versionMode: next, masterId: "", manualVersion: "" }))
   }
 
   const counts = {
@@ -207,35 +195,42 @@ export function RequestView() {
       return
     }
 
-    let name: string
-    let vendor: string
-    let version: string
+    if (!form.productName) {
+      toast({
+        tone: "danger",
+        title: "제품을 선택해주세요",
+        description: "SW 마스터에 등록된 제품 중에서만 신규 자산을 요청할 수 있습니다.",
+      })
+      return
+    }
 
-    if (form.mode === "existing") {
+    const productMaster = mastersInCategory.find((m) => m.name === form.productName)
+    if (!productMaster) {
+      toast({
+        tone: "danger",
+        title: "제품을 선택해주세요",
+        description: "SW 마스터에 등록된 제품 중에서만 신규 자산을 요청할 수 있습니다.",
+      })
+      return
+    }
+
+    let version: string
+    if (form.versionMode === "select") {
       if (!selectedMaster) {
-        toast({
-          tone: "danger",
-          title: "제품을 선택해주세요",
-          description: "SW 마스터에 등록된 제품 중에서만 신규 자산을 요청할 수 있습니다.",
-        })
+        toast({ tone: "danger", title: "버전을 선택해주세요" })
         return
       }
-      name = selectedMaster.name
-      vendor = selectedMaster.vendor
       version = selectedMaster.std_version
     } else {
-      if (!form.newProductName.trim() || !form.newVendor.trim() || !form.newVersion.trim()) {
-        toast({
-          tone: "danger",
-          title: "필수 항목 누락",
-          description: "제품명·제조사·버전은 필수 입력 항목입니다.",
-        })
+      if (!form.manualVersion.trim()) {
+        toast({ tone: "danger", title: "버전을 입력해주세요" })
         return
       }
-      name = form.newProductName.trim()
-      vendor = form.newVendor.trim()
-      version = form.newVersion.trim()
+      version = form.manualVersion.trim()
     }
+
+    const name = productMaster.name
+    const vendor = productMaster.vendor
 
     const requiredText: (keyof FormState)[] = ["server", "reason"]
     const missing = requiredText.some((key) => !form[key].trim())
@@ -316,28 +311,6 @@ export function RequestView() {
         {/* Form */}
         <div className="lg:col-span-3">
           <SectionCard title="신규 자산 등록 요청서" subtitle="필수 항목을 입력해 주세요" icon={FilePlus2}>
-            <div className="mb-4 flex items-center gap-1 self-start rounded-xl border border-border/60 bg-background/40 p-1">
-              {([
-                { key: "existing", label: "기존" },
-                { key: "new", label: "신규" },
-              ] as const).map((opt) => (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => handleModeChange(opt.key)}
-                  aria-pressed={form.mode === opt.key}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-semibold transition-all duration-200",
-                    form.mode === opt.key
-                      ? "bg-primary/15 text-primary"
-                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="분류" required>
                 <select
@@ -351,30 +324,51 @@ export function RequestView() {
                   ))}
                 </select>
               </Field>
-              {form.mode === "existing" ? (
-                <>
-                  <Field label="등록 제품" required>
-                    <select
-                      className={inputCls}
-                      value={form.productName}
-                      onChange={(e) => handleProductChange(e.target.value)}
-                      disabled={!form.category}
-                    >
-                      <option value="">
-                        {!form.category
-                          ? "먼저 분류를 선택하세요"
-                          : mastersLoading
-                            ? "불러오는 중..."
-                            : productNames.length === 0
-                              ? "해당 분류에 등록된 제품이 없습니다"
-                              : "SW 마스터에 등록된 제품을 선택하세요"}
-                      </option>
-                      {productNames.map((name) => (
-                        <option key={name} value={name}>{name}</option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field label="버전" required>
+              <Field label="등록 제품" required>
+                <select
+                  className={inputCls}
+                  value={form.productName}
+                  onChange={(e) => handleProductChange(e.target.value)}
+                  disabled={!form.category}
+                >
+                  <option value="">
+                    {!form.category
+                      ? "먼저 분류를 선택하세요"
+                      : mastersLoading
+                        ? "불러오는 중..."
+                        : productNames.length === 0
+                          ? "해당 분류에 등록된 제품이 없습니다"
+                          : "SW 마스터에 등록된 제품을 선택하세요"}
+                  </option>
+                  {productNames.map((name) => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="버전" required>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-1 self-start rounded-xl border border-border/60 bg-background/40 p-1">
+                    {([
+                      { key: "select", label: "선택형" },
+                      { key: "manual", label: "수작업형" },
+                    ] as const).map((opt) => (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => handleVersionModeChange(opt.key)}
+                        aria-pressed={form.versionMode === opt.key}
+                        className={cn(
+                          "flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-semibold transition-all duration-200",
+                          form.versionMode === opt.key
+                            ? "bg-primary/15 text-primary"
+                            : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                  {form.versionMode === "select" ? (
                     <select
                       className={inputCls}
                       value={form.masterId}
@@ -388,36 +382,17 @@ export function RequestView() {
                         <option key={m.id} value={m.id}>{m.std_version}</option>
                       ))}
                     </select>
-                  </Field>
-                </>
-              ) : (
-                <>
-                  <Field label="제품명" required>
+                  ) : (
                     <input
                       className={inputCls}
-                      placeholder="예: Redis"
-                      value={form.newProductName}
-                      onChange={(e) => update("newProductName", e.target.value)}
+                      placeholder="예: 16.2"
+                      value={form.manualVersion}
+                      onChange={(e) => update("manualVersion", e.target.value)}
+                      disabled={!form.productName}
                     />
-                  </Field>
-                  <Field label="제조사" required>
-                    <input
-                      className={inputCls}
-                      placeholder="예: Redis Ltd."
-                      value={form.newVendor}
-                      onChange={(e) => update("newVendor", e.target.value)}
-                    />
-                  </Field>
-                  <Field label="버전" required>
-                    <input
-                      className={inputCls}
-                      placeholder="예: 7.4.0"
-                      value={form.newVersion}
-                      onChange={(e) => update("newVersion", e.target.value)}
-                    />
-                  </Field>
-                </>
-              )}
+                  )}
+                </div>
+              </Field>
               <Field label="설치 서버" required>
                 <select
                   className={inputCls}
