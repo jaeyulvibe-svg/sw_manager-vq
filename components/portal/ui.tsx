@@ -446,6 +446,33 @@ export function Td({
   )
 }
 
+/**
+ * 표 셀 안에서 한 줄 말줄임 처리하는 공통 텍스트 래퍼.
+ * width는 부모(Td) 셀이 결정하므로 이 컴포넌트는 항상 min-width:0 + overflow:hidden으로
+ * 자기 폭을 셀에 완전히 맡긴다 — 옆 컬럼을 침범하지 않는 지점은 여기.
+ * title 속성으로 마우스 호버 시 네이티브 툴팁을, tabIndex로 키보드 포커스 시에도
+ * 동일한 네이티브 툴팁 접근을 제공한다(원본 데이터는 그대로, 화면 표시만 축약).
+ */
+export function TruncatedText({
+  children,
+  title,
+  className,
+}: {
+  children: React.ReactNode
+  title: string
+  className?: string
+}) {
+  return (
+    <span
+      title={title}
+      tabIndex={0}
+      className={cn("block w-full min-w-0 truncate outline-none focus-visible:text-primary", className)}
+    >
+      {children}
+    </span>
+  )
+}
+
 /* ---------------- Shared sortable/resizable table conventions ---------------- */
 
 export const TABLE_HEADER_CELL_H = "h-[52px] py-0"

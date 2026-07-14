@@ -24,6 +24,7 @@ import {
   TableShell,
   Th,
   Td,
+  TruncatedText,
   MiniButton,
   ExportExcelButton,
   SortTh,
@@ -76,6 +77,20 @@ const ALL_COLS: { key: ColKey; label: string }[] = [
 ]
 const FACTORY_VISIBLE: ColKey[] = ALL_COLS.map((c) => c.key)
 const LS_KEY = "patch_view_columns"
+
+// 제목만 남은 공간을 채우는 가변 컬럼이고 나머지는 고정 폭 — table-layout: fixed와 함께
+// 적용해야 데이터 길이와 무관하게 옆 컬럼을 침범하지 않는다.
+const COL_WIDTH: Record<ColKey, string> = {
+  severity: "120px",
+  cve: "150px",
+  title: "auto",
+  noticeType: "110px",
+  sourceType: "110px",
+  source: "130px",
+  product: "160px",
+  mapped: "120px",
+}
+const DETAIL_COL_WIDTH = "130px"
 
 /** 매핑 자산이 이 개수를 넘으면 검색창과 세로 스크롤 영역을 함께 노출 */
 const MAPPED_ASSETS_DENSE_THRESHOLD = 8
@@ -420,15 +435,15 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
         <TableShell scrollHint fixed>
           <thead>
             <tr>
-              {show("severity") && <SortTh col="severity" label="심각도" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
-              {show("cve") && <SortTh col="cve" label="CVE" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
-              {show("title") && <SortTh col="title" label="제목" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} style={{ width: "42%" }} />}
-              {show("noticeType") && <SortTh col="noticeType" label="공지 유형" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
-              {show("sourceType") && <SortTh col="sourceType" label="출처 유형" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
-              {show("source") && <SortTh col="source" label="출처" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
-              {show("product") && <SortTh col="product" label="영향 제품" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
-              {show("mapped") && <SortTh col="mapped" label="매핑 자산 수" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
-              <Th className={TABLE_HEADER_CELL_H}>작업</Th>
+              {show("severity") && <SortTh col="severity" label="심각도" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} style={{ width: COL_WIDTH.severity, minWidth: 0 }} />}
+              {show("cve") && <SortTh col="cve" label="CVE" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} style={{ width: COL_WIDTH.cve, minWidth: 0 }} />}
+              {show("title") && <SortTh col="title" label="제목" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} style={{ minWidth: 0 }} />}
+              {show("noticeType") && <SortTh col="noticeType" label="공지 유형" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} style={{ width: COL_WIDTH.noticeType, minWidth: 0 }} />}
+              {show("sourceType") && <SortTh col="sourceType" label="출처 유형" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} style={{ width: COL_WIDTH.sourceType, minWidth: 0 }} />}
+              {show("source") && <SortTh col="source" label="출처" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} style={{ width: COL_WIDTH.source, minWidth: 0 }} />}
+              {show("product") && <SortTh col="product" label="영향 제품" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} style={{ width: COL_WIDTH.product, minWidth: 0 }} />}
+              {show("mapped") && <SortTh col="mapped" label="매핑 자산 수" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} style={{ width: COL_WIDTH.mapped, minWidth: 0 }} />}
+              <Th className={TABLE_HEADER_CELL_H} style={{ width: DETAIL_COL_WIDTH, minWidth: 0 }}>상세정보</Th>
             </tr>
           </thead>
           <tbody>
@@ -439,43 +454,58 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
                 <Fragment key={v.id}>
                   <tr className="transition-colors hover:bg-accent/40">
                     {show("severity") && (
-                      <Td className={ROW_CELL_H}>
-                        <StatusBadge risk={sevRisk[v.severity]} pulse={v.severity === "Critical"}>{v.severity}</StatusBadge>
+                      <Td className={ROW_CELL_H} style={{ width: COL_WIDTH.severity, minWidth: 0 }}>
+                        <StatusBadge className="whitespace-nowrap" risk={sevRisk[v.severity]} pulse={v.severity === "Critical"}>{v.severity}</StatusBadge>
                       </Td>
                     )}
-                    {show("cve") && <Td className={cn("font-mono text-xs", ROW_CELL_H)}>{v.cve}</Td>}
+                    {show("cve") && (
+                      <Td className={cn("font-mono text-xs", ROW_CELL_H)} style={{ width: COL_WIDTH.cve, minWidth: 0 }}>
+                        <TruncatedText title={v.cve}>{v.cve}</TruncatedText>
+                      </Td>
+                    )}
                     {show("title") && (
-                      <Td
-                        className={cn("max-w-0 truncate text-xs max-sm:h-auto max-sm:whitespace-normal max-sm:py-2 max-sm:line-clamp-2", ROW_CELL_H)}
-                        title={v.title}
-                      >
-                        {v.title}
+                      <Td className={cn("text-xs", ROW_CELL_H)} style={{ minWidth: 0 }}>
+                        <TruncatedText title={v.title}>{v.title}</TruncatedText>
                       </Td>
                     )}
                     {show("noticeType") && (
-                      <Td className={ROW_CELL_H}>
-                        <StatusBadge accent={noticeTypeAccent[v.notice_type]}>{v.notice_type}</StatusBadge>
+                      <Td className={ROW_CELL_H} style={{ width: COL_WIDTH.noticeType, minWidth: 0 }}>
+                        <StatusBadge className="whitespace-nowrap" accent={noticeTypeAccent[v.notice_type]}>{v.notice_type}</StatusBadge>
                       </Td>
                     )}
                     {show("sourceType") && (
-                      <Td className={ROW_CELL_H}>
-                        <StatusBadge accent={sourceTypeAccent[v.source_type]}>
+                      <Td className={ROW_CELL_H} style={{ width: COL_WIDTH.sourceType, minWidth: 0 }}>
+                        <StatusBadge className="whitespace-nowrap" accent={sourceTypeAccent[v.source_type]}>
                           {sourceTypeLabel[v.source_type]}
                         </StatusBadge>
                       </Td>
                     )}
-                    {show("source") && <Td className={cn("text-xs text-muted-foreground", ROW_CELL_H)}>{v.source}</Td>}
-                    {show("product") && <Td className={cn("text-xs", ROW_CELL_H)}>{v.product}</Td>}
-                    {show("mapped") && <Td className={ROW_CELL_H}>{matched.length}대</Td>}
-                    <Td className={ROW_CELL_H}>
+                    {show("source") && (
+                      <Td className={cn("text-xs text-muted-foreground", ROW_CELL_H)} style={{ width: COL_WIDTH.source, minWidth: 0 }}>
+                        <TruncatedText title={v.source}>{v.source}</TruncatedText>
+                      </Td>
+                    )}
+                    {show("product") && (
+                      <Td className={cn("text-xs", ROW_CELL_H)} style={{ width: COL_WIDTH.product, minWidth: 0 }}>
+                        <TruncatedText title={v.product}>{v.product}</TruncatedText>
+                      </Td>
+                    )}
+                    {show("mapped") && (
+                      <Td className={cn("whitespace-nowrap font-mono", ROW_CELL_H)} style={{ width: COL_WIDTH.mapped, minWidth: 0 }}>
+                        {matched.length}대
+                      </Td>
+                    )}
+                    <Td className={ROW_CELL_H} style={{ width: DETAIL_COL_WIDTH, minWidth: 0 }}>
                       <MiniButton
                         accent="primary"
                         onClick={() => toggleExpanded(v.id)}
                         aria-expanded={expanded}
                         aria-controls={`patch-mapped-${v.id}`}
+                        className="shrink-0"
                       >
-                        <Server className="h-3 w-3" />
-                        매핑 자산{expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                        <Server className="h-3 w-3 shrink-0" />
+                        <span className="shrink-0">매핑 자산</span>
+                        {expanded ? <ChevronUp className="h-3 w-3 shrink-0" /> : <ChevronDown className="h-3 w-3 shrink-0" />}
                       </MiniButton>
                     </Td>
                   </tr>
