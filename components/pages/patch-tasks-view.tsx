@@ -10,6 +10,8 @@ import {
   ClipboardList,
   Search,
   Pencil,
+  Check,
+  X,
 } from "lucide-react"
 import {
   PageHeader,
@@ -36,15 +38,17 @@ type PatchTaskStatus = PatchTask["status"]
 type AppUser = Tables<"app_users">
 type Asset = Tables<"assets">
 
-const STATUS_FILTERS: ("전체" | PatchTaskStatus)[] = ["전체", "배정됨", "조치예정", "조치지연", "조치완료"]
+const STATUS_FILTERS: ("전체" | PatchTaskStatus)[] = ["전체", "배정됨", "조치예정", "조치지연", "조치완료", "예외요청", "예외승인"]
 const SEVERITY_FILTERS: ("전체" | Vulnerability["severity"])[] = ["전체", "Critical", "High", "Medium", "Low"]
-const EDIT_STATUS_OPTIONS: PatchTaskStatus[] = ["조치예정", "조치지연", "조치완료"]
+const EDIT_STATUS_OPTIONS: PatchTaskStatus[] = ["조치예정", "조치지연", "조치완료", "예외요청"]
 
 const statusAccent: Record<PatchTaskStatus, Accent> = {
   배정됨: "muted",
   조치예정: "primary",
   조치지연: "warning",
   조치완료: "success",
+  예외요청: "review",
+  예외승인: "muted",
 }
 
 type Row = { task: PatchTask; vulnerability: Vulnerability; asset: Asset }
@@ -185,6 +189,14 @@ export function PatchTasksView() {
   const pagination = usePagination(filtered)
 
   async function saveTask(taskId: string, values: EditValues) {
+    if (values.status === "조치예정" && !values.due_date) {
+      toast({ tone: "danger", title: "기한을 입력해주세요", description: "조치예정 상태는 기한이 필수입니다." })
+      return
+    }
+    if (values.status === "예외요청" && !values.note.trim()) {
+      toast({ tone: "danger", title: "사유를 입력해주세요", description: "예외요청은 메모(사유)가 필수입니다." })
+      return
+    }
     const supabase = createClient()
     const patch = {
       status: values.status,
@@ -200,6 +212,28 @@ export function PatchTasksView() {
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...patch } : t)))
     setEditId(null)
     toast({ tone: "success", title: "조치 내용이 저장되었습니다" })
+  }
+
+  async function approveException(taskId: string) {
+    const supabase = createClient()
+    const { error } = await supabase.from("patch_tasks").update({ status: "예외승인" }).eq("id", taskId)
+    if (error) {
+      toast({ tone: "danger", title: "승인 실패", description: error.message })
+      return
+    }
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: "예외승인" } : t)))
+    toast({ tone: "success", title: "예외요청을 승인했습니다" })
+  }
+
+  async function rejectException(taskId: string) {
+    const supabase = createClient()
+    const { error } = await supabase.from("patch_tasks").update({ status: "조치예정" }).eq("id", taskId)
+    if (error) {
+      toast({ tone: "danger", title: "반려 실패", description: error.message })
+      return
+    }
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: "조치예정" } : t)))
+    toast({ tone: "success", title: "예외요청을 반려했습니다" })
   }
 
   const isLoading = loading || noticeLoading
@@ -342,7 +376,16 @@ export function PatchTasksView() {
                   <Td className="text-xs text-muted-foreground">{task.due_date ?? "-"}</Td>
                   <Td className="max-w-xs truncate text-xs text-muted-foreground">{task.note ?? "-"}</Td>
                   <Td>
-                    {canEdit ? (
+                    {isAdmin && task.status === "예외요청" ? (
+                      <div className="flex items-center gap-1.5">
+                        <MiniButton accent="success" onClick={() => approveException(task.id)}>
+                          <Check className="h-3 w-3" />승인
+                        </MiniButton>
+                        <MiniButton accent="destructive" onClick={() => rejectException(task.id)}>
+                          <X className="h-3 w-3" />반려
+                        </MiniButton>
+                      </div>
+                    ) : canEdit ? (
                       <MiniButton accent="primary" onClick={() => setEditId(task.id)}>
                         <Pencil className="h-3 w-3" />
                         조치 등록

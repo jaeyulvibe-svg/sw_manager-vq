@@ -48,6 +48,8 @@ const taskStatusAccent: Record<PatchTaskStatus, Accent> = {
   조치예정: "primary",
   조치지연: "warning",
   조치완료: "success",
+  예외요청: "review",
+  예외승인: "muted",
 }
 
 type Severity = Vulnerability["severity"]
