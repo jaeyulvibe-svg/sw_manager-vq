@@ -181,22 +181,22 @@ export function PatchView({ onNavigate }: { onNavigate?: (view: ViewKey) => void
     <div className="flex flex-col gap-6">
       <PageHeader
         icon={ShieldCheck}
-        title="승인된 취약점 공지"
+        title="패치 현황"
         description="KISA·제조사에서 승인 완료된 취약점·EOS 공지를 전사 자산 매핑 기준으로 조회합니다. 신규 미승인 공지는 KISA/제조사/EOS 공지 화면에서 검토·승인하세요."
         action={
           onNavigate ? (
             <div className="flex flex-wrap items-center gap-1.5">
               <MiniButton accent="primary" onClick={() => onNavigate("kisa")}>
-                KISA 취약점 공지 바로가기<ArrowRight className="h-3 w-3" />
+                KISA 공지 바로가기<ArrowRight className="h-3 w-3" />
               </MiniButton>
               <MiniButton accent="primary" onClick={() => onNavigate("vendor")}>
-                제조사 취약점 공지 바로가기<ArrowRight className="h-3 w-3" />
+                제조사 공지 바로가기<ArrowRight className="h-3 w-3" />
               </MiniButton>
               <MiniButton accent="eos" onClick={() => onNavigate("eos-notice")}>
                 EOS 공지 바로가기<ArrowRight className="h-3 w-3" />
               </MiniButton>
               <MiniButton accent="success" onClick={() => onNavigate("patch-tasks")}>
-                내 조치 업무 바로가기<ArrowRight className="h-3 w-3" />
+                조치 업무 바로가기<ArrowRight className="h-3 w-3" />
               </MiniButton>
             </div>
           ) : undefined

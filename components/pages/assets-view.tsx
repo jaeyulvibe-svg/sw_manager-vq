@@ -15,6 +15,7 @@ import {
 } from "@/components/portal/ui"
 import { AssetSlideover, type AssetDetail } from "@/components/portal/asset-slideover"
 import { useToast } from "@/components/portal/toast"
+import { useRole } from "@/components/portal/role-context"
 import { cn } from "@/lib/utils"
 
 type Asset  = Tables<"assets">
@@ -188,6 +189,7 @@ function AssetEditFormPanel({
 /* ── 메인 컴포넌트 ──────────────────────────────────────── */
 export function AssetsView() {
   const { toast } = useToast()
+  const { isAdmin } = useRole()
   const [assets,  setAssets]  = useState<Asset[]>([])
   const [servers, setServers] = useState<Server[]>([])
   const [loading, setLoading] = useState(true)
@@ -324,7 +326,11 @@ export function AssetsView() {
       <PageHeader
         icon={Boxes}
         title="자산 목록"
-        description="등록된 SW 자산의 제품명, 벤더, 버전, 담당자, EOS, 취약점, 패치 상태를 통합 관리합니다."
+        description={
+          isAdmin
+            ? "등록된 전체 소프트웨어 자산을 관리합니다."
+            : "담당하거나 조회 권한이 있는 소프트웨어 자산을 확인합니다."
+        }
       />
 
       {/* 검색 + 필터 */}

@@ -171,7 +171,7 @@ export function ApprovalView() {
     <div className="flex flex-col gap-6">
       <PageHeader
         icon={ClipboardCheck}
-        title="신규 자산 요청 승인"
+        title="승인 현황"
         description="사용자가 요청한 신규 SW 자산을 관리자가 검토하고 승인 또는 반려합니다. 승인 시 공식 관리 대상으로 등록됩니다."
       />
 

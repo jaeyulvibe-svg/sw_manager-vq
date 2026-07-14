@@ -28,6 +28,7 @@ import {
 import { createClient } from "@/lib/supabase/client"
 import type { Tables } from "@/lib/supabase/types"
 import { useToast } from "@/components/portal/toast"
+import { useRole } from "@/components/portal/role-context"
 import { useNotifications } from "@/components/portal/notifications-context"
 import { MASTER_CATEGORIES, type MasterCategory } from "@/components/pages/sw-master/master-shared"
 import { cn } from "@/lib/utils"
@@ -96,6 +97,7 @@ const inputCls =
 
 export function RequestView() {
   const { toast } = useToast()
+  const { isAdmin } = useRole()
   const { refresh: refreshNotifications } = useNotifications()
 
   const [requests, setRequests] = useState<AssetRequest[]>([])
@@ -179,7 +181,7 @@ export function RequestView() {
       toast({
         tone: "danger",
         title: "제품을 선택해주세요",
-        description: "SW 마스터 관리에 등록된 제품 중에서만 신규 자산을 요청할 수 있습니다.",
+        description: "SW 마스터에 등록된 제품 중에서만 신규 자산을 요청할 수 있습니다.",
       })
       return
     }
@@ -244,8 +246,12 @@ export function RequestView() {
     <div className="flex flex-col gap-6">
       <PageHeader
         icon={FilePlus2}
-        title="신규 자산 요청"
-        description="사용자가 신규 SW 자산 등록을 요청하고, 관리자가 승인 후 공식 관리 대상으로 등록합니다."
+        title="요청 현황"
+        description={
+          isAdmin
+            ? "등록된 전체 요청의 진행 상태를 확인합니다."
+            : "내가 등록한 요청과 처리 상태를 확인합니다."
+        }
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

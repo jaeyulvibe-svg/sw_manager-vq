@@ -230,8 +230,12 @@ export function PatchTasksView() {
     <div className="flex flex-col gap-6">
       <PageHeader
         icon={ListChecks}
-        title="내 조치 업무"
-        description="승인된 취약점·EOS 공지에서 배정된 자산별 조치 건을 확인하고 계획·지연사유·완료를 등록합니다."
+        title="조치 업무"
+        description={
+          isAdmin
+            ? "전체 담당자의 조치 업무를 확인하고 관리합니다."
+            : "나에게 배정된 조치 업무를 확인합니다."
+        }
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

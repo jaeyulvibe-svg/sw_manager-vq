@@ -1057,8 +1057,8 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
         values.notice_type === "EOS"
           ? "EOS 공지 화면에서 검토·승인해주세요."
           : values.source_type === "kisa"
-            ? "KISA 취약점 공지 화면에서 검토·승인해주세요."
-            : "제조사 취약점 공지 화면에서 검토·승인해주세요.",
+            ? "KISA 공지 화면에서 검토·승인해주세요."
+            : "제조사 공지 화면에서 검토·승인해주세요.",
       tone: "success",
     })
     return true
@@ -1409,7 +1409,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
             submitting={manualVulnSubmitting}
           />
           <p className="mt-3 text-[11px] text-muted-foreground">
-            등록된 공지는 &apos;승인대기&apos; 상태로 공지 유형에 맞는 화면(EOS는 &apos;EOS 공지&apos;, 그 외는 출처 유형에 따라 &apos;KISA 취약점 공지&apos; 또는 &apos;제조사 취약점 공지&apos;)에 나타납니다. 그곳에서 검토 후 승인하면 승인된 취약점 공지에 반영됩니다.
+            등록된 공지는 &apos;승인대기&apos; 상태로 공지 유형에 맞는 화면(EOS는 &apos;EOS 공지&apos;, 그 외는 출처 유형에 따라 &apos;KISA 공지&apos; 또는 &apos;제조사 공지&apos;)에 나타납니다. 그곳에서 검토 후 승인하면 패치 현황에 반영됩니다.
           </p>
         </SectionCard>
 
@@ -1428,7 +1428,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
       )}
 
       {activeTab === "policy" && (
-      <SectionCard title="승인 정책 관리" subtitle="자동 알림 및 승인 규칙" icon={ShieldCheck}>
+      <SectionCard title="정책 설정" subtitle="자동 알림 및 승인 규칙" icon={ShieldCheck}>
         <div className="flex flex-col gap-3">
           <Toggle
             label="Critical 자동 긴급 알림"

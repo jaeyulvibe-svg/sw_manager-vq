@@ -38,14 +38,6 @@ export type ViewKey =
   | "admin-demo"
   | "notifications"
 
-/** 사이드바에는 표시하지 않지만 헤더 타이틀 등에 사용하는 뷰 메타 */
-export const EXTRA_VIEW_META: Record<
-  string,
-  { label: string; icon: LucideIcon }
-> = {
-  notifications: { label: "알림 센터", icon: Bell },
-}
-
 export type NavItem = {
   key: ViewKey
   label: string
@@ -72,33 +64,55 @@ export function isNavGroup(entry: NavEntry): entry is NavGroup {
 
 export const NAV_ITEMS: NavEntry[] = [
   { key: "dashboard", label: "대시보드", icon: LayoutDashboard },
-  { key: "assets", label: "자산 목록", icon: Boxes },
-  { key: "eos", label: "EOS 로드맵", icon: CalendarClock },
-  { key: "notice-board", label: "공지사항", icon: Megaphone },
-  { key: "request", label: "신규 자산 요청", icon: FilePlus2, userOnly: true },
-  { key: "approval", label: "신규 자산 요청 승인", icon: ClipboardCheck, adminOnly: true },
+  { key: "patch-tasks", label: "조치 업무", icon: ListChecks },
   {
-    groupKey: "vuln-notice",
-    label: "취약점 공지",
-    icon: ShieldAlert,
+    groupKey: "asset-mgmt",
+    label: "자산 관리",
+    icon: Boxes,
     children: [
-      { key: "kisa", label: "KISA 취약점 공지", icon: ShieldAlert },
-      { key: "vendor", label: "제조사 취약점 공지", icon: ShieldAlert },
-      { key: "eos-notice", label: "EOS 공지", icon: CalendarClock },
-      { key: "patch", label: "승인된 취약점 공지", icon: ShieldCheck },
-      { key: "patch-tasks", label: "내 조치 업무", icon: ListChecks },
+      { key: "assets", label: "자산 목록", icon: Boxes },
+      { key: "eos", label: "EOS 로드맵", icon: CalendarClock },
     ],
   },
   {
-    groupKey: "admin",
-    label: "관리자 페이지",
+    groupKey: "security-mgmt",
+    label: "보안 관리",
+    icon: ShieldAlert,
+    children: [
+      { key: "notice-board", label: "보안 공지", icon: Megaphone },
+      { key: "patch", label: "패치 현황", icon: ShieldCheck },
+    ],
+  },
+  {
+    groupKey: "request-mgmt",
+    label: "요청 관리",
+    icon: ClipboardCheck,
+    children: [
+      { key: "request", label: "요청 현황", icon: FilePlus2, userOnly: true },
+      { key: "approval", label: "승인 현황", icon: ClipboardCheck, adminOnly: true },
+    ],
+  },
+  {
+    groupKey: "notice-collect",
+    label: "공지 수집",
+    icon: Megaphone,
+    children: [
+      { key: "kisa", label: "KISA 공지", icon: ShieldAlert },
+      { key: "vendor", label: "제조사 공지", icon: ShieldAlert },
+      { key: "eos-notice", label: "EOS 공지", icon: CalendarClock },
+    ],
+  },
+  { key: "notifications", label: "알림", icon: Bell },
+  {
+    groupKey: "system-mgmt",
+    label: "시스템 관리",
     icon: Settings,
     adminOnly: true,
     children: [
-      { key: "admin-master", label: "SW 마스터 관리", icon: Database },
+      { key: "admin-master", label: "SW 마스터", icon: Database },
       { key: "admin-servers", label: "서버 관리", icon: Server },
       { key: "admin-collect", label: "수집 관리", icon: RefreshCw },
-      { key: "admin-policy", label: "승인 정책", icon: ShieldCheck },
+      { key: "admin-policy", label: "정책 설정", icon: ShieldCheck },
       { key: "admin-users", label: "사용자 관리", icon: UsersRound },
       { key: "admin-demo", label: "DEMO 데이터 설정", icon: RotateCcw },
     ],
@@ -122,7 +136,6 @@ export function visibleNavItems(isAdmin: boolean): NavEntry[] {
 
 /** 특정 뷰가 현재 역할에서 접근 가능한지 여부 */
 export function isViewAllowed(key: ViewKey, isAdmin: boolean): boolean {
-  if (key in EXTRA_VIEW_META) return true
   return visibleNavItems(isAdmin).some((entry) =>
     isNavGroup(entry) ? entry.children.some((c) => c.key === key) : entry.key === key,
   )

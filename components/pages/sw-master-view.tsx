@@ -365,7 +365,7 @@ export function SwMasterView() {
     <div className="flex flex-col gap-6">
       <PageHeader
         icon={Database}
-        title="SW 마스터 관리"
+        title="SW 마스터"
         description="신규 자산 요청·자동수집 대상의 기준이 되는 표준 소프트웨어 목록을 관리합니다."
       />
 
