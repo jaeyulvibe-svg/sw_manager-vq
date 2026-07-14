@@ -443,10 +443,10 @@ function ManualEosFormPanel({
 type AppUser = Tables<"app_users">
 type UserRow = AppUser & { assetsCount: number }
 
-const USER_ROLES: AppUser["role"][] = ["관리자", "승인자", "담당자", "조회 사용자"]
+const USER_ROLES: AppUser["role"][] = ["관리자", "담당자", "조회 사용자"]
 
 const roleAccent: Record<string, Accent> = {
-  관리자: "destructive", 승인자: "eos", 담당자: "primary", "조회 사용자": "muted",
+  관리자: "destructive", 담당자: "primary", "조회 사용자": "muted",
 }
 
 type UserColKey = "name" | "email" | "dept" | "role" | "assetsCount" | "active"
@@ -686,7 +686,7 @@ const ADMIN_TAB_META: Record<AdminTab, { title: string; description: string; ico
   },
   users: {
     title: "사용자 관리",
-    description: "사용자 계정과 권한(관리자·승인자·담당자·조회 사용자)을 관리합니다.",
+    description: "사용자 계정과 권한(관리자·담당자·조회 사용자)을 관리합니다.",
     icon: UsersRound,
   },
 }
@@ -1544,7 +1544,7 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
       {/* Section 5: Users */}
       <SectionCard
         title="사용자 권한 관리"
-        subtitle="관리자 · 승인자 · 담당자 · 조회 사용자"
+        subtitle="관리자 · 담당자 · 조회 사용자"
         icon={UsersRound}
         action={
           userPanel ? null : (

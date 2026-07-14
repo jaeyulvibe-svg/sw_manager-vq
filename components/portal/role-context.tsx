@@ -8,9 +8,8 @@ export type AppUserRow = Tables<"app_users">
 
 const ROLE_RANK: Record<AppUserRow["role"], number> = {
   관리자: 0,
-  승인자: 1,
-  담당자: 2,
-  "조회 사용자": 3,
+  담당자: 1,
+  "조회 사용자": 2,
 }
 
 const CURRENT_USER_STORAGE_KEY = "sw-manager-current-user-id"

@@ -383,7 +383,7 @@ export type Database = {
           name: string
           email: string
           dept: string
-          role: "관리자" | "승인자" | "담당자" | "조회 사용자"
+          role: "관리자" | "담당자" | "조회 사용자"
           active: boolean
           created_at: string
           updated_at: string
@@ -393,7 +393,7 @@ export type Database = {
           name: string
           email: string
           dept: string
-          role: "관리자" | "승인자" | "담당자" | "조회 사용자"
+          role: "관리자" | "담당자" | "조회 사용자"
           active?: boolean
           created_at?: string
           updated_at?: string
@@ -402,7 +402,7 @@ export type Database = {
           name?: string
           email?: string
           dept?: string
-          role?: "관리자" | "승인자" | "담당자" | "조회 사용자"
+          role?: "관리자" | "담당자" | "조회 사용자"
           active?: boolean
           updated_at?: string
         }

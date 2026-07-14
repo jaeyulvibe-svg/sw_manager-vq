@@ -9,7 +9,6 @@ import type { Tables } from "@/lib/supabase/types"
 
 const ROLE_ACCENT: Record<Tables<"app_users">["role"], Accent> = {
   관리자: "primary",
-  승인자: "review",
   담당자: "success",
   "조회 사용자": "muted",
 }
