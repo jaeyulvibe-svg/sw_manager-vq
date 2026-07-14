@@ -6,8 +6,8 @@ import {
   Search,
   Plus,
   Pencil,
-  ChevronDown,
-  ChevronUp,
+  Save,
+  Check,
 } from "lucide-react"
 import {
   PageHeader,
@@ -151,16 +151,147 @@ function NoticeFormPanel({
   )
 }
 
+/* ---- 제목 클릭 시 열리는 상세/편집 패널 ---- */
+type NoticeDraft = { title: string; content: string; status: NoticeStatus }
+
+function NoticeDetailPanel({
+  notice,
+  isAdmin,
+  editMode,
+  draft,
+  saving,
+  onDraftChange,
+  onStartEdit,
+  onCancelEdit,
+  onSave,
+  onClose,
+}: {
+  notice: Notice
+  isAdmin: boolean
+  editMode: boolean
+  draft: NoticeDraft | null
+  saving: boolean
+  onDraftChange: (next: NoticeDraft) => void
+  onStartEdit: () => void
+  onCancelEdit: () => void
+  onSave: () => void
+  onClose: () => void
+}) {
+  const view: NoticeDraft =
+    editMode && draft ? draft : { title: notice.title, content: notice.content, status: notice.status }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+      <div className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">제목</span>
+        {editMode ? (
+          <input
+            value={view.title}
+            onChange={(e) => onDraftChange({ ...view, title: e.target.value })}
+            className={inputCls}
+          />
+        ) : (
+          <p className="text-sm font-semibold text-foreground">{view.title}</p>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+        <span>작성자 {notice.author}</span>
+        <span>작성일 {new Date(notice.created_at).toLocaleDateString("ko-KR")}</span>
+      </div>
+
+      <div className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">상태</span>
+        {editMode ? (
+          <select
+            value={view.status}
+            onChange={(e) => onDraftChange({ ...view, status: e.target.value as NoticeStatus })}
+            className={cn(inputCls, "w-32")}
+          >
+            {NOTICE_STATUSES.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        ) : (
+          <StatusBadge risk={statusRisk[view.status]} pulse={view.status === "긴급"}>
+            {view.status}
+          </StatusBadge>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-1 text-xs">
+        <span className="font-medium text-muted-foreground">공지 내용</span>
+        {editMode ? (
+          <textarea
+            value={view.content}
+            onChange={(e) => onDraftChange({ ...view, content: e.target.value })}
+            rows={6}
+            className={cn(inputCls, "resize-y")}
+          />
+        ) : (
+          <p className="whitespace-pre-wrap text-xs text-foreground/90">
+            {view.content || "등록된 본문 내용이 없습니다."}
+          </p>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {editMode ? (
+          <>
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={saving || !view.title.trim()}
+              className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Save className="h-3 w-3" />
+              저장
+            </button>
+            <button
+              type="button"
+              onClick={onCancelEdit}
+              className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              취소
+            </button>
+          </>
+        ) : (
+          <>
+            {isAdmin ? (
+              <button
+                type="button"
+                onClick={onStartEdit}
+                className="inline-flex items-center gap-1 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary/40"
+              >
+                <Pencil className="h-3 w-3" />
+                수정
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              <Check className="h-3 w-3" />
+              확인
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 /* ---- 컬럼 정의 + 정렬 ---- */
 type NoticeColKey = "title" | "author" | "created_at" | "views" | "status"
-const NOTICE_ALL_COLS: { key: NoticeColKey; label: string }[] = [
-  { key: "title", label: "제목" },
+type ToggleableColKey = Exclude<NoticeColKey, "title">
+const NOTICE_ALL_COLS: { key: ToggleableColKey; label: string }[] = [
   { key: "author", label: "작성자" },
   { key: "created_at", label: "등록일" },
   { key: "views", label: "조회수" },
   { key: "status", label: "상태" },
 ]
-const NOTICE_FACTORY_VISIBLE: NoticeColKey[] = NOTICE_ALL_COLS.map((c) => c.key)
+const NOTICE_FACTORY_VISIBLE: ToggleableColKey[] = NOTICE_ALL_COLS.map((c) => c.key)
 const NOTICE_LS_KEY = "notice_board_columns"
 
 type NoticeSortKey = NoticeColKey | "none"
@@ -181,12 +312,16 @@ export function NoticeBoardView() {
   const [query, setQuery] = useState("")
   const [sortKey, setSortKey] = useState<NoticeSortKey>("created_at")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
-  const [visible, setVisible] = useState<NoticeColKey[]>(() => loadColumnVisibility(NOTICE_LS_KEY, NOTICE_FACTORY_VISIBLE))
+  const [visible, setVisible] = useState<ToggleableColKey[]>(() => loadColumnVisibility(NOTICE_LS_KEY, NOTICE_FACTORY_VISIBLE))
 
-  const [panel, setPanel] = useState<"add" | string | null>(null)
+  const [panel, setPanel] = useState<"add" | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [deleteRequest, setDeleteRequest] = useState<{ ids: string[]; title: string; confirmLabel: string } | null>(null)
+
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [editMode, setEditMode] = useState(false)
+  const [draft, setDraft] = useState<NoticeDraft | null>(null)
+  const [saving, setSaving] = useState(false)
 
   function loadNotices() {
     const supabase = createClient()
@@ -229,29 +364,73 @@ export function NoticeBoardView() {
     return sortDir === "asc" ? d : -d
   })
 
-  const show = (key: NoticeColKey) => visible.includes(key)
+  const show = (key: ToggleableColKey) => visible.includes(key)
   const pagination = usePagination(filtered)
 
   async function saveNotice(values: NoticeFormValues) {
     const supabase = createClient()
-    if (panel === "add") {
-      const payload: TablesInsert<"notices"> = { ...values }
-      const { error } = await supabase.from("notices").insert(payload)
-      if (error) {
-        toast({ title: "공지 등록 실패", description: error.message, tone: "danger" })
-        return
-      }
-      toast({ title: "공지사항이 등록되었습니다", tone: "success" })
-    } else if (panel) {
-      const { error } = await supabase.from("notices").update(values).eq("id", panel)
-      if (error) {
-        toast({ title: "공지 수정 실패", description: error.message, tone: "danger" })
-        return
-      }
-      toast({ title: "공지사항이 수정되었습니다", tone: "success" })
+    const payload: TablesInsert<"notices"> = { ...values }
+    const { error } = await supabase.from("notices").insert(payload)
+    if (error) {
+      toast({ title: "공지 등록 실패", description: error.message, tone: "danger" })
+      return
     }
+    toast({ title: "공지사항이 등록되었습니다", tone: "success" })
     setPanel(null)
     loadNotices()
+  }
+
+  function handleTitleClick(id: string) {
+    if (openId === id) {
+      setOpenId(null)
+    } else {
+      setOpenId(id)
+    }
+    setEditMode(false)
+    setDraft(null)
+  }
+
+  function handleStartEdit(n: Notice) {
+    setDraft({ title: n.title, content: n.content, status: n.status })
+    setEditMode(true)
+  }
+
+  function handleDraftChange(next: NoticeDraft) {
+    setDraft(next)
+  }
+
+  function handleCancelEdit() {
+    setEditMode(false)
+    setDraft(null)
+  }
+
+  async function handleSave() {
+    if (!draft || !openId) return
+    if (!draft.title.trim()) {
+      toast({ title: "제목을 입력해주세요", tone: "danger" })
+      return
+    }
+    setSaving(true)
+    const supabase = createClient()
+    const { error } = await supabase
+      .from("notices")
+      .update({ title: draft.title, content: draft.content, status: draft.status })
+      .eq("id", openId)
+    setSaving(false)
+    if (error) {
+      toast({ title: "공지 수정 실패", description: error.message, tone: "danger" })
+      return
+    }
+    toast({ title: "공지사항이 수정되었습니다", tone: "success" })
+    setEditMode(false)
+    setDraft(null)
+    loadNotices()
+  }
+
+  function handleClosePanel() {
+    setOpenId(null)
+    setEditMode(false)
+    setDraft(null)
   }
 
   function requestDeleteSelected() {
@@ -301,7 +480,7 @@ export function NoticeBoardView() {
     <div className="flex flex-col gap-6">
       <PageHeader
         icon={Megaphone}
-        title="공지사항"
+        title="보안 공지"
         description={
           isAdmin
             ? "시스템 운영·점검·자산 등록 기준·패치 승인 절차 등을 안내하는 공지사항을 관리합니다."
@@ -377,12 +556,11 @@ export function NoticeBoardView() {
                 </Th>
               ) : null}
               <Th className={cn("w-12", TABLE_HEADER_CELL_H)}>NO</Th>
-              {show("title") && <SortTh col="title" label="제목" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+              <SortTh col="title" label="제목" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               {show("author") && <SortTh col="author" label="작성자" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
               {show("created_at") && <SortTh col="created_at" label="등록일" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
               {show("views") && <SortTh col="views" label="조회수" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="right" />}
               {show("status") && <SortTh col="status" label="상태" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="center" />}
-              <Th className={TABLE_HEADER_CELL_H}>관리</Th>
             </tr>
           </thead>
           <tbody>
@@ -394,24 +572,8 @@ export function NoticeBoardView() {
               </tr>
             ) : (
               pagination.pageItems.map((n) => {
-                const expanded = expandedId === n.id
-                return panel === n.id ? (
-                  <tr key={n.id}>
-                    <td colSpan={colSpan} className="border-b border-border/40 p-0">
-                      <NoticeFormPanel
-                        initial={{
-                          category: n.category,
-                          title: n.title,
-                          author: n.author,
-                          status: n.status,
-                          content: n.content,
-                        }}
-                        onCancel={() => setPanel(null)}
-                        onSubmit={saveNotice}
-                      />
-                    </td>
-                  </tr>
-                ) : (
+                const isOpen = openId === n.id
+                return (
                   <Fragment key={n.id}>
                     <tr className="transition-colors hover:bg-accent/40">
                       {isAdmin ? (
@@ -428,7 +590,17 @@ export function NoticeBoardView() {
                       <Td className={cn("font-mono text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>
                         {noRank.get(n.id) ?? "-"}
                       </Td>
-                      {show("title") && <Td className={cn("max-w-xs whitespace-normal font-medium line-clamp-2", TABLE_ROW_CELL_H)}>{n.title}</Td>}
+                      <Td className={cn("max-w-xs", TABLE_ROW_CELL_H)}>
+                        <button
+                          type="button"
+                          onClick={() => handleTitleClick(n.id)}
+                          aria-expanded={isOpen}
+                          aria-controls={`notice-panel-${n.id}`}
+                          className="line-clamp-2 whitespace-normal text-left font-medium text-foreground underline-offset-2 hover:text-primary hover:underline focus:underline focus:outline-none"
+                        >
+                          {n.title}
+                        </button>
+                      </Td>
                       {show("author") && <Td className={cn("text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>{n.author}</Td>}
                       {show("created_at") && (
                         <Td className={cn("font-mono text-xs text-muted-foreground", TABLE_ROW_CELL_H)}>
@@ -447,27 +619,22 @@ export function NoticeBoardView() {
                           </StatusBadge>
                         </Td>
                       )}
-                      <Td className={TABLE_ROW_CELL_H}>
-                        <div className="flex items-center gap-1.5">
-                          <MiniButton accent="primary" className="h-8 px-2.5" onClick={() => setExpandedId(expanded ? null : n.id)}>
-                            {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                            상세
-                          </MiniButton>
-                          {isAdmin ? (
-                            <MiniButton className="h-8 px-2.5" onClick={() => setPanel(n.id)}>
-                              <Pencil className="h-3 w-3" />
-                              수정
-                            </MiniButton>
-                          ) : null}
-                        </div>
-                      </Td>
                     </tr>
-                    {expanded ? (
-                      <tr>
-                        <td colSpan={colSpan} className="border-b border-border/40 bg-background/40 px-4 py-3">
-                          <p className="whitespace-pre-wrap text-xs text-foreground/90">
-                            {n.content || "등록된 본문 내용이 없습니다."}
-                          </p>
+                    {isOpen ? (
+                      <tr id={`notice-panel-${n.id}`}>
+                        <td colSpan={colSpan} className="border-b border-border/40 bg-background/40 p-3">
+                          <NoticeDetailPanel
+                            notice={n}
+                            isAdmin={isAdmin}
+                            editMode={editMode}
+                            draft={draft}
+                            saving={saving}
+                            onDraftChange={handleDraftChange}
+                            onStartEdit={() => handleStartEdit(n)}
+                            onCancelEdit={handleCancelEdit}
+                            onSave={handleSave}
+                            onClose={handleClosePanel}
+                          />
                         </td>
                       </tr>
                     ) : null}
