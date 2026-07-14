@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import {
   Bar,
   BarChart,
@@ -20,6 +21,7 @@ import {
   Layers,
 } from "lucide-react"
 import type { Tables } from "@/lib/supabase/types"
+import { cn } from "@/lib/utils"
 
 type Asset = Tables<"assets">
 
@@ -229,6 +231,8 @@ function ProductVersionBar({
   total: number
   segments: VersionSegment[]
 }) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-2">
@@ -240,28 +244,38 @@ function ProductVersionBar({
         </span>
       </div>
 
-      <div className="flex h-3 w-full gap-0.5 overflow-hidden rounded-full bg-muted/40">
-        {segments.map((s) => (
-          <div
-            key={s.version}
-            role="button"
-            tabIndex={0}
-            aria-label={`${product} ${displayVersion(s.version)} · ${s.count}대 · ${s.ratio}%`}
-            title={`${product} · ${displayVersion(s.version)} · ${s.count}대 · ${s.ratio}%`}
-            className="group/seg relative h-full outline-none transition-[filter] hover:brightness-110 focus-visible:brightness-110"
-            style={{ width: `${s.ratio}%`, background: s.color }}
-          >
-            <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-max max-w-[14rem] -translate-x-1/2 rounded-lg border border-primary/30 bg-popover/95 px-3 py-2 text-xs opacity-0 shadow-xl backdrop-blur transition-opacity group-hover/seg:opacity-100 group-focus-visible/seg:opacity-100">
-              <p className="font-semibold text-foreground">{product}</p>
-              <p className="flex items-center gap-1.5 text-muted-foreground">
-                <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
-                {displayVersion(s.version)}
-                <span className="font-mono font-semibold text-foreground">{s.count}대</span>
-                <span className="text-muted-foreground">({s.ratio}%)</span>
-              </p>
-            </div>
+      <div className="relative">
+        <div className="flex h-3 w-full gap-0.5 rounded-full bg-muted/40">
+          {segments.map((s, i) => (
+            <div
+              key={s.version}
+              role="button"
+              tabIndex={0}
+              aria-label={`${product} ${displayVersion(s.version)} · ${s.count}대 · ${s.ratio}%`}
+              onMouseEnter={() => setHoveredIndex(i)}
+              onMouseLeave={() => setHoveredIndex(null)}
+              onFocus={() => setHoveredIndex(i)}
+              onBlur={() => setHoveredIndex(null)}
+              className={cn(
+                "h-full outline-none transition-[filter] hover:brightness-110 focus-visible:brightness-110",
+                i === 0 && "rounded-l-full",
+                i === segments.length - 1 && "rounded-r-full",
+              )}
+              style={{ width: `${s.ratio}%`, background: s.color }}
+            />
+          ))}
+        </div>
+        {hoveredIndex !== null && segments[hoveredIndex] ? (
+          <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-max max-w-[14rem] -translate-x-1/2 rounded-lg border border-primary/30 bg-popover/95 px-3 py-2 text-xs shadow-xl backdrop-blur">
+            <p className="font-semibold text-foreground">{product}</p>
+            <p className="flex items-center gap-1.5 text-muted-foreground">
+              <span className="h-2 w-2 rounded-full" style={{ background: segments[hoveredIndex].color }} />
+              {displayVersion(segments[hoveredIndex].version)}
+              <span className="font-mono font-semibold text-foreground">{segments[hoveredIndex].count}대</span>
+              <span className="text-muted-foreground">({segments[hoveredIndex].ratio}%)</span>
+            </p>
           </div>
-        ))}
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:gap-x-4 sm:gap-y-1">
