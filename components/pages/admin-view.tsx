@@ -675,6 +675,7 @@ export type AdminTab = "collect" | "policy" | "users"
 export function AdminView({ initialTab }: { initialTab: AdminTab }) {
   const activeTab = initialTab
   const [collecting, setCollecting] = useState(false)
+  const [collectingSourceName, setCollectingSourceName] = useState<string | null>(null)
   const [collectLog, setCollectLog] = useState<CollectLogEntry[]>([])
   const [fontScale, setFontScale] = useState(FONT_SCALE_DEFAULT)
   const { isAdmin } = useRole()
@@ -1134,6 +1135,59 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
     }
   }
 
+  async function collectSingle(source: Source) {
+    if (collecting || collectingSourceName) return
+    if (!REAL_COLLECT_PRODUCTS.includes(source.name as (typeof REAL_COLLECT_PRODUCTS)[number])) {
+      toast({
+        tone: "info",
+        title: "자동 수집 대상 제품이 아닙니다",
+        description: `${source.name}은(는) 자동 수집 추적 대상 제품 목록에 없습니다.`,
+      })
+      return
+    }
+    setCollectingSourceName(source.name)
+    try {
+      const res = await fetch("/api/collect-source", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ products: [source.name] }),
+      })
+      const data = await res.json()
+      const result: CollectLogEntry | undefined = (data.results ?? [])[0]
+
+      setCollectLog((prev) => {
+        if (!result) return prev
+        const idx = prev.findIndex((e) => e.product === result.product)
+        if (idx === -1) return [...prev, result]
+        return prev.map((e, i) => (i === idx ? result : e))
+      })
+
+      const supabase = createClient()
+      const nowIso = new Date().toISOString()
+      await supabase
+        .from("sources")
+        .update({ status: result?.ok ? "정상" : "실패", last_collected_at: nowIso })
+        .eq("name", source.name)
+      loadSources()
+
+      if (!result?.ok) {
+        toast({
+          title: `${source.name} 수집 실패`,
+          description: result?.error,
+          tone: "danger",
+        })
+      } else if (result.newCount > 0) {
+        toast({ title: `${source.name} 수집 완료: 신규 항목 ${result.newCount}건 발견`, tone: "success" })
+      } else {
+        toast({ title: `${source.name} 수집 완료: 신규 항목 없음`, tone: "success" })
+      }
+    } catch {
+      toast({ title: `${source.name} 수집 중 오류가 발생했습니다`, tone: "danger" })
+    } finally {
+      setCollectingSourceName(null)
+    }
+  }
+
   if (!isAdmin) {
     return (
       <div className="flex flex-col gap-6">
@@ -1282,10 +1336,23 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
                     </Td>
                   )}
                   <Td className={TABLE_ROW_CELL_H}>
-                    <MiniButton className="h-8 px-2.5" onClick={() => setSourcePanel(s.id)}>
-                      <Pencil className="h-3 w-3" />
-                      수정
-                    </MiniButton>
+                    <div className="flex items-center gap-1.5">
+                      <MiniButton className="h-8 px-2.5" onClick={() => setSourcePanel(s.id)}>
+                        <Pencil className="h-3 w-3" />
+                        수정
+                      </MiniButton>
+                      {REAL_COLLECT_PRODUCTS.includes(s.name as (typeof REAL_COLLECT_PRODUCTS)[number]) && (
+                        <MiniButton
+                          accent="primary"
+                          className="h-8 px-2.5"
+                          disabled={collecting || !!collectingSourceName}
+                          onClick={() => collectSingle(s)}
+                        >
+                          <Play className="h-3 w-3" />
+                          {collectingSourceName === s.name ? "수집 중…" : "수집"}
+                        </MiniButton>
+                      )}
+                    </div>
                   </Td>
                 </tr>
               ),
@@ -1324,11 +1391,11 @@ export function AdminView({ initialTab }: { initialTab: AdminTab }) {
             <button
               type="button"
               onClick={runCollection}
-              disabled={collecting}
+              disabled={collecting || !!collectingSourceName}
               className="glow-card inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/15 px-3 py-1.5 text-xs font-semibold text-primary transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Play className="h-3.5 w-3.5" />
-              즉시 수집
+              전체 즉시 수집
             </button>
           }
         >
