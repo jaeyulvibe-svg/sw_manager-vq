@@ -46,6 +46,7 @@ import { useRole } from "@/components/portal/role-context"
 import { useToast } from "@/components/portal/toast"
 
 type Asset = Tables<"assets">
+type Server = Tables<"servers">
 type Risk = "Critical" | "High" | "Medium" | "Low"
 type EosRow = Asset & {
   eos: string
@@ -189,6 +190,7 @@ type EosSyncResult = {
 
 export function EosView() {
   const [assets, setAssets] = useState<Asset[]>([])
+  const [servers, setServers] = useState<Server[]>([])
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const { isAdmin } = useRole()
@@ -203,7 +205,21 @@ export function EosView() {
         if (data) setAssets(data)
         setLoading(false)
       })
+    supabase
+      .from("servers")
+      .select("*")
+      .then(({ data }) => {
+        if (data) setServers(data)
+      })
   }
+
+  // assets.server는 servers.id(레거시 시드) 또는 servers.name(신규 승인분)이 섞여 있으므로
+  // 항상 실제 서버 레코드로 정규화해서 이름/hostname/ip를 얻는다.
+  const findServer = useMemo(() => {
+    const byId = new Map(servers.map((s) => [s.id, s]))
+    const byName = new Map(servers.map((s) => [s.name, s]))
+    return (raw: string) => byId.get(raw) ?? byName.get(raw)
+  }, [servers])
 
   useEffect(() => {
     loadAssets()
@@ -278,8 +294,9 @@ export function EosView() {
     return eosRows
       .filter((it) => {
         if (!q) return true
-        return [it.name, it.vendor, it.version, it.owner, it.server].some((f) =>
-          f.toLowerCase().includes(q),
+        const sv = findServer(it.server)
+        return [it.name, it.vendor, it.version, it.owner, sv?.name ?? it.server, sv?.hostname, sv?.ip].some((f) =>
+          f?.toLowerCase().includes(q),
         )
       })
       .sort((a, b) => {
@@ -291,7 +308,7 @@ export function EosView() {
             : String(va).localeCompare(String(vb), "ko")
         return sortDir === "asc" ? d : -d
       })
-  }, [eosRows, query, sortKey, sortDir])
+  }, [eosRows, query, sortKey, sortDir, findServer])
 
   const show = (key: EosColKey) => visible.includes(key)
   const pagination = usePagination(filteredRows)
@@ -368,7 +385,7 @@ export function EosView() {
                 { label: "제품명", value: (it: EosRow) => it.name },
                 { label: "현재 버전", value: (it: EosRow) => it.version },
                 { label: "벤더", value: (it: EosRow) => it.vendor },
-                { label: "설치 서버", value: (it: EosRow) => it.server },
+                { label: "설치 서버", value: (it: EosRow) => findServer(it.server)?.name ?? it.server },
                 { label: "담당자", value: (it: EosRow) => it.owner },
                 { label: "EOS 날짜", value: (it: EosRow) => it.eos },
                 { label: "남은 기간", value: (it: EosRow) => it.remain },
@@ -426,7 +443,23 @@ export function EosView() {
                     )}
                     {show("version") && <Td className={cn("font-mono text-xs", TABLE_ROW_CELL_H)}>{it.version}</Td>}
                     {show("vendor") && <Td className={cn("text-muted-foreground", TABLE_ROW_CELL_H)}>{it.vendor}</Td>}
-                    {show("server") && <Td className={cn("text-muted-foreground", TABLE_ROW_CELL_H)}>{it.server}</Td>}
+                    {show("server") && (
+                      <Td className={cn("text-muted-foreground", TABLE_ROW_CELL_H)}>
+                        {(() => {
+                          const sv = findServer(it.server)
+                          return (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-medium text-foreground">{sv?.name ?? it.server}</span>
+                              {sv && (
+                                <span className="font-mono text-[11px] text-muted-foreground">
+                                  {sv.hostname} · {sv.ip}
+                                </span>
+                              )}
+                            </div>
+                          )
+                        })()}
+                      </Td>
+                    )}
                     {show("owner") && <Td className={TABLE_ROW_CELL_H}>{it.owner}</Td>}
                     {show("eos") && (
                       <Td className={TABLE_ROW_CELL_H}>
